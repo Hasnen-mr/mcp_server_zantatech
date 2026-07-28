@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <!-- Default Server Configuration Profile -->
+        <record id="mcp_server_config_default" model="mcp.server.config">
+            <field name="name">Default MCP Configuration</field>
+            <field name="profile">development</field>
+            <field name="rate_limit_rpm">120</field>
+            <field name="default_token_ttl">3600</field>
+            <field name="enable_tools">1</field>
+            <field name="enable_resources">1</field>
+            <field name="enable_prompts">0</field>
+            <field name="enable_oauth">1</field>
+            <field name="enable_api_keys">1</field>
+        </record>
+
+        <!-- Default Dev Master API Key -->
+        <record id="mcp_api_key_default" model="mcp.api.key">
+            <field name="name">Default Developer Master Key</field>
+            <field name="key_prefix">mcp_live_default</field>
+            <field name="key_hash">sha256_default_master_key_hash</field>
+            <field name="user_id" ref="base.user_admin"/>
+            <field name="active">1</field>
+        </record>
+    </data>
+</odoo>

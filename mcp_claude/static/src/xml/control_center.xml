@@ -1,0 +1,521 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="mcp_claude.ControlCenter" owl="1">
+        <div class="mcp-saas-container">
+
+            <!-- Header -->
+            <header class="mcp-header">
+                <div class="mcp-header-left">
+                    <div class="mcp-brand-logo">
+                        <i class="fa fa-shield me-2 text-primary"></i>
+                        <span class="mcp-brand-title">MCP Claude</span>
+                        <span class="mcp-badge-version">Enterprise v18.0</span>
+                    </div>
+                </div>
+                <div class="mcp-header-right">
+                    <t t-if="state.isHttp">
+                        <div class="mcp-security-warning-pill me-3" title="Unencrypted HTTP connection detected">
+                            <i class="fa fa-exclamation-triangle text-warning me-1"></i> HTTP Unencrypted (Recommend HTTPS)
+                        </div>
+                    </t>
+                    <button class="mcp-quick-search-trigger">
+                        <i class="fa fa-search me-2"></i>Quick Search (Ctrl+K)
+                    </button>
+                </div>
+            </header>
+
+            <!-- Main Content Hub -->
+            <main class="mcp-content-hub">
+
+                <!-- 1. HOME HUB -->
+                <t t-if="state.activeTab === 'home'">
+                    <div class="mcp-tab-pane animate-fade-in">
+                        <div class="mcp-hero-card">
+                            <div class="mcp-hero-content">
+                                <h1 class="mcp-hero-title">Connect Claude to Odoo</h1>
+                                <p class="mcp-hero-subtitle">Enterprise-grade single-click Remote Connector URL for Anthropic Claude Desktop.</p>
+                                <div class="mcp-hero-actions">
+                                    <button class="btn btn-primary btn-lg mcp-connect-hero-btn" t-on-click="copyConnectorUrl">
+                                        <i class="fa fa-link me-2"></i>Copy Connector URL
+                                    </button>
+                                    <button class="btn btn-outline-light btn-lg ms-2" t-on-click="openConnectWizard">
+                                        <i class="fa fa-rocket me-2"></i>Guided Setup
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stats Grid -->
+                        <div class="mcp-stats-grid my-4">
+                            <div class="mcp-stat-card">
+                                <div class="mcp-stat-icon bg-success-light text-success">
+                                    <i class="fa fa-server"></i>
+                                </div>
+                                <div class="mcp-stat-info">
+                                    <span class="mcp-stat-label">Odoo Server Status</span>
+                                    <span class="mcp-stat-value text-success">Running</span>
+                                </div>
+                            </div>
+                            <div class="mcp-stat-card">
+                                <div class="mcp-stat-icon bg-info-light text-info">
+                                    <i class="fa fa-plug"></i>
+                                </div>
+                                <div class="mcp-stat-info">
+                                    <span class="mcp-stat-label">Claude Connection</span>
+                                    <span class="mcp-stat-value text-info">Ready to Connect</span>
+                                </div>
+                            </div>
+                            <div class="mcp-stat-card">
+                                <div class="mcp-stat-icon bg-warning-light text-warning">
+                                    <i class="fa fa-key"></i>
+                                </div>
+                                <div class="mcp-stat-info">
+                                    <span class="mcp-stat-label">Active Named Tokens</span>
+                                    <span class="mcp-stat-value"><t t-esc="state.stats.activeKeys"></t> Tokens</span>
+                                </div>
+                            </div>
+                            <div class="mcp-stat-card">
+                                <div class="mcp-stat-icon bg-primary-light text-primary">
+                                    <i class="fa fa-cogs"></i>
+                                </div>
+                                <div class="mcp-stat-info">
+                                    <span class="mcp-stat-label">Registered Tools</span>
+                                    <span class="mcp-stat-value"><t t-esc="state.stats.totalTools"></t> Tools</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Connect Claude Section -->
+                        <div class="mcp-section-card my-4">
+                            <h4 class="mcp-section-title mb-3"><i class="fa fa-bolt text-warning me-2"></i>Connect Claude</h4>
+                            
+                            <div class="mcp-url-box p-3 mb-4">
+                                <label class="form-label text-muted small uppercase fw-bold">Active Remote Connector URL</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
+                                    <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl">
+                                        <i class="fa fa-copy me-2"></i>Copy Connector URL
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mcp-simple-guide-grid">
+                                <div class="mcp-guide-step">
+                                    <div class="mcp-guide-step-num">1</div>
+                                    <div class="mcp-guide-step-content">
+                                        <h6>Open Claude Settings</h6>
+                                        <p class="text-muted small mb-0">Open Claude Desktop → Go to <strong>Settings → Connectors</strong>.</p>
+                                    </div>
+                                </div>
+                                <div class="mcp-guide-step">
+                                    <div class="mcp-guide-step-num">2</div>
+                                    <div class="mcp-guide-step-content">
+                                        <h6>Add Custom Connector</h6>
+                                        <p class="text-muted small mb-0">Click <strong>Add Custom Connector</strong>.</p>
+                                    </div>
+                                </div>
+                                <div class="mcp-guide-step">
+                                    <div class="mcp-guide-step-num">3</div>
+                                    <div class="mcp-guide-step-content">
+                                        <h6>Paste &amp; Connect</h6>
+                                        <p class="text-muted small mb-0">Enter name (e.g. <code>odoo-claude</code>), paste your Connector URL, and click <strong>Connect</strong>.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Quick Actions Grid -->
+                        <div class="mcp-section-card my-4">
+                            <h4 class="mcp-section-title mb-3"><i class="fa fa-rocket text-primary me-2"></i>Quick Actions</h4>
+                            <div class="mcp-quick-grid">
+                                <button class="mcp-quick-btn" t-on-click="openConnectWizard">
+                                    <i class="fa fa-rocket text-primary"></i>
+                                    <span>Connect Claude</span>
+                                </button>
+                                <button class="mcp-quick-btn" t-on-click="copyConnectorUrl">
+                                    <i class="fa fa-copy text-warning"></i>
+                                    <span>Copy Connector URL</span>
+                                </button>
+                                <button class="mcp-quick-btn" t-on-click="testConnector">
+                                    <i class="fa fa-refresh text-success"></i>
+                                    <span>Test Connector</span>
+                                </button>
+                                <button class="mcp-quick-btn" t-on-click="openCreateTokenModal">
+                                    <i class="fa fa-plus-circle text-info"></i>
+                                    <span>New Client Token</span>
+                                </button>
+                                <button class="mcp-quick-btn" t-on-click="setTabSettings">
+                                    <i class="fa fa-cog text-secondary"></i>
+                                    <span>Open Settings</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Diagnostic Results Panel -->
+                        <t t-if="state.testResults">
+                            <div class="mcp-section-card my-4 animate-fade-in">
+                                <h4 class="mcp-section-title mb-3"><i class="fa fa-flask text-success me-2"></i>Connector Diagnostic Results</h4>
+                                <div class="list-group list-group-flush">
+                                    <div class="list-group-item bg-transparent text-white d-flex justify-content-between align-items-center">
+                                        <span>Server Reachable</span>
+                                        <t t-if="state.testResults.serverReachable"><span class="badge bg-success">Passed</span></t>
+                                        <t t-else=""><span class="badge bg-danger">Failed</span></t>
+                                    </div>
+                                    <div class="list-group-item bg-transparent text-white d-flex justify-content-between align-items-center">
+                                        <span>Authentication Working (HMAC-SHA256)</span>
+                                        <t t-if="state.testResults.authWorking"><span class="badge bg-success">Passed</span></t>
+                                        <t t-else=""><span class="badge bg-danger">Failed</span></t>
+                                    </div>
+                                    <div class="list-group-item bg-transparent text-white d-flex justify-content-between align-items-center">
+                                        <span>MCP Endpoint Reachable</span>
+                                        <t t-if="state.testResults.mcpEndpoint"><span class="badge bg-success">Passed</span></t>
+                                        <t t-else=""><span class="badge bg-danger">Failed</span></t>
+                                    </div>
+                                    <div class="list-group-item bg-transparent text-white d-flex justify-content-between align-items-center">
+                                        <span>Protocol Compatible (2024-11-05)</span>
+                                        <t t-if="state.testResults.protocolCompatible"><span class="badge bg-success">Passed</span></t>
+                                        <t t-else=""><span class="badge bg-danger">Failed</span></t>
+                                    </div>
+                                    <div class="list-group-item bg-transparent text-white d-flex justify-content-between align-items-center fw-bold">
+                                        <span>Connector Status</span>
+                                        <t t-if="state.testResults.connectorReady"><span class="badge bg-success fs-6">Ready to Connect</span></t>
+                                        <t t-else=""><span class="badge bg-danger fs-6">Issue Detected</span></t>
+                                    </div>
+                                </div>
+                                <p class="text-muted small mt-3 mb-0"><t t-esc="state.testResults.summary"></t></p>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+
+                <!-- 2. TOOLS HUB -->
+                <t t-if="state.activeTab === 'tools'">
+                    <div class="mcp-tab-pane animate-fade-in">
+                        <div class="mcp-page-header">
+                            <div>
+                                <h2 class="mcp-page-title"><i class="fa fa-wrench me-2"></i>MCP Tools Registry</h2>
+                                <p class="mcp-page-sub">Configure active ORM tool functions for AI invocation.</p>
+                            </div>
+                            <button class="btn btn-primary" t-on-click="openCreateToolModal">
+                                <i class="fa fa-plus me-1"></i>New Tool
+                            </button>
+                        </div>
+
+                        <div class="mcp-card-grid my-4">
+                            <t t-foreach="state.tools" t-as="tool" t-key="tool.id">
+                                <div class="mcp-tool-card">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <h5 class="mcp-tool-name"><t t-esc="tool.name"></t></h5>
+                                        <t t-if="tool.active"><span class="badge bg-success">Active</span></t>
+                                    </div>
+                                    <p class="mcp-tool-desc mt-2"><t t-esc="tool.description or 'No description provided.'"></t></p>
+                                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
+                                        <span class="text-muted small">ID: #<t t-esc="tool.id"></t></span>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+                    </div>
+                </t>
+
+                <!-- 3. SETTINGS HUB -->
+                <t t-if="state.activeTab === 'settings'">
+                    <div class="mcp-tab-pane animate-fade-in">
+                        <div class="mcp-page-header mb-4">
+                            <div>
+                                <h2 class="mcp-page-title"><i class="fa fa-cog me-2"></i>Security &amp; System Settings</h2>
+                                <p class="mcp-page-sub">Manage multi-client tokens, OAuth credentials, and security controls.</p>
+                            </div>
+                        </div>
+
+                        <!-- Settings Sub-Tabs Navigation -->
+                        <div class="mcp-settings-subnav mb-4">
+                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'connection'}" t-on-click="setSubTabConnection">
+                                <i class="fa fa-plug me-2"></i>Connection
+                            </button>
+                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'authentication'}" t-on-click="setSubTabAuth">
+                                <i class="fa fa-key me-2"></i>Tokens &amp; Auth
+                            </button>
+                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'general'}" t-on-click="setSubTabGeneral">
+                                <i class="fa fa-sliders me-2"></i>General
+                            </button>
+                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'advanced'}" t-on-click="setSubTabAudit">
+                                <i class="fa fa-shield me-2"></i>Audit Logs
+                            </button>
+                        </div>
+
+                        <!-- Sub-Tab: Connection -->
+                        <t t-if="state.settingsTab === 'connection'">
+                            <div class="mcp-section-card">
+                                <h4 class="mb-4"><i class="fa fa-desktop text-primary me-2"></i>Remote Connector Endpoints</h4>
+                                
+                                <div class="row g-4">
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted small uppercase fw-bold">Server Base URL</label>
+                                        <input type="text" class="form-control form-control-lg bg-dark text-white border-secondary" t-att-value="state.serverUrl" readonly="readonly"/>
+                                    </div>
+
+                                    <div class="col-md-6">
+                                        <label class="form-label text-muted small uppercase fw-bold">Authentication Mode</label>
+                                        <input type="text" class="form-control form-control-lg bg-dark text-warning border-secondary" value="HMAC-SHA256 Opaque Token" readonly="readonly"/>
+                                    </div>
+
+                                    <div class="col-12">
+                                        <label class="form-label text-muted small uppercase fw-bold">Remote Connector URL</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
+                                            <button class="btn btn-primary" t-on-click="copyConnectorUrl">
+                                                <i class="fa fa-copy me-1"></i>Copy URL
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- Sub-Tab: Tokens & Authentication -->
+                        <t t-if="state.settingsTab === 'authentication'">
+                            <div class="mcp-section-card">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h4><i class="fa fa-key text-warning me-2"></i>Multi-Client Connector Tokens</h4>
+                                    <div>
+                                        <button class="btn btn-sm btn-primary me-2" t-on-click="openCreateTokenModal">
+                                            <i class="fa fa-plus me-1"></i>New Client Token
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-danger" t-on-click="revokeAllTokens">
+                                            <i class="fa fa-ban me-1"></i>Emergency Revoke All
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div class="table-responsive my-3">
+                                    <table class="table mcp-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Token Name</th>
+                                                <th>Prefix</th>
+                                                <th>Scope</th>
+                                                <th>Created</th>
+                                                <th>Last Used</th>
+                                                <th>Expires</th>
+                                                <th>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="state.apiKeys" t-as="key" t-key="key.id">
+                                                <tr>
+                                                    <td class="fw-bold"><t t-esc="key.name"></t></td>
+                                                    <td><code><t t-esc="key.key_prefix"></t>...</code></td>
+                                                    <td><span class="badge bg-secondary"><t t-esc="key.scopes or 'full'"></t></span></td>
+                                                    <td><t t-esc="key.create_date"></t></td>
+                                                    <td><t t-esc="key.last_used_at or 'Never'"></t></td>
+                                                    <td><t t-esc="key.expires_at or 'Never'"></t></td>
+                                                    <td>
+                                                        <t t-if="key.active"><span class="badge bg-success">Active</span></t>
+                                                        <t t-else=""><span class="badge bg-danger">Revoked</span></t>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- OAuth Client Credentials Section -->
+                                <div class="border-top pt-4 mt-4">
+                                    <h4><i class="fa fa-lock text-info me-2"></i>OAuth 2.0 Credentials (Claude Advanced Settings)</h4>
+                                    <t t-foreach="state.oauthClients" t-as="client" t-key="client.id">
+                                        <div class="row g-3 mt-2">
+                                            <div class="col-md-6">
+                                                <label class="form-label text-muted small fw-bold">OAuth Client ID</label>
+                                                <div class="input-group">
+                                                    <input type="text" class="form-control font-monospace bg-dark text-white" t-att-value="client.client_id" readonly="readonly"/>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <label class="form-label text-muted small fw-bold">OAuth Client Secret (Encrypted at Rest)</label>
+                                                <div class="input-group">
+                                                    <input type="password" class="form-control font-monospace bg-dark text-warning" t-att-value="state.showOAuthSecret ? state.revealedSecretValue : '••••••••••••••••'" readonly="readonly"/>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- Sub-Tab: General -->
+                        <t t-if="state.settingsTab === 'general'">
+                            <div class="mcp-section-card">
+                                <h4><i class="fa fa-sliders text-info me-2"></i>System Controls</h4>
+                                <div class="row g-3 mt-2">
+                                    <div class="col-md-6">
+                                        <label class="form-label">Rate Limit (RPM)</label>
+                                        <input type="number" class="form-control" t-model="state.stats.rateLimitRpm"/>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label">Token TTL (Seconds)</label>
+                                        <input type="number" class="form-control" value="3600"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </t>
+
+                        <!-- Sub-Tab: Advanced Audit Logs -->
+                        <t t-if="state.settingsTab === 'advanced'">
+                            <div class="mcp-section-card">
+                                <h4><i class="fa fa-history text-danger me-2"></i>Security Event Audit Trail</h4>
+                                <div class="table-responsive mt-3">
+                                    <table class="table mcp-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Event Description</th>
+                                                <th>Target Resource</th>
+                                                <th>Action Type</th>
+                                                <th>Date</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="state.auditLogs" t-as="log" t-key="log.id">
+                                                <tr>
+                                                    <td class="fw-bold"><t t-esc="log.name"></t></td>
+                                                    <td><t t-esc="log.res_model or 'N/A'"></t></td>
+                                                    <td><span class="badge bg-dark"><t t-esc="log.action_type"></t></span></td>
+                                                    <td><t t-esc="log.create_date"></t></td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </t>
+                    </div>
+                </t>
+
+            </main>
+
+            <!-- Modals -->
+            <t t-if="state.showCreateTokenModal">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog">
+                        <div class="mcp-modal-header">
+                            <h3><i class="fa fa-key text-primary me-2"></i>Generate New Client Connector Token</h3>
+                            <button class="btn-close btn-close-white" t-on-click="closeCreateTokenModal"></button>
+                        </div>
+                        <div class="mcp-modal-body">
+                            <div class="mb-3">
+                                <label class="form-label">Client / Connector Name</label>
+                                <input type="text" class="form-control" placeholder="e.g. Claude Desktop, VS Code, Production Agent" t-model="state.newToken.name"/>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Permission Scope</label>
+                                <select class="form-select" t-model="state.newToken.scopes">
+                                    <option value="full">Full Access (Read/Write)</option>
+                                    <option value="read_only">Read Only</option>
+                                    <option value="tools_only">Tools Execution Only</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Expiration Policy</label>
+                                <select class="form-select" t-model="state.newToken.expiration_policy">
+                                    <option value="never">Never Expire</option>
+                                    <option value="30_days">30 Days</option>
+                                    <option value="90_days">90 Days</option>
+                                </select>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Allowed IPs (Optional Whitelist)</label>
+                                <input type="text" class="form-control" placeholder="e.g. 192.168.1.50, 10.0.0.1" t-model="state.newToken.allowed_ips"/>
+                            </div>
+                        </div>
+                        <div class="mcp-modal-footer">
+                            <button class="btn btn-secondary" t-on-click="closeCreateTokenModal">Cancel</button>
+                            <button class="btn btn-primary" t-on-click="createNamedToken">Generate Token</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <t t-if="state.showRawTokenModal">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog">
+                        <div class="mcp-modal-header bg-warning-dark">
+                            <h3><i class="fa fa-exclamation-triangle text-warning me-2"></i>Copy Your High-Entropy Token</h3>
+                            <button class="btn-close btn-close-white" t-on-click="closeRawTokenModal"></button>
+                        </div>
+                        <div class="mcp-modal-body">
+                            <p class="text-warning small">This raw opaque token will be displayed <strong>ONCE</strong> and is never stored in plain text. Copy it now!</p>
+                            <div class="mcp-code-preview my-3">
+                                <pre><code><t t-esc="state.newlyCreatedRawToken"></t></code></pre>
+                            </div>
+                            <div class="mcp-url-box p-2">
+                                <label class="form-label text-muted small uppercase fw-bold">Ready Connector URL</label>
+                                <input type="text" class="form-control font-monospace bg-dark text-info" t-att-value="state.connectorUrl" readonly="readonly"/>
+                            </div>
+                        </div>
+                        <div class="mcp-modal-footer">
+                            <button class="btn btn-primary" t-on-click="closeRawTokenModal">Done</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <t t-if="state.showConnectWizard">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog mcp-wizard-dialog">
+                        <div class="mcp-modal-header">
+                            <h3><i class="fa fa-rocket text-primary me-2"></i>Add Custom Connector in Claude</h3>
+                            <button class="btn-close btn-close-white" t-on-click="closeConnectWizard"></button>
+                        </div>
+                        <div class="mcp-modal-body">
+                            <div class="mcp-wizard-step-box mb-4">
+                                <h5>Step 1: Copy Connector URL</h5>
+                                <div class="input-group my-2">
+                                    <input type="text" class="form-control font-monospace bg-dark text-info" t-att-value="state.connectorUrl" readonly="readonly"/>
+                                    <button class="btn btn-success" t-on-click="copyConnectorUrl">
+                                        <i class="fa fa-copy me-1"></i>Copy URL
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mcp-wizard-step-box mb-4">
+                                <h5>Step 2: Open Claude Connectors Screen</h5>
+                                <p class="text-muted small mb-0">In Claude Desktop → Go to <strong>Settings → Connectors → Click Add Custom Connector</strong>.</p>
+                            </div>
+
+                            <div class="mcp-wizard-step-box">
+                                <h5>Step 3: Enter Details &amp; Connect</h5>
+                                <ul class="text-muted small ps-3 mb-0">
+                                    <li><strong>Connector Name</strong>: <code>odoo-claude</code></li>
+                                    <li><strong>Remote MCP Server URL</strong>: Paste copied Connector URL</li>
+                                    <li>Click <strong>Connect</strong></li>
+                                </ul>
+                            </div>
+                        </div>
+                        <div class="mcp-modal-footer">
+                            <button class="btn btn-secondary" t-on-click="closeConnectWizard">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- Bottom Navigation -->
+            <nav class="mcp-bottom-nav">
+                <div class="mcp-nav-pills">
+                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'home'}" t-on-click="setTabHome">
+                        <i class="fa fa-home"></i>
+                        <span>Home</span>
+                    </button>
+                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'tools'}" t-on-click="setTabTools">
+                        <i class="fa fa-wrench"></i>
+                        <span>Tools</span>
+                    </button>
+                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'settings'}" t-on-click="setTabSettings">
+                        <i class="fa fa-cog"></i>
+                        <span>Settings</span>
+                    </button>
+                </div>
+            </nav>
+
+        </div>
+    </t>
+</templates>

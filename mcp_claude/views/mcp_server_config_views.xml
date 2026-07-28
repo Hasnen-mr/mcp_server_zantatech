@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_mcp_server_config_list" model="ir.ui.view">
+        <field name="name">mcp.server.config.list</field>
+        <field name="model">mcp.server.config</field>
+        <field name="arch" type="xml">
+            <list string="Server Configurations">
+                <field name="name"/>
+                <field name="profile"/>
+                <field name="enable_tools"/>
+                <field name="enable_resources"/>
+                <field name="enable_oauth"/>
+                <field name="enable_api_keys"/>
+                <field name="rate_limit_rpm"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="view_mcp_server_config_form" model="ir.ui.view">
+        <field name="name">mcp.server.config.form</field>
+        <field name="model">mcp.server.config</field>
+        <field name="arch" type="xml">
+            <form string="MCP Server Configuration">
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" placeholder="Configuration Name..."/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="General Settings">
+                            <field name="profile"/>
+                            <field name="rate_limit_rpm"/>
+                            <field name="default_token_ttl"/>
+                        </group>
+                        <group string="Enabled Features">
+                            <field name="enable_tools"/>
+                            <field name="enable_resources"/>
+                            <field name="enable_prompts"/>
+                            <field name="enable_oauth"/>
+                            <field name="enable_api_keys"/>
+                        </group>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="view_mcp_server_config_search" model="ir.ui.view">
+        <field name="name">mcp.server.config.search</field>
+        <field name="model">mcp.server.config</field>
+        <field name="arch" type="xml">
+            <search string="Search Server Configurations">
+                <field name="name"/>
+                <field name="profile"/>
+                <filter string="OAuth Enabled" name="enable_oauth" domain="[('enable_oauth', '=', True)]"/>
+                <filter string="API Keys Enabled" name="enable_api_keys" domain="[('enable_api_keys', '=', True)]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Profile" name="group_profile" context="{'group_by': 'profile'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_mcp_server_config" model="ir.actions.act_window">
+        <field name="name">Server Configurations</field>
+        <field name="res_model">mcp.server.config</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="view_mcp_server_config_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">
+                Create a new MCP Server Configuration!
+            </p>
+            <p>
+                Configure server endpoints, rate limits, authentication modes, and execution profiles for MCP Claude.
+            </p>
+        </field>
+    </record>
+</odoo>

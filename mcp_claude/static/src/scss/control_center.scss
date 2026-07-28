@@ -1,0 +1,351 @@
+// MCP Claude SaaS Control Center - Remote Connector URL Onboarding & Custom Scrollbar
+:root {
+  --mcp-bg: #0f172a;
+  --mcp-card-bg: #1e293b;
+  --mcp-text: #f8fafc;
+  --mcp-text-muted: #94a3b8;
+  --mcp-border: rgba(255, 255, 255, 0.1);
+  --mcp-primary: #3b82f6;
+  --mcp-primary-glow: rgba(59, 130, 246, 0.4);
+}
+
+// Custom Sleek Dark Scrollbar
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+.mcp-saas-container {
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: var(--mcp-bg);
+  color: var(--mcp-text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  scroll-behavior: smooth;
+}
+
+// Header
+.mcp-header {
+  position: sticky;
+  top: 0;
+  z-index: 900;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.25rem 2rem;
+  border-bottom: 1px solid var(--mcp-border);
+  background: rgba(15, 23, 42, 0.85);
+  backdrop-filter: blur(12px);
+}
+
+.mcp-brand-logo {
+  display: flex;
+  align-items: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.mcp-badge-version {
+  font-size: 0.75rem;
+  background: rgba(59, 130, 246, 0.2);
+  color: #60a5fa;
+  padding: 0.2rem 0.5rem;
+  border-radius: 6px;
+  margin-left: 0.5rem;
+}
+
+.mcp-quick-search-trigger {
+  background: #1e293b;
+  color: #cbd5e1;
+  border: 1px solid var(--mcp-border);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: #334155;
+    color: #fff;
+  }
+}
+
+// Content Hub with Padding for Floating Bottom Nav
+.mcp-content-hub {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 2rem;
+  padding-bottom: 140px; /* Ensures full scroll view above bottom nav */
+}
+
+// Hero Card Banner
+.mcp-hero-card {
+  background: linear-gradient(135deg, #1e1b4b 0%, #1e293b 100%);
+  border: 1px solid rgba(99, 102, 241, 0.3);
+  border-radius: 16px;
+  padding: 3rem 2.5rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+
+.mcp-hero-title {
+  font-size: 2.25rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #fff 0%, #a5b4fc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.mcp-hero-subtitle {
+  font-size: 1.1rem;
+  color: #c7d2fe;
+  max-width: 650px;
+  margin-top: 0.75rem;
+}
+
+.mcp-connect-hero-btn {
+  background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%) !important;
+  border: none !important;
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+  transition: transform 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 25px rgba(99, 102, 241, 0.7);
+  }
+}
+
+// Cards & Grids
+.mcp-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.25rem;
+}
+
+.mcp-stat-card {
+  background: var(--mcp-card-bg);
+  border: 1px solid var(--mcp-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.mcp-stat-icon {
+  width: 48px;
+  height: 48px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+}
+
+.mcp-stat-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--mcp-text-muted);
+}
+
+.mcp-stat-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.mcp-section-card {
+  background: var(--mcp-card-bg);
+  border: 1px solid var(--mcp-border);
+  border-radius: 16px;
+  padding: 1.75rem;
+}
+
+// Connector URL Box
+.mcp-url-box {
+  background: #090d16;
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  border-radius: 12px;
+}
+
+// 3-Step Simple Guide Grid
+.mcp-simple-guide-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.mcp-guide-step {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--mcp-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.mcp-guide-step-num {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--mcp-primary);
+  color: #fff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.mcp-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.mcp-quick-btn {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--mcp-border);
+  border-radius: 12px;
+  padding: 1.25rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--mcp-text);
+  font-weight: 600;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    transform: translateY(-2px);
+  }
+}
+
+// Table Scrollable Container
+.table-responsive {
+  max-height: 450px;
+  overflow-y: auto;
+  border-radius: 8px;
+
+  .mcp-table {
+    color: var(--mcp-text);
+    margin-bottom: 0;
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: #0f172a;
+      z-index: 10;
+      border-bottom: 2px solid var(--mcp-border);
+    }
+  }
+}
+
+// Settings Sub-Nav
+.mcp-settings-subnav {
+  display: flex;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--mcp-border);
+  padding-bottom: 0.5rem;
+  overflow-x: auto;
+}
+
+.mcp-settings-tab-btn {
+  background: transparent;
+  color: var(--mcp-text-muted);
+  border: none;
+  padding: 0.6rem 1.25rem;
+  border-radius: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+
+  &.active, &:hover {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+  }
+}
+
+// Modal & Wizard
+.mcp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.mcp-modal-dialog {
+  background: var(--mcp-card-bg);
+  border: 1px solid var(--mcp-border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 650px;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 1.5rem;
+}
+
+.mcp-wizard-step-box {
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--mcp-border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+// Persistent Floating Bottom Nav
+.mcp-bottom-nav {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+}
+
+.mcp-nav-pills {
+  display: flex;
+  background: rgba(30, 41, 59, 0.95);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 40px;
+  padding: 0.4rem;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+
+  .mcp-nav-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.5rem;
+    border-radius: 30px;
+    border: none;
+    background: transparent;
+    color: var(--mcp-text-muted);
+    font-weight: 600;
+    transition: all 0.25s ease;
+
+    &:hover {
+      color: #fff;
+    }
+
+    &.active {
+      background: var(--mcp-primary);
+      color: #fff;
+      box-shadow: 0 0 15px var(--mcp-primary-glow);
+    }
+  }
+}
