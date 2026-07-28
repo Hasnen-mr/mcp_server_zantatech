@@ -104,7 +104,7 @@ Website: https://extension.mybroadcast.online
     'currency': 'USD',
 
     'category': 'Productivity',
-    'version': '18.0.1.0.2',
+    'version': '19.0.1.0.2',
     'license': 'LGPL-3',
 
     'depends': ['base', 'web'],
