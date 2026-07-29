@@ -1,7 +1,20 @@
+import logging
+_logger = logging.getLogger(__name__)
+from odoo.addons.mcp_claude.bin.mcp_https_proxy import start_proxy_thread
 # -*- coding: utf-8 -*-
 from odoo import models, fields
 
 class MCPServerConfig(models.Model):
+    def _register_hook(self):
+        res = super()._register_hook()
+        try:
+            active_port = start_proxy_thread()
+            if active_port:
+                _logger.info(f"MCP Trusted HTTPS Proxy Started Automatically on Port {active_port}")
+        except Exception as e:
+            _logger.warning(f"HTTPS Proxy auto-start notice: {e}")
+        return res
+
     _name = 'mcp.server.config'
     _description = 'MCP Server Configuration'
 

@@ -32,14 +32,14 @@
                     <div class="mcp-tab-pane animate-fade-in">
                         <div class="mcp-hero-card">
                             <div class="mcp-hero-content">
-                                <h1 class="mcp-hero-title">Connect Claude to Odoo</h1>
-                                <p class="mcp-hero-subtitle">Enterprise-grade single-click Remote Connector URL for Anthropic Claude Desktop.</p>
+                                <h1 class="mcp-hero-title">Connect Claude Desktop to Odoo</h1>
+                                <p class="mcp-hero-subtitle">Enterprise-grade Remote Connector URL or Local Stdio Bridge for Anthropic Claude Desktop.</p>
                                 <div class="mcp-hero-actions">
                                     <button class="btn btn-primary btn-lg mcp-connect-hero-btn" t-on-click="copyConnectorUrl">
                                         <i class="fa fa-link me-2"></i>Copy Connector URL
                                     </button>
                                     <button class="btn btn-outline-light btn-lg ms-2" t-on-click="openConnectWizard">
-                                        <i class="fa fa-rocket me-2"></i>Guided Setup
+                                        <i class="fa fa-code me-2"></i>How to Connect
                                     </button>
                                 </div>
                             </div>
@@ -85,43 +85,96 @@
                             </div>
                         </div>
 
-                        <!-- Connect Claude Section -->
+                        <!-- Connect Options & Instructions Section -->
                         <div class="mcp-section-card my-4">
-                            <h4 class="mcp-section-title mb-3"><i class="fa fa-bolt text-warning me-2"></i>Connect Claude</h4>
-                            
-                            <div class="mcp-url-box p-3 mb-4">
-                                <label class="form-label text-muted small uppercase fw-bold">Active Remote Connector URL</label>
-                                <div class="input-group">
-                                    <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
-                                    <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl">
-                                        <i class="fa fa-copy me-2"></i>Copy Connector URL
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="mcp-section-title mb-0"><i class="fa fa-bolt text-warning me-2"></i>How to Connect Claude Desktop</h4>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm" t-att-class="state.connectOption === 'url' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('url')">
+                                        <i class="fa fa-globe me-1"></i>Option 1: Remote SSE URL
+                                    </button>
+                                    <button class="btn btn-sm" t-att-class="state.connectOption === 'stdio' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('stdio')">
+                                        <i class="fa fa-terminal me-1"></i>Option 2: Local Stdio Bridge JSON
                                     </button>
                                 </div>
                             </div>
 
-                            <div class="mcp-simple-guide-grid">
-                                <div class="mcp-guide-step">
-                                    <div class="mcp-guide-step-num">1</div>
-                                    <div class="mcp-guide-step-content">
-                                        <h6>Open Claude Settings</h6>
-                                        <p class="text-muted small mb-0">Open Claude Desktop → Go to <strong>Settings → Connectors</strong>.</p>
+                            <!-- Option 1: Remote SSE URL -->
+                            <t t-if="state.connectOption === 'url'">
+                                <div class="mcp-url-box p-3 mb-4 border border-primary-subtle rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-primary fs-6"><i class="fa fa-link me-1"></i>Remote Connector URL</span>
+                                        <span class="text-muted small">Supports trusted SSL on localhost:8443</span>
+                                    </div>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
+                                        <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl">
+                                            <i class="fa fa-copy me-2"></i>Copy Connector URL
+                                        </button>
                                     </div>
                                 </div>
-                                <div class="mcp-guide-step">
-                                    <div class="mcp-guide-step-num">2</div>
-                                    <div class="mcp-guide-step-content">
-                                        <h6>Add Custom Connector</h6>
-                                        <p class="text-muted small mb-0">Click <strong>Add Custom Connector</strong>.</p>
+
+                                <div class="mcp-simple-guide-grid">
+                                    <div class="mcp-guide-step">
+                                        <div class="mcp-guide-step-num">1</div>
+                                        <div class="mcp-guide-step-content">
+                                            <h6>Open Claude Settings</h6>
+                                            <p class="text-muted small mb-0">Open Claude Desktop → Click profile icon → <strong>Settings → Connectors</strong>.</p>
+                                        </div>
+                                    </div>
+                                    <div class="mcp-guide-step">
+                                        <div class="mcp-guide-step-num">2</div>
+                                        <div class="mcp-guide-step-content">
+                                            <h6>Add Custom Connector</h6>
+                                            <p class="text-muted small mb-0">Click <strong>Add Custom Connector</strong>.</p>
+                                        </div>
+                                    </div>
+                                    <div class="mcp-guide-step">
+                                        <div class="mcp-guide-step-num">3</div>
+                                        <div class="mcp-guide-step-content">
+                                            <h6>Paste &amp; Add</h6>
+                                            <p class="text-muted small mb-0">Name: <code>odoo-claude</code>. Paste Connector URL above → Click <strong>Add</strong>.</p>
+                                        </div>
                                     </div>
                                 </div>
-                                <div class="mcp-guide-step">
-                                    <div class="mcp-guide-step-num">3</div>
-                                    <div class="mcp-guide-step-content">
-                                        <h6>Paste &amp; Connect</h6>
-                                        <p class="text-muted small mb-0">Enter name (e.g. <code>odoo-claude</code>), paste your Connector URL, and click <strong>Connect</strong>.</p>
+                            </t>
+
+                            <!-- Option 2: Local Stdio Bridge JSON Code -->
+                            <t t-if="state.connectOption === 'stdio'">
+                                <div class="p-3 mb-4 bg-dark text-white rounded border border-secondary">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <span class="badge bg-success fs-6"><i class="fa fa-code me-1"></i>claude_desktop_config.json</span>
+                                        <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig">
+                                            <i class="fa fa-copy me-1"></i>Copy JSON Code
+                                        </button>
+                                    </div>
+                                    <pre class="m-0 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.stdioJsonConfig"></t></code></pre>
+                                </div>
+
+                                <div class="mcp-simple-guide-grid">
+                                    <div class="mcp-guide-step">
+                                        <div class="mcp-guide-step-num">1</div>
+                                        <div class="mcp-guide-step-content">
+                                            <h6>Copy JSON Code</h6>
+                                            <p class="text-muted small mb-0">Click the green <strong>Copy JSON Code</strong> button above.</p>
+                                        </div>
+                                    </div>
+                                    <div class="mcp-guide-step">
+                                        <div class="mcp-guide-step-num">2</div>
+                                        <div class="mcp-guide-step-content">
+                                            <h6>Paste in Configuration</h6>
+                                            <p class="text-muted small mb-0">Paste code into <code>%APPDATA%\Claude\claude_desktop_config.json</code> (or MS Store UWP path).</p>
+                                        </div>
+                                    </div>
+                                    <div class="mcp-guide-step">
+                                        <div class="mcp-guide-step-num">3</div>
+                                        <div class="mcp-guide-step-content">
+                                            <h6>Restart Claude Desktop</h6>
+                                            <p class="text-muted small mb-0">Quit Claude Desktop completely from system tray and re-open.</p>
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
+                            </t>
                         </div>
 
                         <!-- Quick Actions Grid -->
@@ -130,23 +183,23 @@
                             <div class="mcp-quick-grid">
                                 <button class="mcp-quick-btn" t-on-click="openConnectWizard">
                                     <i class="fa fa-rocket text-primary"></i>
-                                    <span>Connect Claude</span>
+                                    <span>Connect Wizard</span>
                                 </button>
                                 <button class="mcp-quick-btn" t-on-click="copyConnectorUrl">
                                     <i class="fa fa-copy text-warning"></i>
-                                    <span>Copy Connector URL</span>
+                                    <span>Copy URL</span>
+                                </button>
+                                <button class="mcp-quick-btn" t-on-click="copyJsonConfig">
+                                    <i class="fa fa-code text-info"></i>
+                                    <span>Copy JSON Code</span>
                                 </button>
                                 <button class="mcp-quick-btn" t-on-click="testConnector">
                                     <i class="fa fa-refresh text-success"></i>
                                     <span>Test Connector</span>
                                 </button>
-                                <button class="mcp-quick-btn" t-on-click="openCreateTokenModal">
-                                    <i class="fa fa-plus-circle text-info"></i>
-                                    <span>New Client Token</span>
-                                </button>
-                                <button class="mcp-quick-btn" t-on-click="setTabSettings">
-                                    <i class="fa fa-cog text-secondary"></i>
-                                    <span>Open Settings</span>
+                                <button class="mcp-quick-btn" t-on-click="setTabConfigurations">
+                                    <i class="fa fa-sliders text-secondary"></i>
+                                    <span>Configurations</span>
                                 </button>
                             </div>
                         </div>
@@ -218,17 +271,17 @@
                     </div>
                 </t>
 
-                <!-- 3. SETTINGS HUB -->
-                <t t-if="state.activeTab === 'settings'">
+                <!-- 3. CONFIGURATIONS HUB (Renamed from Settings) -->
+                <t t-if="state.activeTab === 'configurations'">
                     <div class="mcp-tab-pane animate-fade-in">
                         <div class="mcp-page-header mb-4">
                             <div>
-                                <h2 class="mcp-page-title"><i class="fa fa-cog me-2"></i>Security &amp; System Settings</h2>
-                                <p class="mcp-page-sub">Manage multi-client tokens, OAuth credentials, and security controls.</p>
+                                <h2 class="mcp-page-title"><i class="fa fa-sliders me-2"></i>Configurations</h2>
+                                <p class="mcp-page-sub">Manage multi-client tokens, app CRUD permissions, and system controls.</p>
                             </div>
                         </div>
 
-                        <!-- Settings Sub-Tabs Navigation -->
+                        <!-- Configurations Sub-Tabs Navigation -->
                         <div class="mcp-settings-subnav mb-4">
                             <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'connection'}" t-on-click="setSubTabConnection">
                                 <i class="fa fa-plug me-2"></i>Connection
@@ -236,20 +289,23 @@
                             <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'authentication'}" t-on-click="setSubTabAuth">
                                 <i class="fa fa-key me-2"></i>Tokens &amp; Auth
                             </button>
+                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'permissions'}" t-on-click="setSubTabPermissions">
+                                <i class="fa fa-shield me-2"></i>Permissions
+                            </button>
                             <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'general'}" t-on-click="setSubTabGeneral">
                                 <i class="fa fa-sliders me-2"></i>General
                             </button>
                             <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'advanced'}" t-on-click="setSubTabAudit">
-                                <i class="fa fa-shield me-2"></i>Audit Logs
+                                <i class="fa fa-history me-2"></i>Audit Logs
                             </button>
                         </div>
 
                         <!-- Sub-Tab: Connection -->
                         <t t-if="state.settingsTab === 'connection'">
                             <div class="mcp-section-card">
-                                <h4 class="mb-4"><i class="fa fa-desktop text-primary me-2"></i>Remote Connector Endpoints</h4>
+                                <h4 class="mb-4"><i class="fa fa-desktop text-primary me-2"></i>Remote &amp; Stdio Connection Options</h4>
                                 
-                                <div class="row g-4">
+                                <div class="row g-4 mb-4">
                                     <div class="col-md-6">
                                         <label class="form-label text-muted small uppercase fw-bold">Server Base URL</label>
                                         <input type="text" class="form-control form-control-lg bg-dark text-white border-secondary" t-att-value="state.serverUrl" readonly="readonly"/>
@@ -257,18 +313,30 @@
 
                                     <div class="col-md-6">
                                         <label class="form-label text-muted small uppercase fw-bold">Authentication Mode</label>
-                                        <input type="text" class="form-control form-control-lg bg-dark text-warning border-secondary" value="HMAC-SHA256 Opaque Token" readonly="readonly"/>
+                                        <div class="d-flex align-items-center gap-2"><span t-if="state.httpsEnabled" class="badge bg-success fs-6 p-2">HTTPS Enabled ✅</span><span t-else="" class="badge bg-warning fs-6 p-2">HTTPS Not Configured ⚠️</span></div>
                                     </div>
+                                </div>
 
-                                    <div class="col-12">
-                                        <label class="form-label text-muted small uppercase fw-bold">Remote Connector URL</label>
-                                        <div class="input-group">
-                                            <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
-                                            <button class="btn btn-primary" t-on-click="copyConnectorUrl">
-                                                <i class="fa fa-copy me-1"></i>Copy URL
-                                            </button>
-                                        </div>
+                                <!-- Option 1: URL -->
+                                <div class="p-3 mb-3 bg-dark border border-primary-subtle rounded">
+                                    <label class="form-label text-muted small uppercase fw-bold"><i class="fa fa-globe text-primary me-1"></i>Option 1: Remote SSE Connector URL</label>
+                                    <div class="input-group">
+                                        <input type="text" class="form-control font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
+                                        <button class="btn btn-primary" t-on-click="copyConnectorUrl">
+                                            <i class="fa fa-copy me-1"></i>Copy URL
+                                        </button>
                                     </div>
+                                </div>
+
+                                <!-- Option 2: JSON Code -->
+                                <div class="p-3 bg-dark border border-secondary rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label text-muted small uppercase fw-bold mb-0"><i class="fa fa-code text-success me-1"></i>Option 2: Local Stdio Bridge (claude_desktop_config.json)</label>
+                                        <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig">
+                                            <i class="fa fa-copy me-1"></i>Copy JSON Code
+                                        </button>
+                                    </div>
+                                    <pre class="m-0 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.stdioJsonConfig"></t></code></pre>
                                 </div>
                             </div>
                         </t>
@@ -319,26 +387,68 @@
                                         </tbody>
                                     </table>
                                 </div>
+                            </div>
+                        </t>
 
-                                <!-- OAuth Client Credentials Section -->
-                                <div class="border-top pt-4 mt-4">
-                                    <h4><i class="fa fa-lock text-info me-2"></i>OAuth 2.0 Credentials (Claude Advanced Settings)</h4>
-                                    <t t-foreach="state.oauthClients" t-as="client" t-key="client.id">
-                                        <div class="row g-3 mt-2">
-                                            <div class="col-md-6">
-                                                <label class="form-label text-muted small fw-bold">OAuth Client ID</label>
-                                                <div class="input-group">
-                                                    <input type="text" class="form-control font-monospace bg-dark text-white" t-att-value="client.client_id" readonly="readonly"/>
-                                                </div>
-                                            </div>
-                                            <div class="col-md-6">
-                                                <label class="form-label text-muted small fw-bold">OAuth Client Secret (Encrypted at Rest)</label>
-                                                <div class="input-group">
-                                                    <input type="password" class="form-control font-monospace bg-dark text-warning" t-att-value="state.showOAuthSecret ? state.revealedSecretValue : '••••••••••••••••'" readonly="readonly"/>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </t>
+                        <!-- Sub-Tab: Permissions (NEW!) -->
+                        <t t-if="state.settingsTab === 'permissions'">
+                            <div class="mcp-section-card animate-fade-in">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <div>
+                                        <h4><i class="fa fa-shield text-primary me-2"></i>Odoo Apps &amp; Model CRUD Permissions</h4>
+                                        <p class="text-muted small mb-0">Configure granular Read, Create, Write, and Delete access for AI Agents across Odoo applications.</p>
+                                    </div>
+                                    <span class="badge bg-info p-2 fs-6"><i class="fa fa-info-circle me-1"></i>UI Preview Mode</span>
+                                </div>
+
+                                <div class="alert alert-info border-0 rounded-3 mb-4">
+                                    <i class="fa fa-lightbulb-o me-2"></i><strong>Permission Control Note:</strong> Fine-grained CRUD controls for sales, invoicing, inventory, and contacts are previewed below. Once URL verification is finalized, live ORM security rules will enforce these toggles.
+                                </div>
+
+                                <div class="table-responsive">
+                                    <table class="table mcp-table align-middle">
+                                        <thead>
+                                            <tr>
+                                                <th>Odoo Application &amp; Target Model</th>
+                                                <th class="text-center">Integration Active</th>
+                                                <th class="text-center">Read (Search)</th>
+                                                <th class="text-center">Create (New)</th>
+                                                <th class="text-center">Write (Update)</th>
+                                                <th class="text-center">Delete (Unlink)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <t t-foreach="state.odooAppsPermissions" t-as="app" t-key="app.id">
+                                                <tr>
+                                                    <td>
+                                                        <div class="d-flex align-items-center">
+                                                            <i t-att-class="'fa ' + app.icon + ' fa-lg text-primary me-3'"></i>
+                                                            <div>
+                                                                <div class="fw-bold"><t t-esc="app.name"></t></div>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <div class="form-check form-switch d-inline-block">
+                                                            <input class="form-check-input" type="checkbox" t-att-checked="app.active" t-on-change="() => this.toggleAppActive(app.id)"/>
+                                                        </div>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.read" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'read')"/>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.create" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'create')"/>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.write" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'write')"/>
+                                                    </td>
+                                                    <td class="text-center">
+                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.delete" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'delete')"/>
+                                                    </td>
+                                                </tr>
+                                            </t>
+                                        </tbody>
+                                    </table>
                                 </div>
                             </div>
                         </t>
@@ -377,9 +487,9 @@
                                         <tbody>
                                             <t t-foreach="state.auditLogs" t-as="log" t-key="log.id">
                                                 <tr>
-                                                    <td class="fw-bold"><t t-esc="log.name"></t></td>
-                                                    <td><t t-esc="log.res_model or 'N/A'"></t></td>
-                                                    <td><span class="badge bg-dark"><t t-esc="log.action_type"></t></span></td>
+                                                    <td class="fw-bold"><t t-esc="log.tool_name or 'System Event'"></t></td>
+                                                    <td><t t-esc="log.model_name or 'N/A'"></t></td>
+                                                    <td><span class="badge bg-dark"><t t-esc="log.action_type or 'execute'"></t></span></td>
                                                     <td><t t-esc="log.create_date"></t></td>
                                                 </tr>
                                             </t>
@@ -463,32 +573,30 @@
                 <div class="mcp-modal-backdrop animate-fade-in">
                     <div class="mcp-modal-dialog mcp-wizard-dialog">
                         <div class="mcp-modal-header">
-                            <h3><i class="fa fa-rocket text-primary me-2"></i>Add Custom Connector in Claude</h3>
+                            <h3><i class="fa fa-rocket text-primary me-2"></i>Add Custom Connector in Claude Desktop</h3>
                             <button class="btn-close btn-close-white" t-on-click="closeConnectWizard"></button>
                         </div>
                         <div class="mcp-modal-body">
                             <div class="mcp-wizard-step-box mb-4">
-                                <h5>Step 1: Copy Connector URL</h5>
+                                <h5>Option 1: Remote SSE Connector URL</h5>
                                 <div class="input-group my-2">
                                     <input type="text" class="form-control font-monospace bg-dark text-info" t-att-value="state.connectorUrl" readonly="readonly"/>
                                     <button class="btn btn-success" t-on-click="copyConnectorUrl">
                                         <i class="fa fa-copy me-1"></i>Copy URL
                                     </button>
                                 </div>
+                                <p class="text-muted small mb-0">Paste into <strong>Claude Settings → Connectors → Add Custom Connector</strong>.</p>
                             </div>
 
-                            <div class="mcp-wizard-step-box mb-4">
-                                <h5>Step 2: Open Claude Connectors Screen</h5>
-                                <p class="text-muted small mb-0">In Claude Desktop → Go to <strong>Settings → Connectors → Click Add Custom Connector</strong>.</p>
-                            </div>
-
-                            <div class="mcp-wizard-step-box">
-                                <h5>Step 3: Enter Details &amp; Connect</h5>
-                                <ul class="text-muted small ps-3 mb-0">
-                                    <li><strong>Connector Name</strong>: <code>odoo-claude</code></li>
-                                    <li><strong>Remote MCP Server URL</strong>: Paste copied Connector URL</li>
-                                    <li>Click <strong>Connect</strong></li>
-                                </ul>
+                            <div class="mcp-wizard-step-box border-top pt-3">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <h5 class="mb-0">Option 2: Local Stdio Bridge JSON</h5>
+                                    <button class="btn btn-sm btn-outline-success" t-on-click="copyJsonConfig">
+                                        <i class="fa fa-copy me-1"></i>Copy JSON
+                                    </button>
+                                </div>
+                                <pre class="p-2 bg-dark text-warning font-monospace small rounded"><code><t t-esc="state.stdioJsonConfig"></t></code></pre>
+                                <p class="text-muted small mb-0">Paste into <code>claude_desktop_config.json</code>.</p>
                             </div>
                         </div>
                         <div class="mcp-modal-footer">
@@ -509,9 +617,9 @@
                         <i class="fa fa-wrench"></i>
                         <span>Tools</span>
                     </button>
-                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'settings'}" t-on-click="setTabSettings">
-                        <i class="fa fa-cog"></i>
-                        <span>Settings</span>
+                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'configurations'}" t-on-click="setTabConfigurations">
+                        <i class="fa fa-sliders"></i>
+                        <span>Configurations</span>
                     </button>
                 </div>
             </nav>

@@ -1,8 +1,12 @@
+# Certificates & Private Keys
+certs/
+*.crt
+*.key
+*.pem
+
+# Python & Odoo
 __pycache__/
-*.py[cod]
-*.log
-logs/*.log
+*.pyc
+*.pyo
 .idea/
 .vscode/
-.env
-.venv

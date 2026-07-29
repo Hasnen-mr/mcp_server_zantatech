@@ -15,10 +15,22 @@ export class MCPControlCenter extends Component {
         this.state = useState({
             activeTab: "home",
             settingsTab: "connection",
+            connectOption: "url", // 'url' or 'stdio'
             
             isHttp: window.location.protocol === "http:",
+            httpsEnabled: window.location.protocol === "https:",
             serverUrl: window.location.origin,
-            connectorUrl: "https://" + window.location.hostname + ":" + (window.location.port || "8069") + "/mcp/v1/sse?token=mcp_live_default",
+            connectorUrl: "https://localhost:8443/mcp/v1/sse?token=mcp_live_default",
+            stdioJsonConfig: JSON.stringify({
+                "mcpServers": {
+                    "odoo-claude": {
+                        "command": "D:\\Odoo\\venv\\Scripts\\python.exe",
+                        "args": [
+                            "D:\\odoo-mcp\\mcp_claude\\bin\\mcp_bridge.py"
+                        ]
+                    }
+                }
+            }, null, 2),
             
             showOAuthSecret: false,
             revealedSecretValue: "••••••••••••••••",
@@ -38,6 +50,18 @@ export class MCPControlCenter extends Component {
             oauthClients: [],
             sessions: [],
             auditLogs: [],
+
+            // Permissions UI State for Odoo Apps
+            odooAppsPermissions: [
+                { id: "sale", name: "Sales (sale.order)", icon: "fa-shopping-cart", read: true, create: true, write: true, delete: false, active: true },
+                { id: "account", name: "Invoicing & Accounting (account.move)", icon: "fa-calculator", read: true, create: true, write: true, delete: false, active: true },
+                { id: "stock", name: "Inventory & Warehouses (stock.picking)", icon: "fa-cubes", read: true, create: false, write: false, delete: false, active: true },
+                { id: "crm", name: "CRM & Opportunities (crm.lead)", icon: "fa-handshake-o", read: true, create: true, write: true, delete: false, active: true },
+                { id: "partner", name: "Contacts & Customers (res.partner)", icon: "fa-address-book", read: true, create: true, write: true, delete: false, active: true },
+                { id: "hr", name: "Employees & HR (hr.employee)", icon: "fa-users", read: true, create: false, write: false, delete: false, active: false },
+                { id: "purchase", name: "Purchase Orders (purchase.order)", icon: "fa-truck", read: true, create: true, write: true, delete: false, active: true },
+                { id: "project", name: "Projects & Tasks (project.task)", icon: "fa-tasks", read: true, create: true, write: true, delete: false, active: true },
+            ],
 
             stats: {
                 totalTools: 0,
@@ -65,8 +89,8 @@ export class MCPControlCenter extends Component {
             const tools = await this.orm.searchRead("mcp.tool", [], ["id", "name", "description", "active", "create_date"]).catch(() => []);
             const keys = await this.orm.searchRead("mcp.api.key", [], ["id", "name", "key_prefix", "scopes", "expiration_policy", "expires_at", "last_used_at", "last_used_ip", "active", "create_date"]).catch(() => []);
             const clients = await this.orm.searchRead("mcp.oauth.client", [], ["id", "name", "client_id", "redirect_uri", "active"]).catch(() => []);
-            const sessions = await this.orm.searchRead("mcp.session", [], ["id", "state", "create_date"]).catch(() => []);
-            const logs = await this.orm.searchRead("mcp.audit.log", [], ["id", "name", "res_model", "action_type", "create_date"], { limit: 15 }).catch(() => []);
+            const sessions = await this.orm.searchRead("mcp.session", [], ["id", "client_name", "status", "create_date"]).catch(() => []);
+            const logs = await this.orm.searchRead("mcp.audit.log", [], ["id", "tool_name", "model_name", "action_type", "status", "create_date"], { limit: 15 }).catch(() => []);
 
             this.state.tools = tools || [];
             this.state.apiKeys = keys || [];
@@ -76,7 +100,7 @@ export class MCPControlCenter extends Component {
 
             this.state.stats.totalTools = this.state.tools.length;
             this.state.stats.activeKeys = this.state.apiKeys.filter(k => k.active).length;
-            this.state.stats.activeSessions = this.state.sessions.filter(s => s.state === 'active').length;
+            this.state.stats.activeSessions = this.state.sessions.filter(s => s.status === 'active').length;
         } catch (e) {
             console.error("Failed loading MCP data:", e);
         }
@@ -84,12 +108,15 @@ export class MCPControlCenter extends Component {
 
     setTabHome() { this.state.activeTab = "home"; }
     setTabTools() { this.state.activeTab = "tools"; }
-    setTabSettings() { this.state.activeTab = "settings"; }
+    setTabConfigurations() { this.state.activeTab = "configurations"; }
 
     setSubTabConnection() { this.state.settingsTab = "connection"; }
     setSubTabAuth() { this.state.settingsTab = "authentication"; }
+    setSubTabPermissions() { this.state.settingsTab = "permissions"; }
     setSubTabGeneral() { this.state.settingsTab = "general"; }
     setSubTabAudit() { this.state.settingsTab = "advanced"; }
+
+    setConnectOption(mode) { this.state.connectOption = mode; }
 
     openConnectWizard() { this.state.showConnectWizard = true; }
     closeConnectWizard() { this.state.showConnectWizard = false; }
@@ -105,12 +132,32 @@ export class MCPControlCenter extends Component {
         this.copyText(this.state.connectorUrl, "Connector URL");
     }
 
+    copyJsonConfig() {
+        this.copyText(this.state.stdioJsonConfig, "claude_desktop_config.json Snippet");
+    }
+
     copyText(text, label = "Item") {
         navigator.clipboard.writeText(text);
         this.notification.add(`${label} copied to clipboard!`, {
             type: "success",
             title: "Copied",
         });
+    }
+
+    toggleAppPermission(appId, perm) {
+        const app = this.state.odooAppsPermissions.find(a => a.id === appId);
+        if (app) {
+            app[perm] = !app[perm];
+            this.notification.add(`Updated ${app.name} (${perm.toUpperCase()}): ${app[perm] ? 'Granted' : 'Revoked'}`, { type: "info" });
+        }
+    }
+
+    toggleAppActive(appId) {
+        const app = this.state.odooAppsPermissions.find(a => a.id === appId);
+        if (app) {
+            app.active = !app.active;
+            this.notification.add(`${app.name} integration ${app.active ? 'Enabled' : 'Disabled'}`, { type: app.active ? "success" : "warning" });
+        }
     }
 
     async createNamedToken() {
