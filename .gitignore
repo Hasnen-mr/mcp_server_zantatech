@@ -4,9 +4,33 @@ certs/
 *.key
 *.pem
 
-# Python & Odoo
+# Python & Environment
 __pycache__/
 *.pyc
 *.pyo
+*.pyd
+.pytest_cache/
+.venv/
+venv/
+ENV/
+env/
+
+# Logs & Temporary Files
+logs/
+*.log
+scratch/
+backups/
+
+# IDE & Editor Settings
 .idea/
 .vscode/
+*.swp
+*.swo
+
+# OS Metadata
+Thumbs.db
+.DS_Store
+desktop.ini
+
+# Odoo Filestore & Local Config Overrides
+*.conf.local
