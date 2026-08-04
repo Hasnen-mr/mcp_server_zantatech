@@ -7,10 +7,12 @@ import logging
 from datetime import datetime
 from odoo import http
 from odoo.http import request, Response
-from odoo.addons.mcp_claude.models.mcp_api_key import SERVER_HMAC_SECRET
-from odoo.addons.mcp_claude.services.rate_limiter import RateLimiter
+from ..registry.tools import ToolRegistry
+from ..services.rate_limiter import RateLimiter
 
 _logger = logging.getLogger(__name__)
+
+SERVER_HMAC_SECRET = b"odoo_mcp_server_hmac_secret_key_v18"
 
 class MCPTransportController(http.Controller):
 
@@ -37,6 +39,14 @@ class MCPTransportController(http.Controller):
         if raw_token == 'mcp_live_default':
             RateLimiter.reset_ip(ip_addr)
             return True, "Authorized (Dev Key)"
+
+        if raw_token.startswith('mcp_access_'):
+            oauth_token_rec = request.env['mcp.oauth.token'].sudo().search([('access_token', '=', raw_token), ('revoked', '=', False)], limit=1)
+            if oauth_token_rec:
+                if oauth_token_rec.expires_at and oauth_token_rec.expires_at < datetime.now():
+                    return False, "Unauthorized: OAuth access token has expired"
+                RateLimiter.reset_ip(ip_addr)
+                return True, f"Authorized (OAuth User: {oauth_token_rec.user_id.name})"
 
         incoming_hash = hmac.new(SERVER_HMAC_SECRET, raw_token.encode('utf-8'), hashlib.sha256).hexdigest()
 
@@ -89,7 +99,49 @@ class MCPTransportController(http.Controller):
             return Response(status=204, headers=headers)
         return Response(json.dumps({"status": "healthy", "version": "18.0.1.0.0", "mcp": "ready"}), status=200, headers=headers)
 
-    @http.route('/mcp/v1/sse', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    @http.route('/.well-known/oauth-protected-resource', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def oauth_protected_resource_root(self, **kwargs):
+        return self._build_oauth_protected_resource_response()
+
+    @http.route('/.well-known/oauth-protected-resource/mcp/v1/sse', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def oauth_protected_resource_sse(self, **kwargs):
+        return self._build_oauth_protected_resource_response()
+
+    @http.route('/.well-known/oauth-protected-resource/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def oauth_protected_resource_mcp(self, **kwargs):
+        return self._build_oauth_protected_resource_response()
+
+    def _build_oauth_protected_resource_response(self):
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Content-Type': 'application/json'
+        }
+        if request.httprequest.method == 'OPTIONS':
+            return Response(status=200, headers=headers)
+        
+        scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
+        host = request.httprequest.host
+        base_url = f"{scheme}://{host}".rstrip('/')
+        payload = {
+            "resource": f"{base_url}/mcp/v1/sse",
+            "authorization_servers": [
+                base_url
+            ],
+            "scopes_supported": [
+                "mcp:read",
+                "mcp:write"
+            ]
+        }
+        return Response(
+            json.dumps(payload, indent=2),
+            status=200,
+            headers=headers
+        )
+
+    @http.route('/mcp', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
+    @http.route('/mcp/v1/sse', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
     def sse_stream(self, **kwargs):
         headers = {
             'Access-Control-Allow-Origin': '*',
@@ -104,17 +156,18 @@ class MCPTransportController(http.Controller):
 
         valid, msg = self._validate_api_key()
         if not valid:
-            return Response(json.dumps({"error": msg}), status=401, headers={'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'})
+            host_hdr = request.httprequest.headers.get('Host', 'odoo.localhost:8443')
+            metadata_url = f"https://{host_hdr}/.well-known/oauth-protected-resource"
+            unauth_headers = {
+                'Content-Type': 'application/json',
+                'Access-Control-Allow-Origin': '*',
+                'WWW-Authenticate': f'Bearer resource_metadata="{metadata_url}"'
+            }
+            return Response(json.dumps({"error": msg}), status=401, headers=unauth_headers)
 
-        host = request.httprequest.host
-        scheme = request.httprequest.scheme
         raw_token = kwargs.get('token') or kwargs.get('api_key') or 'mcp_live_default'
-        
-        if ":8069" in host:
-            host_url = host.replace(":8069", ":8443")
-            endpoint_uri = "https://" + host_url + "/mcp/v1/messages?token=" + raw_token
-        else:
-            endpoint_uri = scheme + "://" + host + "/mcp/v1/messages?token=" + raw_token
+        # Explicit Controlled Experiment Variable: Advertise odoo.localhost:8443 origin
+        endpoint_uri = "https://odoo.localhost:8443/mcp/v1/messages?token=" + raw_token
 
         sse_payload = "event: endpoint\ndata: " + endpoint_uri + "\n\n"
         return Response(sse_payload, status=200, headers=headers)
@@ -166,31 +219,40 @@ class MCPTransportController(http.Controller):
             }
 
         elif method == "tools/list":
-            tools_recs = request.env['mcp.tool'].sudo().search([('active', '=', True)])
+            request.env.invalidate_all()
+            registered_tools = ToolRegistry.get_all_tools(request.env)
             tools_list = []
-            for t in tools_recs:
+            for t in registered_tools:
                 tools_list.append({
-                    "name": t.name,
-                    "description": t.description or "Odoo Tool Function",
-                    "inputSchema": {
-                        "type": "object",
-                        "properties": {
-                            "kwargs": {"type": "object", "description": "Keyword arguments"}
-                        }
-                    }
+                    "name": t["name"],
+                    "description": t.get("description", "Odoo Read-Only Tool"),
+                    "inputSchema": t.get("inputSchema", {"type": "object", "properties": {}})
                 })
-            if not tools_list:
-                tools_list.append({
-                    "name": "odoo_ping",
-                    "description": "Ping Odoo MCP Server",
-                    "inputSchema": {"type": "object", "properties": {}}
-                })
+
             resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {"tools": tools_list}}
 
         elif method == "tools/call":
-            params = body.get('params', {})
-            t_name = params.get('name', '')
+            request.env.invalidate_all()
+            params = body.get('params', {}) if isinstance(body, dict) else {}
+            if isinstance(params, dict):
+                t_name = params.get('name', '')
+                t_args = params.get('arguments', {}) or params.get('kwargs', {}) or {}
+            else:
+                t_name = ''
+                t_args = {}
+            _logger.info(f"MCP tools/call received: t_name='{t_name}', t_args={t_args}, params={params}")
             
+            # Enforce backend read-only access for Create, Update, Delete tool operations
+            if any(mutation in t_name.lower() for mutation in ['create', 'update', 'write', 'delete', 'unlink', 'remove']):
+                err_payload = {
+                    "success": False,
+                    "error": {
+                        "code": "operation_not_allowed",
+                        "message": "This MCP deployment is configured for read-only access."
+                    }
+                }
+                return Response(json.dumps(err_payload), status=403, headers=headers)
+
             # Fail-proof Direct PostgreSQL Audit Logging
             try:
                 import psycopg2
@@ -203,18 +265,20 @@ class MCPTransportController(http.Controller):
                 p_conn.commit()
                 p_cur.close()
                 p_conn.close()
-                _logger.info(f"AUDIT LOG RECORDED IN POSTGRES FOR TOOL: {t_name or 'odoo_ping'}")
             except Exception as log_err:
                 _logger.warning(f"Failed writing audit log: {log_err}")
+
+            # Execute tool via ToolRegistry
+            tool_res = ToolRegistry.execute_tool(request.env, t_name, t_args)
 
             resp_body = {
                 "jsonrpc": "2.0",
                 "id": req_id,
                 "result": {
                     "content": [
-                        {"type": "text", "text": f"Odoo MCP Server Active! Invoked tool: {t_name}. Connection Successful!"}
+                        {"type": "text", "text": json.dumps(tool_res, indent=2, default=str)}
                     ],
-                    "isError": False
+                    "isError": not tool_res.get("success", True) if isinstance(tool_res, dict) else False
                 }
             }
 

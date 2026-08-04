@@ -3,6 +3,7 @@ access_mcp_server_config_admin,mcp.server.config.admin,model_mcp_server_config,g
 access_mcp_api_key_admin,mcp.api.key.admin,model_mcp_api_key,group_mcp_admin,1,1,1,1
 access_mcp_oauth_client_admin,mcp.oauth.client.admin,model_mcp_oauth_client,group_mcp_admin,1,1,1,1
 access_mcp_oauth_token_admin,mcp.oauth.token.admin,model_mcp_oauth_token,group_mcp_admin,1,1,1,1
+access_mcp_oauth_code_admin,mcp.oauth.code.admin,model_mcp_oauth_code,group_mcp_admin,1,1,1,1
 access_mcp_session_user,mcp.session.user,model_mcp_session,group_mcp_user,1,0,0,0
 access_mcp_session_admin,mcp.session.admin,model_mcp_session,group_mcp_admin,1,1,1,1
 access_mcp_model_rule_admin,mcp.model.rule.admin,model_mcp_model_rule,group_mcp_admin,1,1,1,1

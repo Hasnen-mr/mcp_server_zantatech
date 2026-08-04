@@ -247,23 +247,62 @@
                         <div class="mcp-page-header">
                             <div>
                                 <h2 class="mcp-page-title"><i class="fa fa-wrench me-2"></i>MCP Tools Registry</h2>
-                                <p class="mcp-page-sub">Configure active ORM tool functions for AI invocation.</p>
+                                <p class="mcp-page-sub">Configure active ORM tool functions &amp; custom read-only MCP tools for AI invocation.</p>
                             </div>
-                            <button class="btn btn-primary" t-on-click="openCreateToolModal">
-                                <i class="fa fa-plus me-1"></i>New Tool
+                            <button class="btn btn-primary" t-on-click="openAddToolModal">
+                                <i class="fa fa-plus me-1"></i>Add Tool
                             </button>
                         </div>
 
                         <div class="mcp-card-grid my-4">
                             <t t-foreach="state.tools" t-as="tool" t-key="tool.id">
-                                <div class="mcp-tool-card">
-                                    <div class="d-flex justify-content-between align-items-start">
-                                        <h5 class="mcp-tool-name"><t t-esc="tool.name"></t></h5>
-                                        <t t-if="tool.active"><span class="badge bg-success">Active</span></t>
+                                <div class="mcp-tool-card" t-att-class="{'opacity-75': !tool.active}">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div>
+                                            <h5 class="mcp-tool-name mb-1">
+                                                <t t-esc="tool.display_name or tool.name"></t>
+                                            </h5>
+                                            <code class="text-info small"><t t-esc="tool.name"></t></code>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <t t-if="tool.is_builtin">
+                                                <span class="badge bg-secondary me-1"><i class="fa fa-shield me-1"></i>Built-in</span>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="badge bg-primary me-1"><i class="fa fa-cog me-1"></i>Custom</span>
+                                            </t>
+                                            <t t-if="tool.active">
+                                                <span class="badge bg-success">Active</span>
+                                            </t>
+                                            <t t-else="">
+                                                <span class="badge bg-warning text-dark">Disabled</span>
+                                            </t>
+                                        </div>
                                     </div>
                                     <p class="mcp-tool-desc mt-2"><t t-esc="tool.description or 'No description provided.'"></t></p>
+                                    
+                                    <t t-if="tool.model_name">
+                                        <div class="small text-muted mb-2">
+                                            <i class="fa fa-database me-1"></i>Model: <strong><t t-esc="tool.model_name"></t></strong>
+                                            <span class="ms-2 badge bg-dark"><t t-esc="tool.operation"></t></span>
+                                        </div>
+                                    </t>
+
                                     <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                        <span class="text-muted small">ID: #<t t-esc="tool.id"></t></span>
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input" type="checkbox" t-att-checked="tool.active" t-on-change="() => this.toggleToolActive(tool)"/>
+                                            <label class="form-check-label small text-muted"><t t-esc="tool.active ? 'Enabled' : 'Disabled'"></t></label>
+                                        </div>
+                                        <div class="btn-group btn-group-sm">
+                                            <t t-if="!tool.is_builtin">
+                                                <button class="btn btn-outline-light btn-sm" t-on-click="() => this.openEditToolModal(tool)">
+                                                    <i class="fa fa-pencil me-1"></i>Edit
+                                                </button>
+                                                <button class="btn btn-outline-danger btn-sm" t-on-click="() => this.deleteCustomTool(tool)">
+                                                    <i class="fa fa-trash"></i>
+                                                </button>
+                                            </t>
+                                        </div>
                                     </div>
                                 </div>
                             </t>
@@ -402,7 +441,9 @@
                                 </div>
 
                                 <div class="alert alert-info border-0 rounded-3 mb-4">
-                                    <i class="fa fa-lightbulb-o me-2"></i><strong>Permission Control Note:</strong> Fine-grained CRUD controls for sales, invoicing, inventory, and contacts are previewed below. Once URL verification is finalized, live ORM security rules will enforce these toggles.
+                                    <h5 class="alert-heading text-info mb-1"><i class="fa fa-shield me-2"></i>Read-Only MCP Configuration</h5>
+                                    <p class="mb-1 small font-weight-bold">This deployment currently supports Search, Read, Aggregate, and Explain operations.</p>
+                                    <p class="mb-0 small text-muted">Create, Update, and Delete permissions are reserved for future expansion and are currently disabled.</p>
                                 </div>
 
                                 <div class="table-responsive">
@@ -437,13 +478,19 @@
                                                         <input class="form-check-input" type="checkbox" t-att-checked="app.read" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'read')"/>
                                                     </td>
                                                     <td class="text-center">
-                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.create" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'create')"/>
+                                                        <div title="Not available in the current read-only configuration." style="cursor: not-allowed; display: inline-block;" t-on-click="() => this.toggleAppPermission(app.id, 'create')">
+                                                            <input class="form-check-input" type="checkbox" disabled="disabled" style="opacity: 0.45; cursor: not-allowed; pointer-events: none;"/>
+                                                        </div>
                                                     </td>
                                                     <td class="text-center">
-                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.write" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'write')"/>
+                                                        <div title="Not available in the current read-only configuration." style="cursor: not-allowed; display: inline-block;" t-on-click="() => this.toggleAppPermission(app.id, 'write')">
+                                                            <input class="form-check-input" type="checkbox" disabled="disabled" style="opacity: 0.45; cursor: not-allowed; pointer-events: none;"/>
+                                                        </div>
                                                     </td>
                                                     <td class="text-center">
-                                                        <input class="form-check-input" type="checkbox" t-att-checked="app.delete" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'delete')"/>
+                                                        <div title="Not available in the current read-only configuration." style="cursor: not-allowed; display: inline-block;" t-on-click="() => this.toggleAppPermission(app.id, 'delete')">
+                                                            <input class="form-check-input" type="checkbox" disabled="disabled" style="opacity: 0.45; cursor: not-allowed; pointer-events: none;"/>
+                                                        </div>
                                                     </td>
                                                 </tr>
                                             </t>
@@ -504,6 +551,23 @@
             </main>
 
             <!-- Modals -->
+            <t t-if="state.showOperationNotAvailableModal">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog">
+                        <div class="mcp-modal-header bg-warning text-dark">
+                            <h4 class="mb-0 text-dark font-weight-bold"><i class="fa fa-exclamation-triangle me-2"></i><t t-esc="state.operationNotAvailableTitle"></t></h4>
+                            <button class="btn-close" t-on-click="closeOperationNotAvailableModal"></button>
+                        </div>
+                        <div class="mcp-modal-body text-start">
+                            <p class="mb-2"><t t-esc="state.operationNotAvailableMessage"></t></p>
+                        </div>
+                        <div class="mcp-modal-footer">
+                            <button class="btn btn-warning px-4 font-weight-bold" t-on-click="closeOperationNotAvailableModal">OK</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
             <t t-if="state.showCreateTokenModal">
                 <div class="mcp-modal-backdrop animate-fade-in">
                     <div class="mcp-modal-dialog">
@@ -601,6 +665,174 @@
                         </div>
                         <div class="mcp-modal-footer">
                             <button class="btn btn-secondary" t-on-click="closeConnectWizard">Close</button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- 7. Multi-Step Add/Edit Custom Read-Only Tool Modal Dialog -->
+            <t t-if="state.showAddToolModal">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog modal-lg">
+                        <div class="mcp-modal-header">
+                            <h3>
+                                <i class="fa fa-wrench text-primary me-2"></i>
+                                <t t-if="state.isEditingTool">Edit Read-Only MCP Tool</t>
+                                <t t-else="">Add Custom Read-Only MCP Tool</t>
+                            </h3>
+                            <button class="btn-close btn-close-white" t-on-click="closeAddToolModal"></button>
+                        </div>
+                        <div class="mcp-modal-body">
+
+                            <!-- Step Progress Indicator Bar -->
+                            <div class="d-flex justify-content-between mb-4 border-bottom pb-3">
+                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 1, 'text-muted': state.modalStep !== 1}">
+                                    <span class="badge" t-att-class="state.modalStep === 1 ? 'bg-primary' : 'bg-secondary'">1</span> Basic Info
+                                </div>
+                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 2, 'text-muted': state.modalStep !== 2}">
+                                    <span class="badge" t-att-class="state.modalStep === 2 ? 'bg-primary' : 'bg-secondary'">2</span> Target Model
+                                </div>
+                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 3, 'text-muted': state.modalStep !== 3}">
+                                    <span class="badge" t-att-class="state.modalStep === 3 ? 'bg-primary' : 'bg-secondary'">3</span> Fields Config
+                                </div>
+                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 4, 'text-muted': state.modalStep !== 4}">
+                                    <span class="badge" t-att-class="state.modalStep === 4 ? 'bg-primary' : 'bg-secondary'">4</span> Schema Preview
+                                </div>
+                            </div>
+
+                            <!-- STEP 1: General Info -->
+                            <t t-if="state.modalStep === 1">
+                                <div class="mcp-form-group mb-3">
+                                    <label class="form-label font-weight-bold">Technical Tool Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control font-monospace bg-dark text-info" placeholder="e.g. odoo_search_custom_partners" t-model="state.toolForm.name" t-att-disabled="state.isEditingTool"/>
+                                    <small class="form-text text-muted">Lowercase letters, numbers, and underscores only. Cannot be changed after creation.</small>
+                                </div>
+                                <div class="mcp-form-group mb-3">
+                                    <label class="form-label font-weight-bold">Display Name</label>
+                                    <input type="text" class="form-control bg-dark text-white" placeholder="e.g. Search Custom Partners" t-model="state.toolForm.display_name"/>
+                                </div>
+                                <div class="mcp-form-group mb-3">
+                                    <label class="form-label font-weight-bold">Operation <span class="text-danger">*</span></label>
+                                    <select class="form-select bg-dark text-warning" t-model="state.toolForm.operation" t-att-disabled="state.isEditingTool" t-on-change="autoGenerateDescription">
+                                        <option value="search">Search (search_read)</option>
+                                        <option value="read">Read (read)</option>
+                                        <option value="aggregate">Aggregate (read_group)</option>
+                                        <option value="explain">Explain (fields_get)</option>
+                                    </select>
+                                    <small class="form-text text-warning"><i class="fa fa-lock me-1"></i>Operation is strictly read-only. Create, Update, Write, Delete are forbidden.</small>
+                                </div>
+                                <div class="mcp-form-group mb-3">
+                                    <label class="form-label font-weight-bold">Description <span class="text-danger">*</span></label>
+                                    <textarea class="form-control bg-dark text-white" rows="2" placeholder="e.g. Search Odoo Contacts by name, email, or company." t-model="state.toolForm.description"></textarea>
+                                </div>
+                            </t>
+
+                            <!-- STEP 2: Model Selection -->
+                            <t t-if="state.modalStep === 2">
+                                <div class="mb-3">
+                                    <label class="form-label font-weight-bold">Select Target Odoo Model <span class="text-danger">*</span></label>
+                                    <div class="input-group mb-3">
+                                        <span class="input-group-text bg-dark text-muted"><i class="fa fa-search"></i></span>
+                                        <input type="text" class="form-control bg-dark text-white" placeholder="Type model technical or display name (e.g. res.partner, sale.order)..." t-model="state.modelSearchQuery"/>
+                                    </div>
+                                    <div class="model-select-list border rounded p-2 bg-dark text-white" style="max-height: 250px; overflow-y: auto;">
+                                        <t t-if="state.loadingModels">
+                                            <div class="text-center p-3 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading Odoo models...</div>
+                                        </t>
+                                        <t t-else="">
+                                            <t t-foreach="this.filteredModels" t-as="m" t-key="m.model">
+                                                <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer" t-att-class="{'bg-primary text-white': state.toolForm.model_name === m.model}" t-on-click="() => this.onModelSelected(m.model)">
+                                                    <div>
+                                                        <strong><t t-esc="m.name"></t></strong>
+                                                        <span class="ms-2 font-monospace small text-info">(<t t-esc="m.model"></t>)</span>
+                                                    </div>
+                                                    <t t-if="state.toolForm.model_name === m.model">
+                                                        <i class="fa fa-check-circle text-success fs-5"></i>
+                                                    </t>
+                                                </div>
+                                            </t>
+                                        </t>
+                                    </div>
+                                </div>
+                            </t>
+
+                            <!-- STEP 3: Fields Configuration -->
+                            <t t-if="state.modalStep === 3">
+                                <t t-if="state.loadingFields">
+                                    <div class="text-center p-4 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading model fields...</div>
+                                </t>
+                                <t t-else="">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="font-weight-bold text-info"><i class="fa fa-filter me-1"></i>Search Filters (Inputs)</h6>
+                                            <p class="small text-muted mb-2">Select fields exposed as filter arguments in MCP tool input schema.</p>
+                                            <div class="fields-list-box border rounded p-2 bg-dark text-white" style="max-height: 220px; overflow-y: auto;">
+                                                <t t-foreach="state.availableFields" t-as="f" t-key="f.name">
+                                                    <div class="form-check border-bottom py-1">
+                                                        <input class="form-check-input" type="checkbox" t-att-id="'sf_' + f.name" t-att-checked="state.toolForm.search_fields.includes(f.name)" t-on-change="() => this.toggleSearchField(f.name)"/>
+                                                        <label class="form-check-label small" t-att-for="'sf_' + f.name">
+                                                            <strong><t t-esc="f.label"></t></strong> <code class="text-info">(<t t-esc="f.name"></t>)</code>
+                                                        </label>
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                                <h6 class="font-weight-bold text-success m-0"><i class="fa fa-list me-1"></i>Result Fields (Outputs)</h6>
+                                                <div>
+                                                    <button class="btn btn-sm btn-link text-info p-0 me-2" t-on-click="selectAllResultFields">Select All</button>
+                                                    <button class="btn btn-sm btn-link text-muted p-0" t-on-click="clearResultFields">Clear</button>
+                                                </div>
+                                            </div>
+                                            <p class="small text-muted mb-2">Select fields returned in query results.</p>
+                                            <div class="fields-list-box border rounded p-2 bg-dark text-white" style="max-height: 220px; overflow-y: auto;">
+                                                <t t-foreach="state.availableFields" t-as="f" t-key="f.name">
+                                                    <div class="form-check border-bottom py-1">
+                                                        <input class="form-check-input" type="checkbox" t-att-id="'rf_' + f.name" t-att-checked="state.toolForm.result_fields.includes(f.name)" t-on-change="() => this.toggleResultField(f.name)"/>
+                                                        <label class="form-check-label small" t-att-for="'rf_' + f.name">
+                                                            <strong><t t-esc="f.label"></t></strong> <code class="text-info">(<t t-esc="f.name"></t>)</code>
+                                                        </label>
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </t>
+                            </t>
+
+                            <!-- STEP 4: Schema Preview & Summary -->
+                            <t t-if="state.modalStep === 4">
+                                <div class="p-3 bg-dark text-white rounded border border-secondary mb-3">
+                                    <h6 class="text-primary mb-2"><i class="fa fa-code me-1"></i>Generated MCP inputSchema</h6>
+                                    <pre class="m-0 p-2 bg-black text-warning font-monospace small rounded"><code><t t-esc="JSON.stringify(this.generatedSchemaPreview, null, 2)"></t></code></pre>
+                                </div>
+                                <div class="p-3 bg-dark text-white rounded border border-secondary mb-2">
+                                    <h6 class="text-success mb-2"><i class="fa fa-paper-plane me-1"></i>Example Request Payload</h6>
+                                    <pre class="m-0 p-2 bg-black text-info font-monospace small rounded"><code><t t-esc="this.generatedExampleRequest"></t></code></pre>
+                                </div>
+                            </t>
+
+                        </div>
+                        <div class="mcp-modal-footer d-flex justify-content-between">
+                            <button class="btn btn-secondary" t-on-click="closeAddToolModal">Cancel</button>
+                            <div>
+                                <t t-if="state.modalStep &gt; 1">
+                                    <button class="btn btn-outline-light me-2" t-on-click="() => this.setModalStep(state.modalStep - 1)">
+                                        <i class="fa fa-arrow-left me-1"></i>Back
+                                    </button>
+                                </t>
+                                <t t-if="state.modalStep &lt; 4">
+                                    <button class="btn btn-primary" t-on-click="() => this.setModalStep(state.modalStep + 1)">
+                                        Next <i class="fa fa-arrow-right ms-1"></i>
+                                    </button>
+                                </t>
+                                <t t-if="state.modalStep === 4">
+                                    <button class="btn btn-success" t-on-click="saveTool">
+                                        <i class="fa fa-check me-1"></i>Save &amp; Register Tool Live
+                                    </button>
+                                </t>
+                            </div>
                         </div>
                     </div>
                 </div>

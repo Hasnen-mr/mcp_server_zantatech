@@ -11,7 +11,7 @@ class MCPOAuthClient(models.Model):
     _description = "MCP OAuth Client Credentials"
 
     name = fields.Char("Client Name", required=True)
-    client_id = fields.Char("Client ID", required=True, index=True, default=lambda self: self.env['mcp.api.key'].hash_token(fields.Datetime.now())[:16])
+    client_id = fields.Char("Client ID", required=True, index=True, default=lambda self: self.env['mcp.api.key'].hash_token(str(fields.Datetime.now()))[:16])
     client_secret_encrypted = fields.Char("Encrypted Client Secret", required=True)
     client_type = fields.Selection([
         ('confidential', 'Confidential'),
@@ -23,7 +23,7 @@ class MCPOAuthClient(models.Model):
 
     @api.model
     def create_oauth_client(self, name, redirect_uri=""):
-        raw_secret = self.env['mcp.api.key'].hash_token(name + fields.Datetime.now())[:32]
+        raw_secret = self.env['mcp.api.key'].hash_token(name + str(fields.Datetime.now()))[:32]
         enc_secret = base64.b64encode(raw_secret.encode('utf-8')).decode('utf-8')
         rec = self.create({
             "name": name,

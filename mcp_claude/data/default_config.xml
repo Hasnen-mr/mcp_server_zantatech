@@ -22,5 +22,52 @@
             <field name="user_id" ref="base.user_admin"/>
             <field name="active">1</field>
         </record>
+
+        <!-- Default Registered Read-Only MCP Tools -->
+        <record id="mcp_tool_ping" model="mcp.tool">
+            <field name="name">odoo_ping</field>
+            <field name="description">Ping Odoo MCP Server to verify connection status</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_search_partners" model="mcp.tool">
+            <field name="name">odoo_search_partners</field>
+            <field name="description">Search Odoo Contacts &amp; Customers (res.partner). Filter by name, email, phone, or company.</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_search_leads" model="mcp.tool">
+            <field name="name">odoo_search_leads</field>
+            <field name="description">Search Odoo CRM Leads &amp; Opportunities (crm.lead). Filter by name, partner, stage, or salesperson.</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_search_orders" model="mcp.tool">
+            <field name="name">odoo_search_orders</field>
+            <field name="description">Search Odoo Sales Orders (sale.order). Filter by customer, state, or date range.</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_search_invoices" model="mcp.tool">
+            <field name="name">odoo_search_invoices</field>
+            <field name="description">Search Odoo Customer Invoices (account.move). Filter by customer, state, payment state, or date range.</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_search_products" model="mcp.tool">
+            <field name="name">odoo_search_products</field>
+            <field name="description">Search Odoo Products (product.product). Filter by name, internal reference, barcode, or category.</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_read_record" model="mcp.tool">
+            <field name="name">odoo_read_record</field>
+            <field name="description">Generic Read Tool to fetch specific field values for a target record by ID.</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_aggregate" model="mcp.tool">
+            <field name="name">odoo_aggregate</field>
+            <field name="description">Compute aggregation (count, sum, average, min, max) on Odoo models using ORM read_group().</field>
+            <field name="active">1</field>
+        </record>
+        <record id="mcp_tool_explain_record" model="mcp.tool">
+            <field name="name">odoo_explain_record</field>
+            <field name="description">Explain the field structure, labels, types, and relations of any Odoo model for AI inspection.</field>
+            <field name="active">1</field>
+        </record>
     </data>
 </odoo>
