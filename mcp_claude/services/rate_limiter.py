@@ -12,6 +12,8 @@ MAX_FAILED_ATTEMPTS = 5
 class RateLimiter:
     @classmethod
     def is_ip_locked(cls, ip_addr: str) -> bool:
+        if ip_addr in ("127.0.0.1", "localhost", "::1"):
+            return False
         now = time.time()
         attempts = FAILED_ATTEMPTS.get(ip_addr, [])
         # Filter attempts within lockout window
@@ -21,6 +23,8 @@ class RateLimiter:
 
     @classmethod
     def record_failed_attempt(cls, ip_addr: str):
+        if ip_addr in ("127.0.0.1", "localhost", "::1"):
+            return
         now = time.time()
         attempts = FAILED_ATTEMPTS.get(ip_addr, [])
         attempts.append(now)

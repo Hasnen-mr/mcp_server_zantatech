@@ -15,7 +15,7 @@ export class MCPControlCenter extends Component {
         const defaultOrigin = window.location.origin;
         this.state = useState({
             activeTab: "home",
-            settingsTab: "connection",
+            settingsTab: "permissions",
             connectOption: "json", // Default to json; updated dynamically by envInfo recommendation
             
             isHttp: window.location.protocol === "http:",
@@ -228,7 +228,7 @@ export class MCPControlCenter extends Component {
             const tools = await this.orm.searchRead("mcp.tool", [], ["id", "name", "display_name", "description", "model_name", "operation", "search_fields", "result_fields", "active", "is_builtin", "sequence", "create_date"], { order: "sequence, id" }).catch(() => []);
             const keys = await this.orm.searchRead("mcp.api.key", [], ["id", "name", "key_prefix", "scopes", "expiration_policy", "expires_at", "last_used_at", "last_used_ip", "active", "create_date"]).catch(() => []);
             const clients = await this.orm.searchRead("mcp.oauth.client", [], ["id", "name", "client_id", "redirect_uri", "active"]).catch(() => []);
-            const sessions = await this.orm.searchRead("mcp.session", [], ["id", "client_name", "status", "create_date"]).catch(() => []);
+            const sessions = await this.orm.searchRead("mcp.session", [], ["id", "client_name", "active", "expires_at", "create_date"]).catch(() => []);
             const logs = await this.orm.searchRead("mcp.audit.log", [], ["id", "tool_name", "model_name", "action_type", "status", "create_date"], { limit: 15, order: "id desc" }).catch(() => []);
             const backendPerms = await this.orm.call("mcp.model.rule", "get_app_permissions", []).catch(() => null);
 
@@ -243,7 +243,7 @@ export class MCPControlCenter extends Component {
 
             this.state.stats.totalTools = this.state.tools.length;
             this.state.stats.activeKeys = this.state.apiKeys.filter(k => k.active).length;
-            this.state.stats.activeSessions = this.state.sessions.filter(s => s.status === 'active').length;
+            this.state.stats.activeSessions = this.state.sessions.filter(s => s.active).length;
         } catch (e) {
             console.error("Failed loading MCP data:", e);
         }
@@ -251,7 +251,10 @@ export class MCPControlCenter extends Component {
 
     setTabHome() { this.state.activeTab = "home"; }
     setTabTools() { this.state.activeTab = "tools"; }
-    setTabConfigurations() { this.state.activeTab = "configurations"; }
+    setTabConfigurations() { 
+        this.state.activeTab = "configurations"; 
+        this.state.settingsTab = "permissions";
+    }
 
     setSubTabConnection() { this.state.settingsTab = "connection"; }
     setSubTabAuth() { this.state.settingsTab = "authentication"; }

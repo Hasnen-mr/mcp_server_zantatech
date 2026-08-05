@@ -4,22 +4,22 @@
 // ============================================================================
 
 :root {
-  // Brand & Accent Colors
-  --mcp-primary: #2563eb;
-  --mcp-primary-hover: #1d4ed8;
-  --mcp-primary-active: #1e40af;
-  --mcp-primary-light: #eff6ff;
-  --mcp-primary-border: #bfdbfe;
-  --mcp-primary-glow: rgba(37, 99, 235, 0.18);
+  // Brand & Accent Colors (Ultra-Professional Indigo Palette)
+  --mcp-primary: #4f46e5;
+  --mcp-primary-hover: #4338ca;
+  --mcp-primary-active: #3730a3;
+  --mcp-primary-light: #eef2ff;
+  --mcp-primary-border: #c7d2fe;
+  --mcp-primary-glow: rgba(79, 70, 229, 0.16);
 
-  // Base & Surface Colors (Slate Palette)
+  // Base & Surface Colors (Warm Crisp Slate)
   --mcp-bg: #f8fafc;
   --mcp-card-bg: #ffffff;
   --mcp-card-hover: #f1f5f9;
   --mcp-surface-subtle: #f8fafc;
   --mcp-surface-elevated: #ffffff;
   
-  // Typography Colors
+  // Typography Colors (High Contrast Legibility)
   --mcp-text-heading: #0f172a;
   --mcp-text-body: #334155;
   --mcp-text-muted: #64748b;
@@ -33,7 +33,7 @@
   // Status & Notification Colors
   // Success / Enabled / Active
   --mcp-success-bg: #f0fdf4;
-  --mcp-success-text: #166534;
+  --mcp-success-text: #15803d;
   --mcp-success-border: #bbf7d0;
 
   // Warning / Caution / HTTP Notice / Read-Only
@@ -42,25 +42,25 @@
   --mcp-warning-border: #fde68a;
 
   // Danger / Error / Revoked / Disabled
-  --mcp-danger-bg: #fef2f2;
-  --mcp-danger-text: #991b1b;
-  --mcp-danger-border: #fecaca;
+  --mcp-danger-bg: #fff1f2;
+  --mcp-danger-text: #be123c;
+  --mcp-danger-border: #fecdd3;
 
   // Info / Notice / Custom Tools
   --mcp-info-bg: #f0f9ff;
-  --mcp-info-text: #075985;
+  --mcp-info-text: #0369a1;
   --mcp-info-border: #bae6fd;
 
   // Form Controls
   --mcp-input-bg: #ffffff;
   --mcp-input-border: #cbd5e1;
-  --mcp-input-focus-border: #2563eb;
-  --mcp-input-focus-ring: rgba(37, 99, 235, 0.18);
+  --mcp-input-focus-border: #4f46e5;
+  --mcp-input-focus-ring: rgba(79, 70, 229, 0.16);
 
-  // Dark Code Snippet Surface
-  --mcp-code-bg: #0f172a;
+  // Dark Code Snippet Surface (Rich Jet Black)
+  --mcp-code-bg: #090d16;
   --mcp-code-text: #38bdf8;
-  --mcp-code-border: #334155;
+  --mcp-code-border: #1e293b;
 
   // 8-Point Professional Spacing Tokens
   --mcp-space-1: 4px;
@@ -79,12 +79,12 @@
   --mcp-radius-xl: 20px;
   --mcp-radius-pill: 9999px;
 
-  // Standardized Elevation Shadows
-  --mcp-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.04);
-  --mcp-shadow-sm: 0 1px 3px 0 rgba(15, 23, 42, 0.06), 0 1px 2px -1px rgba(15, 23, 42, 0.04);
-  --mcp-shadow-md: 0 4px 6px -1px rgba(15, 23, 42, 0.08), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
-  --mcp-shadow-lg: 0 10px 15px -3px rgba(15, 23, 42, 0.1), 0 4px 6px -4px rgba(15, 23, 42, 0.05);
-  --mcp-shadow-xl: 0 20px 25px -5px rgba(15, 23, 42, 0.12), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
+  // Standardized Elevation Shadows (Multi-layered Premium Depth)
+  --mcp-shadow-xs: 0 1px 2px 0 rgba(15, 23, 42, 0.03);
+  --mcp-shadow-sm: 0 2px 4px 0 rgba(15, 23, 42, 0.04), 0 1px 2px -1px rgba(15, 23, 42, 0.03);
+  --mcp-shadow-md: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.03);
+  --mcp-shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 8px -4px rgba(15, 23, 42, 0.04);
+  --mcp-shadow-xl: 0 20px 30px -5px rgba(15, 23, 42, 0.12), 0 8px 12px -6px rgba(15, 23, 42, 0.04);
 
   // Animation Timing Token
   --mcp-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
