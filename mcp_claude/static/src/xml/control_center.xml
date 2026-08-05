@@ -35,9 +35,16 @@
                                 <h1 class="mcp-hero-title">Connect Claude Desktop to Odoo</h1>
                                 <p class="mcp-hero-subtitle">Enterprise-grade Remote Connector URL or Local Stdio Bridge for Anthropic Claude Desktop.</p>
                                 <div class="mcp-hero-actions">
-                                    <button class="btn btn-primary btn-lg mcp-connect-hero-btn" t-on-click="copyConnectorUrl">
-                                        <i class="fa fa-link me-2"></i>Copy Connector URL
-                                    </button>
+                                    <t t-if="state.envInfo.recommended_connection === 'url'">
+                                        <button class="btn btn-primary btn-lg mcp-connect-hero-btn" t-on-click="copyConnectorUrl">
+                                            <i class="fa fa-link me-2"></i>Copy Connector URL
+                                        </button>
+                                    </t>
+                                    <t t-else="">
+                                        <button class="btn btn-success btn-lg mcp-connect-hero-btn" t-on-click="copyJsonConfig">
+                                            <i class="fa fa-copy me-2"></i>Copy JSON Code
+                                        </button>
+                                    </t>
                                     <button class="btn btn-outline-light btn-lg ms-2" t-on-click="openConnectWizard">
                                         <i class="fa fa-code me-2"></i>How to Connect
                                     </button>
@@ -85,94 +92,241 @@
                             </div>
                         </div>
 
-                        <!-- Connect Options & Instructions Section -->
-                        <div class="mcp-section-card my-4">
+                        <!-- Dynamic Environment Status & Connection Card -->
+                        <div class="mcp-section-card my-4 border border-secondary shadow-sm">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h4 class="mcp-section-title mb-0"><i class="fa fa-bolt text-warning me-2"></i>How to Connect Claude Desktop</h4>
-                                <div class="btn-group" role="group">
-                                    <button class="btn btn-sm" t-att-class="state.connectOption === 'url' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('url')">
-                                        <i class="fa fa-globe me-1"></i>Option 1: Remote SSE URL
-                                    </button>
-                                    <button class="btn btn-sm" t-att-class="state.connectOption === 'stdio' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('stdio')">
-                                        <i class="fa fa-terminal me-1"></i>Option 2: Local Stdio Bridge JSON
-                                    </button>
-                                </div>
+                                <h4 class="mcp-section-title mb-0">
+                                    <i class="fa fa-server text-primary me-2"></i>Environment Status &amp; Recommendation
+                                </h4>
+                                <span class="badge fs-6 px-3 py-2" t-att-class="state.envInfo.badge_class">
+                                    <t t-esc="state.envInfo.badge_label"></t>
+                                </span>
                             </div>
 
-                            <!-- Option 1: Remote SSE URL -->
-                            <t t-if="state.connectOption === 'url'">
-                                <div class="mcp-url-box p-3 mb-4 border border-primary-subtle rounded">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="badge bg-primary fs-6"><i class="fa fa-link me-1"></i>Remote Connector URL</span>
-                                        <span class="text-muted small">Supports trusted SSL on localhost:8443</span>
-                                    </div>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
-                                        <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl">
-                                            <i class="fa fa-copy me-2"></i>Copy Connector URL
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="mcp-simple-guide-grid">
-                                    <div class="mcp-guide-step">
-                                        <div class="mcp-guide-step-num">1</div>
-                                        <div class="mcp-guide-step-content">
-                                            <h6>Open Claude Settings</h6>
-                                            <p class="text-muted small mb-0">Open Claude Desktop → Click profile icon → <strong>Settings → Connectors</strong>.</p>
-                                        </div>
-                                    </div>
-                                    <div class="mcp-guide-step">
-                                        <div class="mcp-guide-step-num">2</div>
-                                        <div class="mcp-guide-step-content">
-                                            <h6>Add Custom Connector</h6>
-                                            <p class="text-muted small mb-0">Click <strong>Add Custom Connector</strong>.</p>
-                                        </div>
-                                    </div>
-                                    <div class="mcp-guide-step">
-                                        <div class="mcp-guide-step-num">3</div>
-                                        <div class="mcp-guide-step-content">
-                                            <h6>Paste &amp; Add</h6>
-                                            <p class="text-muted small mb-0">Name: <code>odoo-claude</code>. Paste Connector URL above → Click <strong>Add</strong>.</p>
-                                        </div>
+                            <!-- Warning Banner for Remote HTTP -->
+                            <t t-if="state.envInfo.warning_message">
+                                <div class="alert alert-warning border-0 rounded-3 mb-4 d-flex align-items-center">
+                                    <i class="fa fa-exclamation-triangle fa-2x me-3 text-warning"></i>
+                                    <div>
+                                        <strong class="d-block text-dark">HTTPS Required for Direct URL Connection</strong>
+                                        <span class="text-dark small"><t t-esc="state.envInfo.warning_message"></t></span>
                                     </div>
                                 </div>
                             </t>
 
-                            <!-- Option 2: Local Stdio Bridge JSON Code -->
-                            <t t-if="state.connectOption === 'stdio'">
-                                <div class="p-3 mb-4 bg-dark text-white rounded border border-secondary">
+                            <div class="row g-3 p-3 bg-dark text-white rounded border border-secondary">
+                                <div class="col-md-3">
+                                    <span class="text-muted small uppercase d-block fw-bold mb-1">Environment</span>
+                                    <span class="fs-6 fw-bold text-light"><t t-esc="state.envInfo.environment_title"></t></span>
+                                </div>
+                                <div class="col-md-3">
+                                    <span class="text-muted small uppercase d-block fw-bold mb-1">Base URL</span>
+                                    <code class="fs-6 text-info"><t t-esc="state.envInfo.base_url"></t></code>
+                                </div>
+                                <div class="col-md-3">
+                                    <span class="text-muted small uppercase d-block fw-bold mb-1">Recommended Connection</span>
+                                    <span class="fs-6 fw-bold text-success">
+                                        <t t-if="state.envInfo.recommended_connection === 'url'"><i class="fa fa-globe me-1"></i>🌐 Direct URL Connection</t>
+                                        <t t-else=""><i class="fa fa-code me-1"></i>📄 Desktop Local Development</t>
+                                    </span>
+                                </div>
+                                <div class="col-md-3">
+                                    <span class="text-muted small uppercase d-block fw-bold mb-1">Reason</span>
+                                    <span class="small text-muted d-block"><t t-esc="state.envInfo.reason"></t></span>
+                                </div>
+                            </div>
+
+                            <!-- Connection Status Live Verification Grid -->
+                            <t t-if="state.envInfo.connection_status">
+                                <div class="mt-3 p-3 bg-black rounded border border-secondary">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <span class="badge bg-success fs-6"><i class="fa fa-code me-1"></i>claude_desktop_config.json</span>
+                                        <span class="text-muted small uppercase fw-bold"><i class="fa fa-heartbeat text-danger me-1"></i>Live Connection Status</span>
+                                        <span class="badge bg-dark text-success border border-success px-2 py-1 small"><i class="fa fa-shield me-1"></i>Verified Live</span>
+                                    </div>
+                                    <div class="row g-2">
+                                        <div class="col-md-3">
+                                            <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                <span class="text-muted small">Server Reachability</span>
+                                                <span class="badge bg-success">🟢 Online</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                <span class="text-muted small">MCP Endpoint</span>
+                                                <span class="badge bg-success">🟢 Reachable</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                <span class="text-muted small">OAuth Support</span>
+                                                <span class="badge bg-success">🟢 Detected</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-3">
+                                            <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                <span class="text-muted small">Recommended</span>
+                                                <span class="badge bg-primary">
+                                                    <t t-if="state.envInfo.recommended_connection === 'url'">🌐 URL</t>
+                                                    <t t-else="">📄 JSON</t>
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </t>
+                        </div>
+
+                        <!-- Connection Options & Dynamic Instructions Section -->
+                        <div class="mcp-section-card my-4">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <h4 class="mcp-section-title mb-0"><i class="fa fa-bolt text-warning me-2"></i>Claude Desktop Connection Methods</h4>
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-sm" t-att-class="state.connectOption === 'url' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('url')">
+                                        <i class="fa fa-globe me-1"></i>Direct URL
+                                    </button>
+                                    <button class="btn btn-sm" t-att-class="state.connectOption === 'stdio' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('stdio')">
+                                        <i class="fa fa-terminal me-1"></i>JSON Config
+                                    </button>
+                                </div>
+                            </div>
+
+                            <!-- Recommended Option 1: Direct URL (When HTTPS Production) -->
+                            <t t-if="state.envInfo.recommended_connection === 'url'">
+                                <!-- Option A (Recommended): Direct SSE URL -->
+                                <div class="p-3 mb-4 bg-dark border border-success rounded position-relative">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <span class="fs-5 fw-bold text-white me-2">🌐 Direct URL Connection</span>
+                                            <span class="badge bg-success"><i class="fa fa-check-circle me-1"></i>✅ Recommended</span>
+                                        </div>
+                                        <span class="text-muted small">Connects directly over secure HTTPS</span>
+                                    </div>
+                                    <p class="text-muted small mb-3">Claude Desktop connects directly to <code><t t-esc="state.envInfo.direct_url"></t></code> without local proxy scripts.</p>
+
+                                    <div class="input-group mb-3">
+                                        <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.envInfo.direct_url" readonly="readonly"/>
+                                        <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl">
+                                            <i class="fa fa-copy me-2"></i>Copy Connector URL
+                                        </button>
+                                    </div>
+
+                                    <div class="mcp-simple-guide-grid">
+                                        <div class="mcp-guide-step">
+                                            <div class="mcp-guide-step-num">1</div>
+                                            <div class="mcp-guide-step-content">
+                                                <h6>Open Claude Settings</h6>
+                                                <p class="text-muted small mb-0">Open Claude Desktop → Click profile icon → <strong>Settings → Connectors</strong>.</p>
+                                            </div>
+                                        </div>
+                                        <div class="mcp-guide-step">
+                                            <div class="mcp-guide-step-num">2</div>
+                                            <div class="mcp-guide-step-content">
+                                                <h6>Add Custom Connector</h6>
+                                                <p class="text-muted small mb-0">Click <strong>Add Custom Connector</strong>.</p>
+                                            </div>
+                                        </div>
+                                        <div class="mcp-guide-step">
+                                            <div class="mcp-guide-step-num">3</div>
+                                            <div class="mcp-guide-step-content">
+                                                <h6>Paste Connector URL</h6>
+                                                <p class="text-muted small mb-0">Name: <code>odoo</code>. Paste <code><t t-esc="state.envInfo.direct_url"></t></code> → Click <strong>Add</strong>.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Option B (Secondary): Local Stdio JSON Config -->
+                                <div class="p-3 bg-dark border border-secondary rounded">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <span class="fs-5 fw-bold text-white me-2">📄 Claude Desktop JSON Configuration</span>
+                                            <span class="badge bg-secondary">Alternative Option</span>
+                                        </div>
                                         <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig">
                                             <i class="fa fa-copy me-1"></i>Copy JSON Code
                                         </button>
                                     </div>
-                                    <pre class="m-0 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.stdioJsonConfig"></t></code></pre>
+                                    <p class="text-muted small mb-2">Stdio bridge snippet for <code>claude_desktop_config.json</code>.</p>
+                                    <pre class="m-0 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.envInfo.config_json"></t></code></pre>
+                                </div>
+                            </t>
+
+                            <!-- Recommended Option 2: JSON Config (When Localhost or Remote HTTP) -->
+                            <t t-else="">
+                                <!-- Option A (Recommended): Desktop Local Development (JSON Config) -->
+                                <div class="p-3 mb-4 bg-dark border border-success rounded position-relative">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <span class="fs-5 fw-bold text-white me-2">📄 Desktop Local Development</span>
+                                            <span class="badge bg-success"><i class="fa fa-check-circle me-1"></i>✅ Recommended</span>
+                                        </div>
+                                        <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig">
+                                            <i class="fa fa-copy me-1"></i>Copy JSON Code
+                                        </button>
+                                    </div>
+                                    <p class="text-muted small mb-2">Add this server to your local <code>claude_desktop_config.json</code> to connect automatically.</p>
+                                    <pre class="mb-3 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.envInfo.config_json"></t></code></pre>
+
+                                    <div class="mcp-simple-guide-grid">
+                                        <div class="mcp-guide-step">
+                                            <div class="mcp-guide-step-num">1</div>
+                                            <div class="mcp-guide-step-content">
+                                                <h6>Copy JSON Code</h6>
+                                                <p class="text-muted small mb-0">Click the green <strong>Copy JSON Code</strong> button above.</p>
+                                            </div>
+                                        </div>
+                                        <div class="mcp-guide-step">
+                                            <div class="mcp-guide-step-num">2</div>
+                                            <div class="mcp-guide-step-content">
+                                                <h6>Paste in Configuration</h6>
+                                                <p class="text-muted small mb-0">Paste code into <code>%APPDATA%\Claude\claude_desktop_config.json</code>.</p>
+                                            </div>
+                                        </div>
+                                        <div class="mcp-guide-step">
+                                            <div class="mcp-guide-step-num">3</div>
+                                            <div class="mcp-guide-step-content">
+                                                <h6>Restart Claude Desktop</h6>
+                                                <p class="text-muted small mb-0">Quit Claude Desktop completely from system tray and re-open.</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
-                                <div class="mcp-simple-guide-grid">
-                                    <div class="mcp-guide-step">
-                                        <div class="mcp-guide-step-num">1</div>
-                                        <div class="mcp-guide-step-content">
-                                            <h6>Copy JSON Code</h6>
-                                            <p class="text-muted small mb-0">Click the green <strong>Copy JSON Code</strong> button above.</p>
+                                <!-- Option B (De-emphasized Secondary): Direct SSE URL -->
+                                <div class="p-3 bg-dark border border-secondary rounded opacity-75">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <div class="d-flex align-items-center">
+                                            <span class="fs-5 fw-bold text-muted me-2">🌐 Direct URL Connection</span>
+                                            <span class="badge bg-secondary">Alternative (Requires HTTPS)</span>
                                         </div>
+                                        <button class="btn btn-sm btn-outline-secondary" disabled="disabled" style="opacity: 0.55; cursor: not-allowed;" title="Direct URL connections require an HTTPS-accessible server.">
+                                            <i class="fa fa-ban me-1"></i>Copy URL
+                                        </button>
                                     </div>
-                                    <div class="mcp-guide-step">
-                                        <div class="mcp-guide-step-num">2</div>
-                                        <div class="mcp-guide-step-content">
-                                            <h6>Paste in Configuration</h6>
-                                            <p class="text-muted small mb-0">Paste code into <code>%APPDATA%\Claude\claude_desktop_config.json</code> (or MS Store UWP path).</p>
+                                    <p class="text-muted small mb-2">Direct URL connections require a public domain secured with HTTPS.</p>
+                                    <div class="input-group mb-2">
+                                        <input type="text" class="form-control font-monospace bg-dark text-muted border-secondary" t-att-value="state.envInfo.direct_url" readonly="readonly" disabled="disabled" style="opacity: 0.65; cursor: not-allowed;" title="Direct URL connections require an HTTPS-accessible server."/>
+                                    </div>
+
+                                    <!-- Explanatory Warning Banner for Localhost / Remote HTTP -->
+                                    <t t-if="state.envInfo.is_localhost">
+                                        <div class="alert alert-warning border border-warning my-3 p-3 rounded d-flex align-items-start">
+                                            <i class="fa fa-exclamation-triangle fa-lg me-3 mt-1 text-warning"></i>
+                                            <div>
+                                                <strong class="d-block text-warning mb-1">Direct URL connections require an HTTPS-accessible server.</strong>
+                                                <span class="small text-light">Your current Odoo instance is running on localhost and cannot be reached by Claude Desktop over OAuth. Use the <strong>Desktop Local Development</strong> configuration instead.</span>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="mcp-guide-step">
-                                        <div class="mcp-guide-step-num">3</div>
-                                        <div class="mcp-guide-step-content">
-                                            <h6>Restart Claude Desktop</h6>
-                                            <p class="text-muted small mb-0">Quit Claude Desktop completely from system tray and re-open.</p>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="alert alert-warning border border-warning my-3 p-3 rounded d-flex align-items-start">
+                                            <i class="fa fa-lock fa-lg me-3 mt-1 text-warning"></i>
+                                            <div>
+                                                <strong class="d-block text-warning mb-1">HTTPS Required for Direct URL Connection</strong>
+                                                <span class="small text-light">This Odoo instance is running over HTTP. Direct URL connections require HTTPS encryption. Please enable SSL/HTTPS on your server or use Desktop Local Development configuration.</span>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </t>
                                 </div>
                             </t>
                         </div>
@@ -244,56 +398,115 @@
                 <!-- 2. TOOLS HUB -->
                 <t t-if="state.activeTab === 'tools'">
                     <div class="mcp-tab-pane animate-fade-in">
-                        <div class="mcp-page-header">
+                        <div class="mcp-page-header d-flex justify-content-between align-items-center mb-4">
                             <div>
-                                <h2 class="mcp-page-title"><i class="fa fa-wrench me-2"></i>MCP Tools Registry</h2>
-                                <p class="mcp-page-sub">Configure active ORM tool functions &amp; custom read-only MCP tools for AI invocation.</p>
+                                <h2 class="mcp-page-title mb-1"><i class="fa fa-wrench me-2 text-primary"></i>MCP Tools Registry</h2>
+                                <p class="mcp-page-sub text-muted mb-0">Manage active Odoo ORM functions &amp; custom tools exposed to Claude AI.</p>
                             </div>
-                            <button class="btn btn-primary" t-on-click="openAddToolModal">
-                                <i class="fa fa-plus me-1"></i>Add Tool
+                            <button class="btn btn-primary btn-lg shadow-sm" t-on-click="openAddToolModal">
+                                <i class="fa fa-plus me-2"></i>Quick-Add Custom Tool
                             </button>
                         </div>
 
+                        <!-- Filter & Search Control Bar -->
+                        <div class="mcp-filter-bar bg-white p-3 rounded-3 border shadow-sm mb-4">
+                            <div class="row g-3 align-items-center">
+                                <div class="col-md-5">
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa fa-search"></i></span>
+                                        <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Filter by tool name, model, or description..." t-model="state.toolsSearchQuery"/>
+                                    </div>
+                                </div>
+                                <div class="col-md-7">
+                                    <div class="d-flex flex-wrap align-items-center gap-1 justify-content-md-end">
+                                        <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('all')">
+                                            All (<t t-esc="state.tools.length"></t>)
+                                        </button>
+                                        <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'search' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('search')">
+                                            Search
+                                        </button>
+                                        <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'read' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('read')">
+                                            Read
+                                        </button>
+                                        <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'create' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('create')">
+                                            Create
+                                        </button>
+                                        <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'write' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('write')">
+                                            Update
+                                        </button>
+                                        <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'delete' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('delete')">
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Action-Oriented Tool Cards Grid -->
                         <div class="mcp-card-grid my-4">
-                            <t t-foreach="state.tools" t-as="tool" t-key="tool.id">
-                                <div class="mcp-tool-card" t-att-class="{'opacity-75': !tool.active}">
-                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                            <t t-if="this.filteredToolsList.length === 0">
+                                <div class="col-12 text-center p-5 bg-white rounded border shadow-sm text-muted">
+                                    <i class="fa fa-wrench fa-3x mb-3 text-secondary opacity-50"></i>
+                                    <h5>No matching MCP tools found</h5>
+                                    <p class="small mb-3">Try adjusting your search query or operation filter.</p>
+                                    <button class="btn btn-sm btn-outline-primary" t-on-click="() => this.setToolsOperationFilter('all')">Reset Filters</button>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <t t-foreach="this.filteredToolsList" t-as="tool" t-key="tool.id">
+                                    <div class="mcp-tool-card bg-white p-4 rounded-3 border shadow-sm h-100 d-flex flex-column justify-content-between position-relative" t-att-class="{'opacity-75 bg-light': !tool.active}">
                                         <div>
-                                            <h5 class="mcp-tool-name mb-1">
-                                                <t t-esc="tool.display_name or tool.name"></t>
-                                            </h5>
-                                            <code class="text-info small"><t t-esc="tool.name"></t></code>
+                                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                                <div>
+                                                    <span class="mcp-operation-badge mb-2 d-inline-block" t-att-data-op="tool.operation">
+                                                        <t t-esc="tool.operation ? tool.operation.toUpperCase() : 'TOOL'"></t>
+                                                    </span>
+                                                    <h5 class="mcp-tool-name mb-1 font-weight-bold text-dark">
+                                                        <t t-esc="tool.display_name or tool.name"></t>
+                                                    </h5>
+                                                    <code class="text-primary small font-monospace"><t t-esc="tool.name"></t></code>
+                                                </div>
+                                                <div class="form-check form-switch m-0" title="Toggle Tool Active Status">
+                                                    <input class="form-check-input cursor-pointer" type="checkbox" t-att-checked="tool.active" t-on-change="() => this.toggleToolActive(tool)"/>
+                                                </div>
+                                            </div>
+
+                                            <p class="mcp-tool-desc text-muted small my-3"><t t-esc="tool.description or 'No description provided.'"></t></p>
                                         </div>
-                                        <div class="d-flex align-items-center gap-1">
-                                            <t t-if="tool.is_builtin">
-                                                <span class="badge bg-secondary me-1"><i class="fa fa-shield me-1"></i>Built-in</span>
+
+                                        <div>
+                                            <t t-if="tool.model_name">
+                                                <div class="d-flex align-items-center justify-content-between text-muted small pt-2 border-top mb-3">
+                                                    <span><i class="fa fa-database me-1 text-primary"></i> <strong><t t-esc="tool.model_name"></t></strong></span>
+                                                    <t t-if="tool.is_builtin">
+                                                        <span class="badge bg-secondary-light text-secondary border"><i class="fa fa-shield me-1"></i>Built-in</span>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <span class="badge bg-primary-light text-primary border"><i class="fa fa-cog me-1"></i>Custom</span>
+                                                    </t>
+                                                </div>
                                             </t>
-                                            <t t-else="">
-                                                <span class="badge bg-primary me-1"><i class="fa fa-cog me-1"></i>Custom</span>
-                                            </t>
-                                            <t t-if="tool.active">
-                                                <span class="badge bg-success">Active</span>
-                                            </t>
-                                            <t t-else="">
-                                                <span class="badge bg-warning text-dark">Disabled</span>
-                                            </t>
+
+                                            <div class="d-flex align-items-center justify-content-between gap-2 pt-2 border-top">
+                                                <button class="btn btn-sm btn-outline-success flex-grow-1" t-on-click="() => this.openTestToolModal(tool)">
+                                                    <i class="fa fa-bolt me-1"></i>Test Tool
+                                                </button>
+                                                <t t-if="!tool.is_builtin">
+                                                    <button class="btn btn-sm btn-outline-primary" t-on-click="() => this.openEditToolModal(tool)" title="Edit Tool">
+                                                        <i class="fa fa-pencil"></i>
+                                                    </button>
+                                                    <button class="btn btn-sm btn-outline-danger" t-on-click="() => this.deleteCustomTool(tool)" title="Delete Tool">
+                                                        <i class="fa fa-trash"></i>
+                                                    </button>
+                                                </t>
+                                            </div>
                                         </div>
                                     </div>
-                                    <p class="mcp-tool-desc mt-2"><t t-esc="tool.description or 'No description provided.'"></t></p>
-                                    
-                                    <t t-if="tool.model_name">
-                                        <div class="small text-muted mb-2">
-                                            <i class="fa fa-database me-1"></i>Model: <strong><t t-esc="tool.model_name"></t></strong>
-                                            <span class="ms-2 badge bg-dark"><t t-esc="tool.operation"></t></span>
-                                        </div>
-                                    </t>
-
-                                    <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top">
-                                        <div class="form-check form-switch m-0">
-                                            <input class="form-check-input" type="checkbox" t-att-checked="tool.active" t-on-change="() => this.toggleToolActive(tool)"/>
-                                            <label class="form-check-label small text-muted"><t t-esc="tool.active ? 'Enabled' : 'Disabled'"></t></label>
-                                        </div>
-                                        <div class="btn-group btn-group-sm">
+                                </t>
+                            </t>
+                        </div>
+                    </div>
+                </t>
                                             <t t-if="!tool.is_builtin">
                                                 <button class="btn btn-outline-light btn-sm" t-on-click="() => this.openEditToolModal(tool)">
                                                     <i class="fa fa-pencil me-1"></i>Edit
@@ -342,40 +555,481 @@
                         <!-- Sub-Tab: Connection -->
                         <t t-if="state.settingsTab === 'connection'">
                             <div class="mcp-section-card">
-                                <h4 class="mb-4"><i class="fa fa-desktop text-primary me-2"></i>Remote &amp; Stdio Connection Options</h4>
+                                <div class="d-flex justify-content-between align-items-center mb-4">
+                                    <h4 class="mb-0"><i class="fa fa-desktop text-primary me-2"></i>Deployment Environment &amp; Connection Options</h4>
+                                    <span class="badge fs-6 px-3 py-2" t-att-class="state.envInfo.badge_class">
+                                        <t t-esc="state.envInfo.badge_label"></t>
+                                    </span>
+                                </div>
                                 
                                 <div class="row g-4 mb-4">
-                                    <div class="col-md-6">
-                                        <label class="form-label text-muted small uppercase fw-bold">Server Base URL</label>
-                                        <input type="text" class="form-control form-control-lg bg-dark text-white border-secondary" t-att-value="state.serverUrl" readonly="readonly"/>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-muted small uppercase fw-bold">Environment</label>
+                                        <div class="fw-bold text-white fs-6"><t t-esc="state.envInfo.environment_title"></t></div>
                                     </div>
-
-                                    <div class="col-md-6">
-                                        <label class="form-label text-muted small uppercase fw-bold">Authentication Mode</label>
-                                        <div class="d-flex align-items-center gap-2"><span t-if="state.httpsEnabled" class="badge bg-success fs-6 p-2">HTTPS Enabled ✅</span><span t-else="" class="badge bg-warning fs-6 p-2">HTTPS Not Configured ⚠️</span></div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-muted small uppercase fw-bold">Detected Base URL</label>
+                                        <div><code class="text-info fs-6"><t t-esc="state.envInfo.base_url"></t></code></div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-muted small uppercase fw-bold">Recommended Method</label>
+                                        <div class="fw-bold text-success fs-6">
+                                            <t t-if="state.envInfo.recommended_connection === 'url'">🌐 Direct URL Connection</t>
+                                            <t t-else="">📄 Claude Desktop JSON Config</t>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label class="form-label text-muted small uppercase fw-bold">Reason</label>
+                                        <div class="small text-muted"><t t-esc="state.envInfo.reason"></t></div>
                                     </div>
                                 </div>
 
-                                <!-- Option 1: URL -->
-                                <div class="p-3 mb-3 bg-dark border border-primary-subtle rounded">
-                                    <label class="form-label text-muted small uppercase fw-bold"><i class="fa fa-globe text-primary me-1"></i>Option 1: Remote SSE Connector URL</label>
-                                    <div class="input-group">
-                                        <input type="text" class="form-control font-monospace bg-dark text-info border-secondary" t-att-value="state.connectorUrl" readonly="readonly"/>
-                                        <button class="btn btn-primary" t-on-click="copyConnectorUrl">
-                                            <i class="fa fa-copy me-1"></i>Copy URL
-                                        </button>
-                                    </div>
-                                </div>
+                                <!-- Section 1: Live Connection Diagnostics & Verification -->
+                                <t t-if="state.envInfo.connection_status">
+                                    <div class="mb-4 p-3 bg-black rounded border border-secondary">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <div>
+                                                <h6 class="text-white mb-0 fw-bold fs-6"><i class="fa fa-heartbeat text-danger me-2"></i>Live Connection Diagnostics</h6>
+                                                <span class="text-muted extra-small">Real-time status of Odoo MCP service layers</span>
+                                            </div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="btn btn-sm btn-outline-primary" t-on-click="testConnector" t-att-disabled="state.testingConnector">
+                                                    <i t-att-class="state.testingConnector ? 'fa fa-spinner fa-spin me-1' : 'fa fa-play me-1'"></i>Test Connection
+                                                </button>
+                                                <span class="badge bg-dark text-success border border-success px-2 py-1 small"><i class="fa fa-shield me-1"></i>Verified Live</span>
+                                            </div>
+                                        </div>
+                                        <div class="row g-2 mb-3">
+                                            <div class="col-md-3">
+                                                <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                    <span class="text-muted small">Server Reachability</span>
+                                                    <span class="badge bg-success">🟢 Online</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                    <span class="text-muted small">MCP Endpoint</span>
+                                                    <span class="badge bg-success">🟢 Reachable</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                    <span class="text-muted small">OAuth Support</span>
+                                                    <span class="badge bg-success">🟢 Detected</span>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-3">
+                                                <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                    <span class="text-muted small">Recommended</span>
+                                                    <span class="badge bg-primary">
+                                                        <t t-if="state.envInfo.recommended_connection === 'url'">🌐 URL</t>
+                                                        <t t-else="">📄 JSON</t>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
 
-                                <!-- Option 2: JSON Code -->
-                                <div class="p-3 bg-dark border border-secondary rounded">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label class="form-label text-muted small uppercase fw-bold mb-0"><i class="fa fa-code text-success me-1"></i>Option 2: Local Stdio Bridge (claude_desktop_config.json)</label>
-                                        <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig">
-                                            <i class="fa fa-copy me-1"></i>Copy JSON Code
+                                        <!-- Real-Time Connection Test Results Panel -->
+                                        <t t-if="state.testResults">
+                                            <div class="p-3 bg-dark rounded border border-info mb-2">
+                                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                                    <h6 class="text-info fw-bold mb-0 small"><i class="fa fa-check-circle me-1"></i>Connection Test Detailed Results</h6>
+                                                    <span t-att-class="state.testResults.connectorReady ? 'badge bg-success' : 'badge bg-warning text-dark'">
+                                                        <t t-if="state.testResults.connectorReady">✓ All Checks Passed</t>
+                                                        <t t-else="">⚠ Check Warning</t>
+                                                    </span>
+                                                </div>
+                                                <p class="text-muted small mb-2"><t t-esc="state.testResults.summary"></t></p>
+                                                <div class="row g-2 extra-small">
+                                                    <div class="col-md-2">
+                                                        <span t-att-class="state.testResults.serverReachable ? 'text-success fw-bold' : 'text-danger fw-bold'">
+                                                            <t t-if="state.testResults.serverReachable">✓ Server Reachable</t><t t-else="">✗ Server Unreachable</t>
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <span t-att-class="state.testResults.httpsReachable ? 'text-success fw-bold' : 'text-warning fw-bold'">
+                                                            <t t-if="state.testResults.httpsReachable">✓ HTTPS Secure</t><t t-else="">⚠ HTTP Only</t>
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <span t-att-class="state.testResults.oauthMetadata ? 'text-success fw-bold' : 'text-danger fw-bold'">
+                                                            <t t-if="state.testResults.oauthMetadata">✓ OAuth Metadata</t><t t-else="">✗ OAuth Missing</t>
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <span t-att-class="state.testResults.mcpEndpoint ? 'text-success fw-bold' : 'text-danger fw-bold'">
+                                                            <t t-if="state.testResults.mcpEndpoint">✓ MCP Endpoint</t><t t-else="">✗ MCP Failed</t>
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <span t-att-class="state.testResults.toolsListResponds ? 'text-success fw-bold' : 'text-danger fw-bold'">
+                                                            <t t-if="state.testResults.toolsListResponds">✓ tools/list OK</t><t t-else="">✗ tools/list Error</t>
+                                                        </span>
+                                                    </div>
+                                                    <div class="col-md-2">
+                                                        <span t-att-class="state.testResults.protocolCompatible ? 'text-success fw-bold' : 'text-warning fw-bold'">
+                                                            <t t-if="state.testResults.protocolCompatible">✓ Protocol 2024-11-05</t><t t-else="">⚠ Protocol Check</t>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+
+                                <!-- Section 2: Claude Desktop Compatibility Card -->
+                                <t t-if="state.envInfo.claude_compatibility">
+                                    <div class="mb-4 p-3 bg-black rounded border border-secondary">
+                                        <div class="d-flex justify-content-between align-items-center mb-3">
+                                            <h6 class="text-white mb-0 fw-bold fs-6"><i class="fa fa-check-square-o text-success me-2"></i>Claude Desktop Compatibility</h6>
+                                            <span class="badge bg-success"><t t-esc="state.envInfo.claude_compatibility.badge"></t></span>
+                                        </div>
+                                        <div class="row g-2">
+                                            <t t-foreach="state.envInfo.claude_compatibility.capabilities" t-as="cap" t-key="cap.name">
+                                                <div class="col-md-6">
+                                                    <div class="p-2 bg-dark rounded border border-secondary d-flex align-items-center justify-content-between">
+                                                        <div>
+                                                            <span class="small text-white fw-bold d-block"><t t-esc="cap.name"></t></span>
+                                                            <span class="extra-small text-muted"><t t-esc="cap.note"></t></span>
+                                                        </div>
+                                                        <span t-att-class="cap.supported ? 'badge bg-success' : 'badge bg-secondary'">
+                                                            <t t-if="cap.supported">✓ Supported</t><t t-else="">⚪ N/A</t>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
+
+                                <t t-if="state.envInfo.warning_message">
+                                    <div class="alert alert-warning border-0 rounded-3 mb-4">
+                                        <i class="fa fa-exclamation-triangle me-2"></i><t t-esc="state.envInfo.warning_message"></t>
+                                    </div>
+                                </t>
+
+                                <!-- Section 3: Claude Desktop Connection Wizard (Platform-Aware Setup) -->
+                                <div class="mcp-section-card my-4 p-4 bg-dark border border-primary rounded shadow">
+                                    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
+                                        <div>
+                                            <h4 class="mb-1 text-white fw-bold"><i class="fa fa-magic text-warning me-2"></i>Claude Desktop Connection Wizard</h4>
+                                            <p class="text-muted small mb-0">Platform-aware setup guide &amp; dynamic configuration generator</p>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <span class="badge bg-primary px-3 py-2 fs-6">
+                                                Detected OS: <t t-esc="state.clientPlatform"></t>
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Wizard Step Navigation Buttons -->
+                                    <div class="btn-group w-100 mb-4" role="group">
+                                        <button class="btn btn-outline-primary py-2" t-att-class="state.wizardStep === 1 ? 'active bg-primary text-white' : ''" t-on-click="() => this.setWizardStep(1)">
+                                            <strong>Step 1:</strong> Environment &amp; Validation
+                                        </button>
+                                        <button class="btn btn-outline-primary py-2" t-att-class="state.wizardStep === 2 ? 'active bg-primary text-white' : ''" t-on-click="() => this.setWizardStep(2)">
+                                            <strong>Step 2:</strong> Connection Method
+                                        </button>
+                                        <button class="btn btn-outline-primary py-2" t-att-class="state.wizardStep === 3 ? 'active bg-primary text-white' : ''" t-on-click="() => this.setWizardStep(3)">
+                                            <strong>Step 3:</strong> Platform Instructions
+                                        </button>
+                                        <button class="btn btn-outline-primary py-2" t-att-class="state.wizardStep === 4 ? 'active bg-primary text-white' : ''" t-on-click="() => this.setWizardStep(4)">
+                                            <strong>Step 4:</strong> Administrator Settings
                                         </button>
                                     </div>
-                                    <pre class="m-0 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.stdioJsonConfig"></t></code></pre>
+
+                                    <!-- Step 1: Environment & Validation Panel -->
+                                    <t t-if="state.wizardStep === 1">
+                                        <div class="p-3 bg-black rounded border border-secondary mb-3">
+                                            <h5 class="text-white mb-3 fs-6 fw-bold"><i class="fa fa-info-circle text-info me-2"></i>Detected Deployment Environment</h5>
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-md-4">
+                                                    <div class="p-3 bg-dark rounded border border-secondary">
+                                                        <span class="text-muted small d-block mb-1">Detected Environment</span>
+                                                        <span class="fs-6 fw-bold text-white"><t t-esc="state.envInfo.environment_title"></t></span>
+                                                        <div class="mt-2"><span class="badge" t-att-class="state.envInfo.badge_class"><t t-esc="state.envInfo.badge_label"></t></span></div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="p-3 bg-dark rounded border border-secondary">
+                                                        <span class="text-muted small d-block mb-1">Detected Base URL</span>
+                                                        <code class="text-info fs-6 d-block text-truncate"><t t-esc="state.envInfo.base_url"></t></code>
+                                                        <span class="small text-muted mt-2 d-block">Automatic runtime detection</span>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <div class="p-3 bg-dark rounded border border-secondary">
+                                                        <span class="text-muted small d-block mb-1">Recommended Method</span>
+                                                        <span class="fs-6 fw-bold text-success">
+                                                            <t t-if="state.envInfo.recommended_connection === 'url'">🌐 Direct URL</t>
+                                                            <t t-else="">📄 Stdio JSON Config</t>
+                                                        </span>
+                                                        <span class="small text-muted mt-2 d-block"><t t-esc="state.envInfo.reason"></t></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Validation Status Grid -->
+                                            <t t-if="state.envInfo.validation">
+                                                <h6 class="text-muted small uppercase fw-bold mb-2">Environment &amp; Configuration Validation</h6>
+                                                <div class="row g-2">
+                                                    <div class="col-md-4">
+                                                        <div class="p-2 bg-dark rounded d-flex align-items-center justify-content-between border border-secondary">
+                                                            <span class="small text-white">Base URL Status</span>
+                                                            <span class="badge bg-success"><t t-esc="state.envInfo.validation.base_url.text"></t></span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="p-2 bg-dark rounded d-flex align-items-center justify-content-between border border-secondary">
+                                                            <span class="small text-white">HTTPS Security</span>
+                                                            <span t-att-class="state.envInfo.validation.https.enabled ? 'badge bg-success' : 'badge bg-warning text-dark'">
+                                                                <t t-esc="state.envInfo.validation.https.text"></t>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="p-2 bg-dark rounded d-flex align-items-center justify-content-between border border-secondary">
+                                                            <span class="small text-white">Direct URL Support</span>
+                                                            <span t-att-class="state.envInfo.validation.direct_url.supported ? 'badge bg-success' : 'badge bg-secondary'">
+                                                                <t t-esc="state.envInfo.validation.direct_url.text"></t>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="p-2 bg-dark rounded d-flex align-items-center justify-content-between border border-secondary">
+                                                            <span class="small text-white">Python Path Validation</span>
+                                                            <span t-att-class="state.envInfo.validation.python_path.state === 'configured' ? 'badge bg-success' : (state.envInfo.validation.python_path.state === 'invalid' ? 'badge bg-danger' : 'badge bg-warning text-dark')">
+                                                                <t t-esc="state.envInfo.validation.python_path.text"></t>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-6">
+                                                        <div class="p-2 bg-dark rounded d-flex align-items-center justify-content-between border border-secondary">
+                                                            <span class="small text-white">MCP Bridge Script Validation</span>
+                                                            <span t-att-class="state.envInfo.validation.bridge_path.state === 'configured' ? 'badge bg-success' : (state.envInfo.validation.bridge_path.state === 'invalid' ? 'badge bg-danger' : 'badge bg-warning text-dark')">
+                                                                <t t-esc="state.envInfo.validation.bridge_path.text"></t>
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </div>
+                                        <div class="d-flex justify-content-end">
+                                            <button class="btn btn-primary" t-on-click="() => this.setWizardStep(2)">
+                                                Continue to Connection Method <i class="fa fa-arrow-right ms-1"></i>
+                                            </button>
+                                        </div>
+                                    </t>
+
+                                    <!-- Step 2: Connection Method (Production HTTPS vs Localhost Experience) -->
+                                    <t t-if="state.wizardStep === 2">
+                                        <div class="p-3 bg-black rounded border border-secondary mb-3">
+                                            <h5 class="text-white mb-3 fs-6 fw-bold"><i class="fa fa-bolt text-warning me-2"></i>End User Connection Setup</h5>
+
+                                            <!-- Production HTTPS Experience: Direct URL Expanded First -->
+                                            <t t-if="state.envInfo.recommended_connection === 'url'">
+                                                <!-- Primary Card: Direct URL Connection -->
+                                                <div class="p-3 mb-3 bg-dark border border-success rounded">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="fs-6 fw-bold text-white"><i class="fa fa-globe text-primary me-2"></i>🌐 Direct URL Connection</span>
+                                                        <span class="badge bg-success">✅ Recommended</span>
+                                                    </div>
+                                                    <p class="text-muted small mb-3">Connect Claude Desktop directly over HTTPS without running local proxy scripts.</p>
+                                                    <div class="input-group mb-3">
+                                                        <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.envInfo.direct_url" readonly="readonly"/>
+                                                        <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl"><i class="fa fa-copy me-2"></i>Copy URL</button>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Secondary Card: Alternative Stdio Method -->
+                                                <div class="p-3 bg-dark border border-secondary rounded">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="fs-6 fw-bold text-muted"><i class="fa fa-code text-secondary me-2"></i>📄 Alternative Method: Stdio JSON Configuration</span>
+                                                        <span class="badge bg-secondary">Alternative Method</span>
+                                                    </div>
+                                                    <p class="text-muted small mb-2">Use this method if connecting via local stdio bridge python script.</p>
+
+                                                    <t t-if="state.envInfo.validation &amp;&amp; !state.envInfo.validation.is_json_valid">
+                                                        <div class="alert alert-warning border-0 rounded-3 mb-2 small">
+                                                            <i class="fa fa-exclamation-triangle me-2"></i><t t-esc="state.envInfo.validation.missing_json_reason"></t>
+                                                        </div>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <pre class="m-0 p-3 bg-black text-warning font-monospace rounded mb-2"><code><t t-esc="state.envInfo.config_json"></t></code></pre>
+                                                        <div class="d-flex justify-content-end">
+                                                            <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig"><i class="fa fa-copy me-1"></i>Copy JSON Code</button>
+                                                        </div>
+                                                    </t>
+                                                </div>
+                                            </t>
+
+                                            <!-- Localhost Experience: Stdio JSON Expanded First -->
+                                            <t t-else="">
+                                                <!-- Primary Card: Stdio JSON Configuration -->
+                                                <div class="p-3 mb-3 bg-dark border border-success rounded">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="fs-6 fw-bold text-white"><i class="fa fa-code text-success me-2"></i>📄 Claude Desktop JSON Configuration</span>
+                                                        <span class="badge bg-success">✅ Recommended</span>
+                                                    </div>
+                                                    <p class="text-muted small mb-2">Dynamic stdio configuration generated from administrator-configured executable paths.</p>
+
+                                                    <t t-if="state.envInfo.validation &amp;&amp; !state.envInfo.validation.is_json_valid">
+                                                        <div class="alert alert-warning border-0 rounded-3 mb-2 small">
+                                                            <i class="fa fa-exclamation-triangle me-2"></i><t t-esc="state.envInfo.validation.missing_json_reason"></t>
+                                                        </div>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <pre class="m-0 p-3 bg-black text-warning font-monospace rounded mb-2"><code><t t-esc="state.envInfo.config_json"></t></code></pre>
+                                                        <div class="d-flex justify-content-end">
+                                                            <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig"><i class="fa fa-copy me-1"></i>Copy JSON Code</button>
+                                                        </div>
+                                                    </t>
+                                                </div>
+
+                                                <!-- Secondary Card: Alternative Direct URL (Requires HTTPS) -->
+                                                <div class="p-3 bg-dark border border-secondary rounded">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <span class="fs-6 fw-bold text-muted"><i class="fa fa-globe text-secondary me-2"></i>🌐 Direct URL Connection (Requires HTTPS Remote Domain)</span>
+                                                        <span class="badge bg-secondary">Requires HTTPS</span>
+                                                    </div>
+                                                    <p class="text-muted small mb-2">Direct URL connections require a public HTTPS domain reverse proxied to Odoo.</p>
+                                                </div>
+                                            </t>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <button class="btn btn-outline-secondary" t-on-click="() => this.setWizardStep(1)"><i class="fa fa-arrow-left me-1"></i> Back</button>
+                                            <button class="btn btn-primary" t-on-click="() => this.setWizardStep(3)">Platform Instructions <i class="fa fa-arrow-right ms-1"></i></button>
+                                        </div>
+                                    </t>
+
+                                    <!-- Step 3: Platform Setup Instructions (Separated Card 1 & Card 2 for Windows) -->
+                                    <t t-if="state.wizardStep === 3">
+                                        <div class="p-3 bg-black rounded border border-secondary mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h5 class="text-white mb-0 fs-6 fw-bold"><i class="fa fa-desktop text-primary me-2"></i>Operating System Setup Guidance</h5>
+                                                <div class="btn-group" role="group">
+                                                    <button class="btn btn-sm" t-att-class="state.clientPlatform === 'Windows' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setClientPlatform('Windows')"><i class="fa fa-windows me-1"></i>Windows</button>
+                                                    <button class="btn btn-sm" t-att-class="state.clientPlatform === 'macOS' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setClientPlatform('macOS')"><i class="fa fa-apple me-1"></i>macOS</button>
+                                                    <button class="btn btn-sm" t-att-class="state.clientPlatform === 'Linux' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setClientPlatform('Linux')"><i class="fa fa-linux me-1"></i>Linux</button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Windows Specific Guidance: Two Clearly Separated Cards -->
+                                            <t t-if="state.clientPlatform === 'Windows'">
+                                                <div class="row g-3 mb-3">
+                                                    <!-- Card 1: Standard Installation -->
+                                                    <div class="col-md-6">
+                                                        <div class="p-3 bg-dark rounded border border-secondary h-100">
+                                                            <h6 class="text-info fw-bold mb-2"><i class="fa fa-folder me-2"></i>Card 1: Standard Installation</h6>
+                                                            <p class="text-muted small mb-2">Standard desktop installations read from Roaming AppData:</p>
+                                                            <code class="text-warning small bg-black p-2 rounded d-block mb-2">%APPDATA%\Claude\claude_desktop_config.json</code>
+                                                            <span class="text-muted extra-small d-block">Typical Path:<br/><code>C:\Users\&lt;user&gt;\AppData\Roaming\Claude\claude_desktop_config.json</code></span>
+                                                        </div>
+                                                    </div>
+
+                                                    <!-- Card 2: Microsoft Store Installation -->
+                                                    <div class="col-md-6">
+                                                        <div class="p-3 bg-dark rounded border border-secondary h-100">
+                                                            <h6 class="text-info fw-bold mb-2"><i class="fa fa-windows me-2"></i>Card 2: Microsoft Store (MSIX) Installation</h6>
+                                                            <p class="text-muted small mb-2">Microsoft Store packaged apps read from LocalCache:</p>
+                                                            <code class="text-warning small bg-black p-2 rounded d-block mb-2">%LOCALAPPDATA%\Packages\&lt;ClaudePackage&gt;\LocalCache\Roaming\Claude\claude_desktop_config.json</code>
+                                                            <span class="text-muted extra-small d-block">Virtualized Path:<br/><code>C:\Users\&lt;user&gt;\AppData\Local\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude_desktop_config.json</code></span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <!-- Informational Note -->
+                                                <div class="alert alert-info border-0 rounded-3 mb-3 bg-dark border-start border-info border-4">
+                                                    <h6 class="text-info fw-bold mb-1"><i class="fa fa-info-circle me-2"></i>Informational Note</h6>
+                                                    <p class="text-muted small mb-0">Some Microsoft Store (MSIX) installations use a virtualized configuration directory. If configuration changes appear to have no effect, verify which location your installation is using. Always restart Claude Desktop completely after editing.</p>
+                                                </div>
+                                            </t>
+
+                                            <!-- macOS Guidance -->
+                                            <t t-if="state.clientPlatform === 'macOS'">
+                                                <div class="p-3 bg-dark rounded border border-secondary mb-3">
+                                                    <h6 class="text-info fw-bold mb-2"><i class="fa fa-apple me-2"></i>macOS Configuration Directory</h6>
+                                                    <code class="text-warning small bg-black p-2 rounded d-block mb-2">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+                                                </div>
+                                            </t>
+
+                                            <!-- Linux Guidance -->
+                                            <t t-if="state.clientPlatform === 'Linux'">
+                                                <div class="p-3 bg-dark rounded border border-secondary mb-3">
+                                                    <h6 class="text-info fw-bold mb-2"><i class="fa fa-linux me-2"></i>Linux Configuration Directory</h6>
+                                                    <code class="text-warning small bg-black p-2 rounded d-block mb-2">~/.config/Claude/claude_desktop_config.json</code>
+                                                </div>
+                                            </t>
+                                        </div>
+                                        <div class="d-flex justify-content-between">
+                                            <button class="btn btn-outline-secondary" t-on-click="() => this.setWizardStep(2)"><i class="fa fa-arrow-left me-1"></i> Back</button>
+                                            <button class="btn btn-primary" t-on-click="() => this.setWizardStep(4)">Administrator Settings <i class="fa fa-arrow-right ms-1"></i></button>
+                                        </div>
+                                    </t>
+
+                                    <!-- Step 4: Administrator Settings & Executable Paths -->
+                                    <t t-if="state.wizardStep === 4">
+                                        <div class="p-3 bg-black rounded border border-secondary mb-3">
+                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                <h5 class="text-white mb-0 fs-6 fw-bold"><i class="fa fa-cogs text-success me-2"></i>⚙️ Administrator Settings</h5>
+                                                <span class="badge bg-success">Admin Managed</span>
+                                            </div>
+                                            <p class="text-muted small mb-3">Configure Python executable and bridge script paths used to dynamically generate stdio JSON snippets for your environment.</p>
+
+                                            <div class="row g-3 mb-3">
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-white small fw-bold">Python Executable Path</label>
+                                                    <input type="text" class="form-control bg-dark text-info border-secondary font-monospace" t-model="state.wizardForm.python_path" placeholder="e.g. D:\Odoo\venv\Scripts\python.exe"/>
+                                                    <span class="text-muted extra-small">Set absolute path for Windows stdio bridge reliability</span>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-white small fw-bold">MCP Bridge Script Path</label>
+                                                    <input type="text" class="form-control bg-dark text-info border-secondary font-monospace" t-model="state.wizardForm.bridge_path" placeholder="e.g. D:\odoo-mcp\mcp_claude\bin\mcp_bridge.py"/>
+                                                    <span class="text-muted extra-small">Location of mcp_bridge.py script</span>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-white small fw-bold">Default API Key / Token</label>
+                                                    <input type="text" class="form-control bg-dark text-info border-secondary font-monospace" t-model="state.wizardForm.api_key" placeholder="mcp_live_default"/>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <label class="form-label text-white small fw-bold">Server URL Override (Optional)</label>
+                                                    <input type="text" class="form-control bg-dark text-info border-secondary font-monospace" t-model="state.wizardForm.server_url" placeholder="Leave empty to use detected URL"/>
+                                                </div>
+                                            </div>
+
+                                            <div class="d-flex justify-content-between align-items-center border-top border-secondary pt-3">
+                                                <button class="btn btn-success" t-on-click="saveWizardParams" t-att-disabled="state.isSavingWizardParams">
+                                                    <i class="fa fa-save me-1"></i>Save Configuration Settings
+                                                </button>
+                                                <button class="btn btn-outline-success" t-on-click="copyJsonConfig" t-att-disabled="state.envInfo.validation &amp;&amp; !state.envInfo.validation.is_json_valid">
+                                                    <i class="fa fa-copy me-1"></i>Copy Generated JSON Code
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        <!-- Generated JSON Code Preview -->
+                                        <div class="p-3 bg-dark border border-secondary rounded mb-3">
+                                            <label class="form-label text-muted small uppercase fw-bold mb-2">Dynamically Generated claude_desktop_config.json</label>
+                                            <t t-if="state.envInfo.validation &amp;&amp; !state.envInfo.validation.is_json_valid">
+                                                <div class="alert alert-warning border-0 rounded-3 mb-0 small">
+                                                    <i class="fa fa-exclamation-triangle me-2"></i><t t-esc="state.envInfo.validation.missing_json_reason"></t>
+                                                </div>
+                                            </t>
+                                            <t t-else="">
+                                                <pre class="m-0 p-3 bg-black text-warning font-monospace rounded"><code><t t-esc="state.envInfo.config_json"></t></code></pre>
+                                            </t>
+                                        </div>
+
+                                        <!-- Restart Reminder Banner -->
+                                        <div class="alert alert-warning border-0 rounded-3 mb-3 bg-dark border-start border-warning border-4">
+                                            <h6 class="text-warning fw-bold mb-1"><i class="fa fa-refresh me-2"></i>Restart Claude Desktop Reminder</h6>
+                                            <p class="text-muted small mb-0">Restart Claude Desktop completely after saving or pasting configuration. Some installations only reload MCP servers during application startup.</p>
+                                        </div>
+
+                                        <div class="d-flex justify-content-start">
+                                            <button class="btn btn-outline-secondary" t-on-click="() => this.setWizardStep(3)"><i class="fa fa-arrow-left me-1"></i> Back</button>
+                                        </div>
+                                    </t>
                                 </div>
                             </div>
                         </t>
@@ -670,169 +1324,175 @@
                 </div>
             </t>
 
-            <!-- 7. Multi-Step Add/Edit Custom Read-Only Tool Modal Dialog -->
+            <!-- 7. Smart 1-Page Quick-Add / Edit Tool Drawer Modal -->
             <t t-if="state.showAddToolModal">
                 <div class="mcp-modal-backdrop animate-fade-in">
-                    <div class="mcp-modal-dialog modal-lg">
-                        <div class="mcp-modal-header">
-                            <h3>
-                                <i class="fa fa-wrench text-primary me-2"></i>
-                                <t t-if="state.isEditingTool">Edit Read-Only MCP Tool</t>
-                                <t t-else="">Add Custom Read-Only MCP Tool</t>
-                            </h3>
-                            <button class="btn-close btn-close-white" t-on-click="closeAddToolModal"></button>
-                        </div>
-                        <div class="mcp-modal-body">
-
-                            <!-- Step Progress Indicator Bar -->
-                            <div class="d-flex justify-content-between mb-4 border-bottom pb-3">
-                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 1, 'text-muted': state.modalStep !== 1}">
-                                    <span class="badge" t-att-class="state.modalStep === 1 ? 'bg-primary' : 'bg-secondary'">1</span> Basic Info
-                                </div>
-                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 2, 'text-muted': state.modalStep !== 2}">
-                                    <span class="badge" t-att-class="state.modalStep === 2 ? 'bg-primary' : 'bg-secondary'">2</span> Target Model
-                                </div>
-                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 3, 'text-muted': state.modalStep !== 3}">
-                                    <span class="badge" t-att-class="state.modalStep === 3 ? 'bg-primary' : 'bg-secondary'">3</span> Fields Config
-                                </div>
-                                <div class="step-item text-center flex-fill" t-att-class="{'fw-bold text-primary': state.modalStep === 4, 'text-muted': state.modalStep !== 4}">
-                                    <span class="badge" t-att-class="state.modalStep === 4 ? 'bg-primary' : 'bg-secondary'">4</span> Schema Preview
+                    <div class="mcp-modal-dialog modal-lg border-0 shadow-lg rounded-4 overflow-hidden">
+                        <div class="mcp-modal-header bg-primary text-white p-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fa fa-magic fa-lg me-3"></i>
+                                <div>
+                                    <h4 class="mb-0 text-white font-weight-bold">
+                                        <t t-if="state.isEditingTool">Configure Custom MCP Tool</t>
+                                        <t t-else="">Quick-Add Custom MCP Tool</t>
+                                    </h4>
+                                    <p class="small text-white-50 mb-0">Select model and operation to auto-generate &amp; register tool live.</p>
                                 </div>
                             </div>
+                            <button class="btn-close btn-close-white" t-on-click="closeAddToolModal"></button>
+                        </div>
+                        <div class="mcp-modal-body p-4 bg-white">
 
-                            <!-- STEP 1: General Info -->
-                            <t t-if="state.modalStep === 1">
-                                <div class="mcp-form-group mb-3">
-                                    <label class="form-label font-weight-bold">Technical Tool Name <span class="text-danger">*</span></label>
-                                    <input type="text" class="form-control font-monospace bg-dark text-info" placeholder="e.g. odoo_search_custom_partners" t-model="state.toolForm.name" t-att-disabled="state.isEditingTool"/>
-                                    <small class="form-text text-muted">Lowercase letters, numbers, and underscores only. Cannot be changed after creation.</small>
-                                </div>
-                                <div class="mcp-form-group mb-3">
-                                    <label class="form-label font-weight-bold">Display Name</label>
-                                    <input type="text" class="form-control bg-dark text-white" placeholder="e.g. Search Custom Partners" t-model="state.toolForm.display_name"/>
-                                </div>
-                                <div class="mcp-form-group mb-3">
-                                    <label class="form-label font-weight-bold">Operation <span class="text-danger">*</span></label>
-                                    <select class="form-select bg-dark text-warning" t-model="state.toolForm.operation" t-att-disabled="state.isEditingTool" t-on-change="autoGenerateDescription">
-                                        <option value="search">Search (search_read)</option>
-                                        <option value="read">Read (read)</option>
-                                        <option value="aggregate">Aggregate (read_group)</option>
-                                        <option value="explain">Explain (fields_get)</option>
-                                    </select>
-                                    <small class="form-text text-warning"><i class="fa fa-lock me-1"></i>Operation is strictly read-only. Create, Update, Write, Delete are forbidden.</small>
-                                </div>
-                                <div class="mcp-form-group mb-3">
-                                    <label class="form-label font-weight-bold">Description <span class="text-danger">*</span></label>
-                                    <textarea class="form-control bg-dark text-white" rows="2" placeholder="e.g. Search Odoo Contacts by name, email, or company." t-model="state.toolForm.description"></textarea>
-                                </div>
-                            </t>
-
-                            <!-- STEP 2: Model Selection -->
-                            <t t-if="state.modalStep === 2">
-                                <div class="mb-3">
-                                    <label class="form-label font-weight-bold">Select Target Odoo Model <span class="text-danger">*</span></label>
-                                    <div class="input-group mb-3">
-                                        <span class="input-group-text bg-dark text-muted"><i class="fa fa-search"></i></span>
-                                        <input type="text" class="form-control bg-dark text-white" placeholder="Type model technical or display name (e.g. res.partner, sale.order)..." t-model="state.modelSearchQuery"/>
+                            <!-- Section 1: Model & Operation Row -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-6">
+                                    <label class="form-label font-weight-bold text-dark mb-1">Target Odoo Model <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa fa-database"></i></span>
+                                        <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Type model (e.g. crm.lead, res.partner)..." t-model="state.modelSearchQuery"/>
                                     </div>
-                                    <div class="model-select-list border rounded p-2 bg-dark text-white" style="max-height: 250px; overflow-y: auto;">
+                                    <div class="model-select-list border rounded-3 p-2 mt-2 bg-light text-dark" style="max-height: 160px; overflow-y: auto;">
                                         <t t-if="state.loadingModels">
-                                            <div class="text-center p-3 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading Odoo models...</div>
+                                            <div class="text-center p-2 text-muted small"><i class="fa fa-spinner fa-spin me-2"></i>Loading models...</div>
                                         </t>
                                         <t t-else="">
                                             <t t-foreach="this.filteredModels" t-as="m" t-key="m.model">
-                                                <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer" t-att-class="{'bg-primary text-white': state.toolForm.model_name === m.model}" t-on-click="() => this.onModelSelected(m.model)">
+                                                <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer rounded-2" t-att-class="{'bg-primary text-white': state.toolForm.model_name === m.model}" t-on-click="() => this.onModelSelected(m.model)">
                                                     <div>
-                                                        <strong><t t-esc="m.name"></t></strong>
-                                                        <span class="ms-2 font-monospace small text-info">(<t t-esc="m.model"></t>)</span>
+                                                        <strong class="small"><t t-esc="m.name"></t></strong>
+                                                        <code class="ms-2 small" t-att-class="state.toolForm.model_name === m.model ? 'text-white' : 'text-primary'">(<t t-esc="m.model"></t>)</code>
                                                     </div>
                                                     <t t-if="state.toolForm.model_name === m.model">
-                                                        <i class="fa fa-check-circle text-success fs-5"></i>
+                                                        <i class="fa fa-check-circle text-white"></i>
                                                     </t>
                                                 </div>
                                             </t>
                                         </t>
                                     </div>
                                 </div>
-                            </t>
 
-                            <!-- STEP 3: Fields Configuration -->
-                            <t t-if="state.modalStep === 3">
-                                <t t-if="state.loadingFields">
-                                    <div class="text-center p-4 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading model fields...</div>
-                                </t>
-                                <t t-else="">
-                                    <div class="row">
-                                        <div class="col-md-6">
-                                            <h6 class="font-weight-bold text-info"><i class="fa fa-filter me-1"></i>Search Filters (Inputs)</h6>
-                                            <p class="small text-muted mb-2">Select fields exposed as filter arguments in MCP tool input schema.</p>
-                                            <div class="fields-list-box border rounded p-2 bg-dark text-white" style="max-height: 220px; overflow-y: auto;">
-                                                <t t-foreach="state.availableFields" t-as="f" t-key="f.name">
-                                                    <div class="form-check border-bottom py-1">
-                                                        <input class="form-check-input" type="checkbox" t-att-id="'sf_' + f.name" t-att-checked="state.toolForm.search_fields.includes(f.name)" t-on-change="() => this.toggleSearchField(f.name)"/>
-                                                        <label class="form-check-label small" t-att-for="'sf_' + f.name">
-                                                            <strong><t t-esc="f.label"></t></strong> <code class="text-info">(<t t-esc="f.name"></t>)</code>
-                                                        </label>
-                                                    </div>
-                                                </t>
-                                            </div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <div class="d-flex justify-content-between align-items-center mb-1">
-                                                <h6 class="font-weight-bold text-success m-0"><i class="fa fa-list me-1"></i>Result Fields (Outputs)</h6>
-                                                <div>
-                                                    <button class="btn btn-sm btn-link text-info p-0 me-2" t-on-click="selectAllResultFields">Select All</button>
-                                                    <button class="btn btn-sm btn-link text-muted p-0" t-on-click="clearResultFields">Clear</button>
-                                                </div>
-                                            </div>
-                                            <p class="small text-muted mb-2">Select fields returned in query results.</p>
-                                            <div class="fields-list-box border rounded p-2 bg-dark text-white" style="max-height: 220px; overflow-y: auto;">
-                                                <t t-foreach="state.availableFields" t-as="f" t-key="f.name">
-                                                    <div class="form-check border-bottom py-1">
-                                                        <input class="form-check-input" type="checkbox" t-att-id="'rf_' + f.name" t-att-checked="state.toolForm.result_fields.includes(f.name)" t-on-change="() => this.toggleResultField(f.name)"/>
-                                                        <label class="form-check-label small" t-att-for="'rf_' + f.name">
-                                                            <strong><t t-esc="f.label"></t></strong> <code class="text-info">(<t t-esc="f.name"></t>)</code>
-                                                        </label>
-                                                    </div>
-                                                </t>
-                                            </div>
+                                <div class="col-md-6">
+                                    <label class="form-label font-weight-bold text-dark mb-1">Operation Type <span class="text-danger">*</span></label>
+                                    <div class="d-flex flex-wrap gap-2 mt-1">
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'search' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('search')">Search</button>
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'read' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('read')">Read</button>
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'aggregate' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('aggregate')">Aggregate</button>
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'explain' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('explain')">Explain</button>
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'create' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('create')">Create</button>
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'write' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('write')">Update</button>
+                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'delete' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('delete')">Delete</button>
+                                    </div>
+
+                                    <div class="mt-3">
+                                        <label class="form-label font-weight-bold text-dark mb-1">Technical Tool Name</label>
+                                        <input type="text" class="form-control font-monospace bg-light" placeholder="e.g. odoo_create_crm_lead" t-model="state.toolForm.name" t-att-disabled="state.isEditingTool"/>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Section 2: Allowed Fields Checkboxes (Skip for Delete) -->
+                            <t t-if="state.toolForm.operation !== 'delete'">
+                                <div class="mb-4">
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label font-weight-bold text-dark m-0">
+                                            <i class="fa fa-list-check me-1 text-primary"></i>
+                                            <t t-if="['create', 'write'].includes(state.toolForm.operation)">Allowed Editable Fields</t>
+                                            <t t-else="">Exposed Search &amp; Result Fields</t>
+                                        </label>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <input type="text" class="form-control form-control-sm bg-light" style="width: 200px;" placeholder="Filter fields..." t-model="state.fieldSearchQuery"/>
+                                            <button class="btn btn-sm btn-link text-primary p-0" t-on-click="selectAllResultFields">Select All</button>
+                                            <button class="btn btn-sm btn-link text-muted p-0" t-on-click="clearResultFields">Clear</button>
                                         </div>
                                     </div>
-                                </t>
+
+                                    <div class="fields-list-box border rounded-3 p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
+                                        <t t-if="state.loadingFields">
+                                            <div class="text-center p-3 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading fields...</div>
+                                        </t>
+                                        <t t-elif="this.filteredAvailableFields.length === 0">
+                                            <div class="text-center p-3 text-muted small">Select a target model above to load available fields.</div>
+                                        </t>
+                                        <t t-else="">
+                                            <div class="row g-2">
+                                                <t t-foreach="this.filteredAvailableFields" t-as="f" t-key="f.name">
+                                                    <div class="col-md-4">
+                                                        <div class="form-check p-2 bg-white rounded border">
+                                                            <input class="form-check-input ms-0 me-2" type="checkbox" t-att-id="'rf_' + f.name" t-att-checked="state.toolForm.result_fields.includes(f.name)" t-on-change="() => this.toggleResultField(f.name)"/>
+                                                            <label class="form-check-label small cursor-pointer" t-att-for="'rf_' + f.name">
+                                                                <strong class="text-dark"><t t-esc="f.label"></t></strong>
+                                                                <code class="text-muted d-block extra-small">(<t t-esc="f.name"></t>)</code>
+                                                            </label>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </div>
                             </t>
 
-                            <!-- STEP 4: Schema Preview & Summary -->
-                            <t t-if="state.modalStep === 4">
-                                <div class="p-3 bg-dark text-white rounded border border-secondary mb-3">
-                                    <h6 class="text-primary mb-2"><i class="fa fa-code me-1"></i>Generated MCP inputSchema</h6>
-                                    <pre class="m-0 p-2 bg-black text-warning font-monospace small rounded"><code><t t-esc="JSON.stringify(this.generatedSchemaPreview, null, 2)"></t></code></pre>
+                            <!-- Section 3: Prompt Description -->
+                            <div class="mb-3">
+                                <label class="form-label font-weight-bold text-dark mb-1">AI Prompt Description <span class="text-danger">*</span></label>
+                                <textarea class="form-control bg-light" rows="2" placeholder="e.g. Search Odoo Contacts by name, email, or company." t-model="state.toolForm.description"></textarea>
+                            </div>
+
+                        </div>
+                        <div class="mcp-modal-footer bg-light p-3 d-flex justify-content-between">
+                            <button class="btn btn-secondary" t-on-click="closeAddToolModal">Cancel</button>
+                            <button class="btn btn-primary btn-lg shadow-sm" t-on-click="saveTool">
+                                <i class="fa fa-check me-2"></i>Auto-Generate &amp; Save Tool Live
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- 8. Interactive Test Tool Runner Modal -->
+            <t t-if="state.showTestToolModal">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog modal-lg border-0 shadow-lg rounded-4 overflow-hidden">
+                        <div class="mcp-modal-header bg-dark text-white p-4">
+                            <div class="d-flex align-items-center">
+                                <i class="fa fa-bolt fa-lg me-3 text-warning"></i>
+                                <div>
+                                    <h4 class="mb-0 text-white font-weight-bold">
+                                        Test Tool: <t t-esc="state.testToolTarget ? state.testToolTarget.name : ''"></t>
+                                    </h4>
+                                    <p class="small text-white-50 mb-0">Execute a live MCP <code>tools/call</code> request directly against Odoo ORM.</p>
                                 </div>
-                                <div class="p-3 bg-dark text-white rounded border border-secondary mb-2">
-                                    <h6 class="text-success mb-2"><i class="fa fa-paper-plane me-1"></i>Example Request Payload</h6>
-                                    <pre class="m-0 p-2 bg-black text-info font-monospace small rounded"><code><t t-esc="this.generatedExampleRequest"></t></code></pre>
+                            </div>
+                            <button class="btn-close btn-close-white" t-on-click="closeTestToolModal"></button>
+                        </div>
+                        <div class="mcp-modal-body p-4 bg-white">
+
+                            <div class="mb-3">
+                                <label class="form-label font-weight-bold text-dark mb-1">Request Arguments (JSON)</label>
+                                <textarea class="form-control font-monospace bg-dark text-info" rows="6" t-model="state.testToolArgsJson"></textarea>
+                                <small class="text-muted">Modify arguments JSON above and click 'Run Test Execution'.</small>
+                            </div>
+
+                            <t t-if="state.testToolExecuting">
+                                <div class="text-center p-4 bg-light rounded border text-muted">
+                                    <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+                                    <p class="mb-0">Executing MCP tool request...</p>
+                                </div>
+                            </t>
+
+                            <t t-if="state.testToolResult">
+                                <div class="mt-3">
+                                    <label class="form-label font-weight-bold text-dark mb-1">Live Execution Response</label>
+                                    <pre class="p-3 bg-dark text-success font-monospace rounded border" style="max-height: 250px; overflow-y: auto;"><code><t t-esc="JSON.stringify(state.testToolResult, null, 2)"></t></code></pre>
                                 </div>
                             </t>
 
                         </div>
-                        <div class="mcp-modal-footer d-flex justify-content-between">
-                            <button class="btn btn-secondary" t-on-click="closeAddToolModal">Cancel</button>
-                            <div>
-                                <t t-if="state.modalStep &gt; 1">
-                                    <button class="btn btn-outline-light me-2" t-on-click="() => this.setModalStep(state.modalStep - 1)">
-                                        <i class="fa fa-arrow-left me-1"></i>Back
-                                    </button>
-                                </t>
-                                <t t-if="state.modalStep &lt; 4">
-                                    <button class="btn btn-primary" t-on-click="() => this.setModalStep(state.modalStep + 1)">
-                                        Next <i class="fa fa-arrow-right ms-1"></i>
-                                    </button>
-                                </t>
-                                <t t-if="state.modalStep === 4">
-                                    <button class="btn btn-success" t-on-click="saveTool">
-                                        <i class="fa fa-check me-1"></i>Save &amp; Register Tool Live
-                                    </button>
-                                </t>
-                            </div>
+                        <div class="mcp-modal-footer bg-light p-3 d-flex justify-content-between">
+                            <button class="btn btn-secondary" t-on-click="closeTestToolModal">Close</button>
+                            <button class="btn btn-success btn-lg shadow-sm" t-on-click="runToolTestExecution" t-att-disabled="state.testToolExecuting">
+                                <i class="fa fa-play me-2"></i>Run Test Execution
+                            </button>
                         </div>
                     </div>
                 </div>

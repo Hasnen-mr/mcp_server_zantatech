@@ -568,6 +568,59 @@
   }
 }
 
+// Operation Badge Pills
+.mcp-operation-badge {
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  padding: 0.25rem 0.6rem;
+  border-radius: var(--mcp-radius-pill);
+  text-transform: uppercase;
+
+  &[data-op="search"] {
+    background: #e0f2fe;
+    color: #0369a1;
+    border: 1px solid #bae6fd;
+  }
+  &[data-op="read"] {
+    background: #f0fdf4;
+    color: #15803d;
+    border: 1px solid #bbf7d0;
+  }
+  &[data-op="aggregate"] {
+    background: #fef3c7;
+    color: #b45309;
+    border: 1px solid #fde68a;
+  }
+  &[data-op="explain"] {
+    background: #f3e8ff;
+    color: #6b21a8;
+    border: 1px solid #e9d5ff;
+  }
+  &[data-op="create"] {
+    background: #e0e7ff;
+    color: #4338ca;
+    border: 1px solid #c7d2fe;
+  }
+  &[data-op="write"] {
+    background: #ffedd5;
+    color: #c2410c;
+    border: 1px solid #fed7aa;
+  }
+  &[data-op="delete"] {
+    background: #ffe4e6;
+    color: #be123c;
+    border: 1px solid #fecdd3;
+  }
+}
+
+.bg-primary-light {
+  background-color: #e0e7ff !important;
+}
+.bg-secondary-light {
+  background-color: #f1f5f9 !important;
+}
+
 // Enterprise Badge System
 .badge {
   font-weight: 600;

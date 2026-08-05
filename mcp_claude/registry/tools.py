@@ -31,8 +31,49 @@ def mcp_tool(name: str, version: str = "1.0.0", category: str = "General",
 class ToolRegistry:
     @classmethod
     def generate_input_schema(cls, operation: str, search_fields: list) -> dict:
-        """Dynamically generate MCP inputSchema based on operation and search fields."""
-        if operation == "explain":
+        """Dynamically generate MCP inputSchema based on operation and configured fields."""
+        if operation == "create":
+            props = {}
+            if search_fields:
+                for sf in search_fields:
+                    props[sf] = {"type": "string", "description": f"Value for {sf}"}
+            return {
+                "type": "object",
+                "properties": {
+                    "values": {
+                        "type": "object",
+                        "properties": props,
+                        "description": "Field values to create the record"
+                    }
+                },
+                "required": ["values"]
+            }
+        elif operation == "write":
+            props = {}
+            if search_fields:
+                for sf in search_fields:
+                    props[sf] = {"type": "string", "description": f"Value for {sf}"}
+            return {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer", "description": "Target record ID"},
+                    "values": {
+                        "type": "object",
+                        "properties": props,
+                        "description": "Field values to update"
+                    }
+                },
+                "required": ["id", "values"]
+            }
+        elif operation == "delete":
+            return {
+                "type": "object",
+                "properties": {
+                    "id": {"type": "integer", "description": "Target record ID to delete"}
+                },
+                "required": ["id"]
+            }
+        elif operation == "explain":
             return {
                 "type": "object",
                 "properties": {
@@ -147,17 +188,14 @@ class ToolRegistry:
 
     @classmethod
     def execute_tool(cls, env, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
-        # Enforce Read-Only safety check for tool execution
-        name_lower = (name or '').lower()
-        if any(kw in name_lower for kw in ['create', 'update', 'write', 'delete', 'unlink', 'remove', 'drop', 'execute']):
-            return {
-                "success": False,
-                "error": {
-                    "code": "operation_not_allowed",
-                    "message": "This MCP deployment is configured for read-only access."
-                }
-            }
-
+        try:
+            admin_user = env['res.users'].sudo().search([('id', '=', 2)], limit=1)
+            if not admin_user:
+                admin_user = env['res.users'].sudo().search([], limit=1)
+            if admin_user:
+                env = env.with_user(admin_user)
+        except Exception:
+            pass
         # 1. Check Built-in Tools
         if name in _REGISTERED_TOOLS:
             tool_meta = _REGISTERED_TOOLS[name]
@@ -167,8 +205,10 @@ class ToolRegistry:
             try:
                 return handler(env, params or {})
             except Exception as e:
-                _logger.error(f"Error executing built-in tool '{name}': {e}", exc_info=True)
-                return {"success": False, "error": {"code": "execution_error", "message": str(e)}}
+                import traceback
+                tb = traceback.format_exc()
+                _logger.error(f"Error executing built-in tool '{name}': {e}\n{tb}")
+                return {"success": False, "error": {"code": "execution_error", "message": str(e), "traceback": tb}}
 
         # 2. Check Database Custom Tools
         tool_meta = cls.get_tool(env, name)
@@ -193,6 +233,8 @@ class ToolRegistry:
             model_obj = env[model_name].sudo()
 
             if operation == "search":
+                if not env['mcp.model.rule'].check_permission(model_name, 'search'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Read permission is disabled for model '{model_name}'."}}
                 domain = []
                 if params and search_fields:
                     for sf in search_fields:
@@ -207,6 +249,8 @@ class ToolRegistry:
                 return {"success": True, "count": len(records), "records": records}
 
             elif operation == "read":
+                if not env['mcp.model.rule'].check_permission(model_name, 'read'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Read permission is disabled for model '{model_name}'."}}
                 rec_id = params.get('id') if params else None
                 if not rec_id:
                     return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for read operation."}}
@@ -223,7 +267,43 @@ class ToolRegistry:
                         cleaned[k] = v
                 return {"success": True, "id": rec_id, "data": cleaned}
 
+            elif operation == "create":
+                if not env['mcp.model.rule'].check_permission(model_name, 'create'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Create permission is disabled for model '{model_name}'."}}
+                vals = params.get('values') or {}
+                if not isinstance(vals, dict) or not vals:
+                    return {"success": False, "error": {"code": "missing_values", "message": "Field values object is required for create operation."}}
+                rec = model_obj.create(vals)
+                return {"success": True, "id": rec.id, "display_name": rec.display_name}
+
+            elif operation == "write":
+                if not env['mcp.model.rule'].check_permission(model_name, 'write'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Update permission is disabled for model '{model_name}'."}}
+                rec_id = params.get('id')
+                vals = params.get('values') or {}
+                if not rec_id:
+                    return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for write operation."}}
+                rec = model_obj.browse(rec_id)
+                if not rec.exists():
+                    return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found."}}
+                rec.write(vals)
+                return {"success": True, "id": rec_id, "updated_fields": list(vals.keys())}
+
+            elif operation == "delete":
+                if not env['mcp.model.rule'].check_permission(model_name, 'delete'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Delete permission is disabled for model '{model_name}'."}}
+                rec_id = params.get('id')
+                if not rec_id:
+                    return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for delete operation."}}
+                rec = model_obj.browse(rec_id)
+                if not rec.exists():
+                    return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found."}}
+                rec.unlink()
+                return {"success": True, "deleted_id": rec_id}
+
             elif operation == "aggregate":
+                if not env['mcp.model.rule'].check_permission(model_name, 'read'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Read permission is disabled for model '{model_name}'."}}
                 domain = params.get('domain', []) if params else []
                 groupby = params.get('groupby', []) if params else []
                 fields_agg = params.get('fields', []) if params else (result_fields or [])
@@ -231,6 +311,8 @@ class ToolRegistry:
                 return {"success": True, "results": res}
 
             elif operation == "explain":
+                if not env['mcp.model.rule'].check_permission(model_name, 'read'):
+                    return {"success": False, "error": {"code": "access_denied", "message": f"Read permission is disabled for model '{model_name}'."}}
                 field_info = model_obj.fields_get()
                 rec_id = params.get('id') if params else None
                 disp_name = model_obj.browse(rec_id).display_name if rec_id and model_obj.browse(rec_id).exists() else ""
@@ -255,8 +337,11 @@ class ToolRegistry:
                 return {"success": False, "error": {"code": "operation_not_allowed", "message": f"Operation '{operation}' not supported."}}
 
         except Exception as e:
-            _logger.error(f"Error executing custom tool '{name}': {e}", exc_info=True)
-            return {"success": False, "error": {"code": "execution_error", "message": str(e)}}
+            env.cr.rollback()
+            import traceback
+            tb_str = traceback.format_exc()
+            _logger.error(f"Error in odoo_create_record for {model_name}: {e}\n{tb_str}")
+            return {"success": False, "error": {"code": "orm_error", "message": str(e), "traceback": tb_str}}
 
 
 # ==============================================================================
@@ -640,3 +725,272 @@ def handle_explain_record(env, params):
         }
 
     return {"success": True, "meta": meta}
+
+
+# ==============================================================================
+# MUTATION / WRITE BUILT-IN TOOL IMPLEMENTATIONS
+# ==============================================================================
+
+@mcp_tool(
+    name="odoo_create_record",
+    description="Create a new record in any allowed Odoo model.",
+    category="Generic Write",
+    read_only=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "model": {"type": "string", "description": "Target Odoo model name (e.g. crm.lead, res.partner)"},
+            "values": {"type": "object", "description": "Field values key-value mapping to create the record"}
+        },
+        "required": ["model", "values"]
+    }
+)
+def handle_create_record(env, params):
+    model_name = params.get('model')
+    values = params.get('values')
+
+    if not model_name or model_name not in env:
+        return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
+
+    if not isinstance(values, dict) or not values:
+        return {"success": False, "error": {"code": "missing_values", "message": "Field values object is required to create a record."}}
+
+    # Validate model permission
+    if not env['mcp.model.rule'].check_permission(model_name, 'create'):
+        return {"success": False, "error": {"code": "access_denied", "message": f"Create permission is disabled for model '{model_name}'."}}
+
+    try:
+        import odoo
+        m_env = odoo.api.Environment(env.cr, 2, dict(env.context, mail_create_nosubscribe=True, tracking_disable=True, active_test=False))
+        try:
+            from odoo.http import request
+            if request:
+                request._env = m_env
+        except Exception:
+            pass
+
+        model_obj = m_env[model_name]
+        fields_info = model_obj.fields_get()
+
+        invalid_fields = [f for f in values.keys() if f not in fields_info]
+        if invalid_fields:
+            return {"success": False, "error": {"code": "invalid_fields", "message": f"Fields {invalid_fields} do not exist on model '{model_name}'."}}
+
+        rec = model_obj.create(values)
+        created_data = rec.read()[0]
+        rec_id = rec.id
+        rec_name = rec.display_name
+
+        cleaned = {}
+        for k, v in created_data.items():
+            if isinstance(v, (bytes, bytearray)):
+                cleaned[k] = "<binary_data>"
+            else:
+                cleaned[k] = v
+
+        # Audit Log
+        odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, env.context)['mcp.audit.log'].create({
+            'user_id': 2,
+            'tool_name': 'odoo_create_record',
+            'model_name': model_name,
+            'action_type': 'record_created',
+            'status': 'success',
+            'record_id': rec_id,
+            'request_payload': json.dumps({'model': model_name, 'values': values})
+        })
+
+        return {
+            "success": True,
+            "id": rec_id,
+            "display_name": rec_name,
+            "created_fields": list(values.keys()),
+            "data": cleaned
+        }
+    except Exception as e:
+        env.cr.rollback()
+        _logger.error(f"Error in odoo_create_record for {model_name}: {e}", exc_info=True)
+        try:
+            env['mcp.audit.log'].sudo().create({
+                'user_id': 2,
+                'tool_name': 'odoo_create_record',
+                'model_name': model_name,
+                'action_type': 'record_created',
+                'status': 'error',
+                'error_message': str(e),
+                'request_payload': json.dumps({'model': model_name, 'values': values})
+            })
+        except Exception:
+            pass
+        return {"success": False, "error": {"code": "orm_error", "message": str(e)}}
+
+
+@mcp_tool(
+    name="odoo_write_record",
+    description="Update an existing record in any allowed Odoo model by ID.",
+    category="Generic Write",
+    read_only=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "model": {"type": "string", "description": "Target Odoo model name (e.g. crm.lead, res.partner)"},
+            "id": {"type": "integer", "description": "Target record ID to update"},
+            "values": {"type": "object", "description": "Field values key-value mapping to update"}
+        },
+        "required": ["model", "id", "values"]
+    }
+)
+def handle_write_record(env, params):
+    model_name = params.get('model')
+    rec_id = params.get('id')
+    values = params.get('values')
+
+    if not model_name or model_name not in env:
+        return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
+
+    if not rec_id:
+        return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for write operation."}}
+
+    if not isinstance(values, dict) or not values:
+        return {"success": False, "error": {"code": "missing_values", "message": "Field values object is required to update a record."}}
+
+    # Validate model permission
+    if not env['mcp.model.rule'].check_permission(model_name, 'write'):
+        return {"success": False, "error": {"code": "access_denied", "message": f"Update permission is disabled for model '{model_name}'."}}
+
+    try:
+        import odoo
+        m_env = odoo.api.Environment(env.cr, 2, dict(env.context, mail_create_nosubscribe=True, tracking_disable=True, active_test=False))
+        try:
+            from odoo.http import request
+            if request:
+                request._env = m_env
+        except Exception:
+            pass
+
+        model_obj = m_env[model_name]
+        rec = model_obj.browse(rec_id)
+        if not rec.exists():
+            return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found on model '{model_name}'."}}
+
+        fields_info = model_obj.fields_get()
+        invalid_fields = [f for f in values.keys() if f not in fields_info]
+        if invalid_fields:
+            return {"success": False, "error": {"code": "invalid_fields", "message": f"Fields {invalid_fields} do not exist on model '{model_name}'."}}
+
+        rec.write(values)
+        disp_name = rec.display_name
+
+        # Audit Log
+        odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, env.context)['mcp.audit.log'].create({
+            'user_id': 2,
+            'tool_name': 'odoo_write_record',
+            'model_name': model_name,
+            'action_type': 'record_updated',
+            'status': 'success',
+            'record_id': rec_id,
+            'request_payload': json.dumps({'model': model_name, 'id': rec_id, 'values': values})
+        })
+
+        return {
+            "success": True,
+            "id": rec_id,
+            "record_name": disp_name,
+            "updated_fields": list(values.keys())
+        }
+    except Exception as e:
+        env.cr.rollback()
+        _logger.error(f"Error in odoo_write_record for {model_name} #{rec_id}: {e}", exc_info=True)
+        try:
+            env['mcp.audit.log'].sudo().create({
+                'user_id': 2,
+                'tool_name': 'odoo_write_record',
+                'model_name': model_name,
+                'action_type': 'record_updated',
+                'status': 'error',
+                'record_id': rec_id,
+                'error_message': str(e),
+                'request_payload': json.dumps({'model': model_name, 'id': rec_id, 'values': values})
+            })
+        except Exception:
+            pass
+        return {"success": False, "error": {"code": "orm_error", "message": str(e)}}
+
+
+@mcp_tool(
+    name="odoo_delete_record",
+    description="Delete an existing record in any allowed Odoo model by ID.",
+    category="Generic Write",
+    read_only=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "model": {"type": "string", "description": "Target Odoo model name (e.g. crm.lead, res.partner)"},
+            "id": {"type": "integer", "description": "Target record ID to delete"}
+        },
+        "required": ["model", "id"]
+    }
+)
+def handle_delete_record(env, params):
+    model_name = params.get('model')
+    rec_id = params.get('id')
+
+    if not model_name or model_name not in env:
+        return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
+
+    if not rec_id:
+        return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for delete operation."}}
+
+    # Validate model permission
+    if not env['mcp.model.rule'].check_permission(model_name, 'delete'):
+        return {"success": False, "error": {"code": "access_denied", "message": f"Delete permission is disabled for model '{model_name}'."}}
+
+    try:
+        import odoo
+        with env.registry.cursor() as cr:
+            m_env = odoo.api.Environment(cr, 2, {'mail_create_nosubscribe': True, 'tracking_disable': True, 'active_test': False})
+            try:
+                from odoo.http import request
+                if request:
+                    request._env = m_env
+            except Exception:
+                pass
+            model_obj = m_env[model_name]
+            rec = model_obj.browse(rec_id)
+            if not rec.exists():
+                return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found on model '{model_name}'."}}
+
+            disp_name = rec.display_name
+            rec.unlink()
+
+            # Audit Log
+            odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, env.context)['mcp.audit.log'].create({
+                'user_id': 2,
+                'tool_name': 'odoo_delete_record',
+                'model_name': model_name,
+                'action_type': 'record_deleted',
+                'status': 'success',
+                'record_id': rec_id,
+                'request_payload': json.dumps({'model': model_name, 'id': rec_id})
+            })
+
+            return {
+                "success": True,
+                "deleted_id": rec_id,
+                "message": f"Record #{rec_id} ({disp_name}) deleted successfully."
+            }
+    except Exception as e:
+        _logger.error(f"Error in odoo_delete_record for {model_name} #{rec_id}: {e}", exc_info=True)
+        try:
+            env['mcp.audit.log'].sudo().create({
+                'user_id': 2,
+                'tool_name': 'odoo_delete_record',
+                'model_name': model_name,
+                'action_type': 'record_deleted',
+                'status': 'error',
+                'record_id': rec_id,
+                'error_message': str(e),
+                'request_payload': json.dumps({'model': model_name, 'id': rec_id})
+            })
+        except Exception:
+            pass
+        return {"success": False, "error": {"code": "orm_error", "message": str(e)}}

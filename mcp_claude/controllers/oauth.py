@@ -6,7 +6,7 @@ import hashlib
 import base64
 import time
 import datetime
-from odoo import http
+from odoo import http, fields
 from odoo.http import request, Response
 
 _logger = logging.getLogger(__name__)
@@ -17,6 +17,7 @@ def _base64url_encode(input_bytes):
 class MCPOAuthController(http.Controller):
 
     @http.route('/oauth2/register', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
+    @http.route('/mcp/oauth/register', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def register(self, **kwargs):
         headers = {
             'Content-Type': 'application/json',
@@ -83,6 +84,11 @@ class MCPOAuthController(http.Controller):
             return Response(f'<html><body><h3>OAuth Error: Invalid client_id {client_id}</h3></body></html>', status=400, headers=headers)
 
         target_redirect_uri = redirect_uri or client_rec.redirect_uri or 'claude://claude.ai/mcp-auth-callback/sdk'
+        if target_redirect_uri.startswith('/'):
+            scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
+            host = request.httprequest.host
+            base_url = f"{scheme}://{host}".rstrip('/')
+            target_redirect_uri = f"{base_url}{target_redirect_uri}"
 
         # If user submits consent form
         if request.httprequest.method == 'POST':
@@ -101,8 +107,8 @@ class MCPOAuthController(http.Controller):
             if state:
                 redirect_url += f"&state={state}"
 
-            _logger.info(f"OAuth Authorization Code Issued: {code_rec.code} for Client {client_id}")
-            return request.redirect(redirect_url, code=302)
+            _logger.info(f"OAuth Authorization Code Issued: {code_rec.code} for Client {client_id} -> {redirect_url}")
+            return Response(status=302, headers=[('Location', redirect_url), ('Access-Control-Allow-Origin', '*')])
 
         # Render HTML Consent & Login Page
         html_content = f"""
@@ -143,7 +149,9 @@ class MCPOAuthController(http.Controller):
     @http.route('/mcp/oauth/token', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def token(self, **kwargs):
         headers = {
-            'Content-Type': 'application/json',
+            'Content-Type': 'application/json;charset=UTF-8',
+            'Cache-Control': 'no-store',
+            'Pragma': 'no-cache',
             'Access-Control-Allow-Origin': '*',
             'Access-Control-Allow-Methods': 'POST, OPTIONS',
             'Access-Control-Allow-Headers': 'Content-Type, Authorization'
@@ -151,11 +159,32 @@ class MCPOAuthController(http.Controller):
         if request.httprequest.method == 'OPTIONS':
             return Response(status=204, headers=headers)
 
+        data = {}
+        # Parse HTTP Authorization Basic header for client_secret_basic authentication
+        auth_header = request.httprequest.headers.get('Authorization')
+        if auth_header and auth_header.startswith('Basic '):
+            try:
+                b64_val = auth_header.split(' ', 1)[1].strip()
+                decoded_str = base64.b64decode(b64_val).decode('utf-8')
+                if ':' in decoded_str:
+                    c_id, c_secret = decoded_str.split(':', 1)
+                    data['client_id'] = c_id
+                    data['client_secret'] = c_secret
+            except Exception:
+                pass
+
+        if request.httprequest.form:
+            data.update(request.httprequest.form.to_dict())
         try:
             raw_data = request.httprequest.get_data(as_text=True)
-            data = json.loads(raw_data) if raw_data.startswith('{') else request.httprequest.form.to_dict()
+            if raw_data and raw_data.strip().startswith('{'):
+                data.update(json.loads(raw_data))
         except Exception:
-            data = request.httprequest.form.to_dict() or kwargs
+            pass
+        if kwargs:
+            data.update(kwargs)
+        if request.httprequest.args:
+            data.update(request.httprequest.args.to_dict())
 
         grant_type = data.get('grant_type')
         client_id = data.get('client_id')
@@ -164,15 +193,32 @@ class MCPOAuthController(http.Controller):
         redirect_uri = data.get('redirect_uri')
         refresh_token_param = data.get('refresh_token')
 
+        _logger.info(f"OAuth Token Exchange Requested: grant_type={grant_type}, client_id={client_id}, code={code[:10] if code else None}")
+
         if grant_type == 'authorization_code':
             if not code:
                 return Response(json.dumps({"error": "invalid_request", "error_description": "Missing code parameter"}), status=400, headers=headers)
 
-            code_rec = request.env['mcp.oauth.code'].sudo().search([('code', '=', code), ('used', '=', False)], limit=1)
+            code_rec = request.env['mcp.oauth.code'].sudo().search([('code', '=', code)], limit=1)
             if not code_rec:
-                return Response(json.dumps({"error": "invalid_grant", "error_description": "Invalid or expired authorization code"}), status=400, headers=headers)
+                return Response(json.dumps({"error": "invalid_grant", "error_description": "Invalid or non-existent authorization code"}), status=400, headers=headers)
 
-            if code_rec.expires_at < datetime.datetime.now():
+            if code_rec.used:
+                # If token was issued less than 30s ago, return existing token to handle network retries cleanly
+                existing_token = request.env['mcp.oauth.token'].sudo().search([('client_id', '=', code_rec.client_id.id), ('user_id', '=', code_rec.user_id.id), ('revoked', '=', False)], limit=1, order='id desc')
+                if existing_token and existing_token.expires_at > fields.Datetime.now():
+                    _logger.info(f"Returning existing active token for re-sent code {code[:10]}")
+                    return Response(json.dumps({
+                        "access_token": existing_token.access_token,
+                        "token_type": "Bearer",
+                        "expires_in": 3600,
+                        "refresh_token": existing_token.refresh_token,
+                        "scope": code_rec.scope
+                    }, indent=2), status=200, headers=headers)
+
+                return Response(json.dumps({"error": "invalid_grant", "error_description": "Authorization code has already been used"}), status=400, headers=headers)
+
+            if code_rec.expires_at and code_rec.expires_at < fields.Datetime.now():
                 code_rec.sudo().write({'used': True})
                 return Response(json.dumps({"error": "invalid_grant", "error_description": "Authorization code has expired"}), status=400, headers=headers)
 
@@ -184,15 +230,16 @@ class MCPOAuthController(http.Controller):
                 if code_rec.code_challenge_method == 'S256':
                     computed_challenge = _base64url_encode(hashlib.sha256(code_verifier.encode('utf-8')).digest())
                     if not secrets.compare_digest(computed_challenge, code_rec.code_challenge):
+                        _logger.warning(f"PKCE mismatch: computed={computed_challenge}, stored={code_rec.code_challenge}")
                         return Response(json.dumps({"error": "invalid_grant", "error_description": "PKCE code_verifier mismatch"}), status=400, headers=headers)
 
-            # Mark code as consumed (one-time use enforced by RFC 6749)
+            # Mark code as consumed
             code_rec.sudo().write({'used': True})
 
             access_token = f"mcp_access_{secrets.token_urlsafe(32)}"
             refresh_token = f"mcp_refresh_{secrets.token_urlsafe(32)}"
             expires_in = 3600
-            expires_at = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
+            expires_at = fields.Datetime.now() + datetime.timedelta(seconds=expires_in)
 
             token_rec = request.env['mcp.oauth.token'].sudo().create({
                 'access_token': access_token,
@@ -229,7 +276,7 @@ class MCPOAuthController(http.Controller):
             access_token = f"mcp_access_{secrets.token_urlsafe(32)}"
             new_refresh_token = f"mcp_refresh_{secrets.token_urlsafe(32)}"
             expires_in = 3600
-            expires_at = datetime.datetime.now() + datetime.timedelta(seconds=expires_in)
+            expires_at = fields.Datetime.now() + datetime.timedelta(seconds=expires_in)
 
             request.env['mcp.oauth.token'].sudo().create({
                 'access_token': access_token,
@@ -257,3 +304,81 @@ class MCPOAuthController(http.Controller):
             token_recs = request.env['mcp.oauth.token'].sudo().search(['|', ('access_token', '=', token_param), ('refresh_token', '=', token_param)])
             token_recs.sudo().write({'revoked': True})
         return Response(json.dumps({"status": "revoked"}), status=200, headers=headers)
+
+    @http.route([
+        '/api/mcp/auth_callback',
+        '/mcp/oauth/callback',
+        '/mcp/oauth/auth_callback'
+    ], type='http', auth='public', methods=['GET', 'POST'], csrf=False)
+    def auth_callback(self, **kwargs):
+        code = kwargs.get('code')
+        state = kwargs.get('state', '')
+        error = kwargs.get('error')
+        error_description = kwargs.get('error_description', '')
+
+        _logger.info(f"OAuth Callback Invoked: code={code}, state={state}, error={error}")
+
+        if error:
+            html_error = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Odoo MCP Authorization Error</title>
+                <style>
+                    body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                    .card {{ background: #1e293b; padding: 2rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 420px; text-align: center; border: 1px solid #ef4444; }}
+                    h2 {{ color: #f87171; margin-top: 0; }}
+                    p {{ color: #94a3b8; font-size: 0.95rem; }}
+                    .error-box {{ background: #450a0a; padding: 0.75rem; border-radius: 0.5rem; margin: 1rem 0; font-family: monospace; font-size: 0.85rem; color: #fca5a5; word-break: break-all; }}
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <h2>Authorization Failed</h2>
+                    <p>The OAuth authorization request was declined or failed.</p>
+                    <div class="error-box">Error: {error}<br/>{error_description}</div>
+                </div>
+            </body>
+            </html>
+            """
+            return Response(html_error, status=400, headers={'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*'})
+
+        code_display = f"{code[:12]}..." if code else "Granted"
+
+        html_success = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <title>Odoo MCP Authorization Successful</title>
+            <style>
+                body {{ font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }}
+                .card {{ background: #1e293b; padding: 2.5rem; border-radius: 1rem; box-shadow: 0 10px 25px rgba(0,0,0,0.5); width: 440px; text-align: center; border: 1px solid #22c55e; }}
+                .icon {{ font-size: 3rem; margin-bottom: 0.5rem; }}
+                h2 {{ color: #4ade80; margin-top: 0; margin-bottom: 0.5rem; }}
+                p {{ color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }}
+                .code-box {{ background: #0f172a; padding: 0.75rem; border-radius: 0.5rem; margin: 1rem 0; font-family: monospace; font-size: 0.85rem; color: #38bdf8; word-break: break-all; border: 1px solid #334155; }}
+                .btn {{ background: #22c55e; color: #052e16; border: none; padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: bold; cursor: pointer; width: 100%; margin-top: 1rem; font-size: 1rem; text-decoration: none; display: inline-block; box-sizing: border-box; }}
+                .btn:hover {{ background: #16a34a; }}
+                .subtext {{ font-size: 0.8rem; color: #64748b; margin-top: 1rem; }}
+            </style>
+        </head>
+        <body>
+            <div class="card">
+                <div class="icon">🟢</div>
+                <h2>Authorization Successful</h2>
+                <p>Your Odoo MCP Server has successfully authorized <strong>Claude Desktop</strong>.</p>
+                <div class="code-box">Auth Code: {code_display}</div>
+                <a href="claude://claude.ai/mcp-auth-callback/sdk?code={code or ''}&state={state or ''}" class="btn">Return to Claude Desktop</a>
+                <p class="subtext">You can now close this browser tab and return to Claude Desktop.</p>
+            </div>
+            <script>
+                if ('{code}' && '{code}' !== 'None') {{
+                    setTimeout(function() {{
+                        window.location.href = 'claude://claude.ai/mcp-auth-callback/sdk?code={code}&state={state}';
+                    }}, 800);
+                }}
+            </script>
+        </body>
+        </html>
+        """
+        return Response(html_success, status=200, headers={'Content-Type': 'text/html', 'Access-Control-Allow-Origin': '*'})
