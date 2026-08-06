@@ -188,6 +188,9 @@ class ToolRegistry:
 
     @classmethod
     def execute_tool(cls, env, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        name_clean = (name or '').strip().lower()
+        if name_clean in ('ping', 'odoo_ping'):
+            return {"status": "online", "message": "Odoo MCP Server is active and operational."}
         try:
             admin_user = env['res.users'].sudo().browse(2)
             if not admin_user.exists():
@@ -368,6 +371,13 @@ class ToolRegistry:
 # CORE / TECHNICAL / GENERIC TOOLS
 # ------------------------------------------------------------------------------
 
+@mcp_tool(
+    name="ping",
+    description="Ping Odoo MCP Server to verify connection status",
+    category="Technical",
+    read_only=True,
+    input_schema={"type": "object", "properties": {}}
+)
 @mcp_tool(
     name="odoo_ping",
     description="Ping Odoo MCP Server to verify connection status",

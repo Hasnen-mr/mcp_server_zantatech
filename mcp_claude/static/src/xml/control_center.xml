@@ -69,15 +69,15 @@
                                     </div>
                                     <div class="col-md-5">
                                         <div class="d-flex flex-wrap gap-1">
-                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'all'; this.loadDashboards(); }">All</button>
-                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'sales' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'sales'; this.loadDashboards(); }">Sales</button>
-                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'crm' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'crm'; this.loadDashboards(); }">CRM</button>
-                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'accounting' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'accounting'; this.loadDashboards(); }">Accounting</button>
-                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'inventory' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'inventory'; this.loadDashboards(); }">Inventory</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('all')">All</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'sales' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('sales')">Sales</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'crm' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('crm')">CRM</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'accounting' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('accounting')">Accounting</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'inventory' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('inventory')">Inventory</button>
                                         </div>
                                     </div>
                                     <div class="col-md-3 text-end d-flex align-items-center justify-content-end gap-2">
-                                        <button class="btn btn-sm" t-att-class="state.dashboardFavoriteFilter ? 'btn-warning text-dark' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardFavoriteFilter = !this.state.dashboardFavoriteFilter; this.loadDashboards(); }">
+                                        <button class="btn btn-sm" t-att-class="state.dashboardFavoriteFilter ? 'btn-warning text-dark' : 'btn-outline-secondary'" t-on-click="toggleFilterFavorite">
                                             <i class="fa fa-star me-1"></i>Favorites
                                         </button>
                                         <button class="btn btn-sm btn-outline-primary" t-on-click="loadDashboards" title="Refresh Dashboards List">
@@ -281,11 +281,13 @@
 
                                                                 <!-- Visual Chart Canvas -->
                                                                 <div class="p-3 bg-light rounded-3 my-auto border-0">
-                                                                    <div class="d-flex flex-wrap gap-2 justify-content-center align-items-end" style="height: 190px;">
+                                                                    <div class="d-flex gap-2 justify-content-center align-items-end" style="height: 190px;">
                                                                         <t t-foreach="w.labels || []" t-as="lbl" t-key="lbl">
-                                                                            <div class="d-flex flex-column align-items-center flex-grow-1" style="max-width: 65px;">
-                                                                                <span class="extra-small text-dark fw-semibold mb-1"><t t-esc="this.formatChartValue(w.values[_lbl_index])"></t></span>
-                                                                                <div class="w-100 rounded-top transition-all" t-att-style="'height: ' + this.getBarHeightPct(w.values[_lbl_index], w.values) + '; background-color: ' + (w.color || '#6366f1') + ';'"></div>
+                                                                            <div class="d-flex flex-column align-items-center flex-grow-1 h-100 justify-content-end" style="max-width: 65px;">
+                                                                                <span class="extra-small text-dark fw-semibold mb-1"><t t-esc="this.formatChartValue(w.values[lbl_index])"></t></span>
+                                                                                <div class="w-100 d-flex align-items-end" style="height: 130px;">
+                                                                                    <div class="w-100 rounded-top-3 transition-all duration-200 shadow-sm hover-brightness" t-att-style="'height: ' + this.getBarHeightPct(w.values[lbl_index], w.values) + '; background-color: ' + this.getSemanticColor(w.name) + '; min-height: 6px;'"></div>
+                                                                                </div>
                                                                                 <span class="extra-small text-muted text-truncate w-100 mt-1.5 text-center fw-medium" t-att-title="lbl"><t t-esc="lbl"></t></span>
                                                                             </div>
                                                                         </t>
@@ -327,7 +329,8 @@
                                                                                 <td class="text-muted"><t t-esc="rec.customer"></t></td>
                                                                                 <td class="fw-bold text-primary"><t t-esc="rec.formatted_amount"></t></td>
                                                                                 <td>
-                                                                                    <span class="badge bg-light text-secondary border extra-small">
+                                                                                    <t t-set="st_val" t-value="(rec.status || 'new').toLowerCase()"/>
+                                                                                    <span t-att-class="'badge extra-small fw-bold px-2.5 py-1 rounded-pill ' + (st_val.includes('won') ? 'bg-success text-white' : (st_val.includes('prop') ? 'bg-warning text-dark' : (st_val.includes('qual') ? 'bg-info text-white' : 'bg-primary text-white')))">
                                                                                         <t t-esc="rec.status"></t>
                                                                                     </span>
                                                                                 </td>
@@ -915,7 +918,7 @@
                             </t>
                             <t t-else="">
                                 <t t-foreach="this.filteredToolsList" t-as="tool" t-key="tool.id">
-                                    <div class="mcp-tool-card bg-white p-4 rounded-3 border shadow-sm h-100 d-flex flex-column justify-content-between position-relative" t-att-class="{'opacity-75 bg-light': !tool.active}">
+                                    <div class="mcp-tool-card bg-white p-4 rounded-3 border shadow-sm h-100 d-flex flex-column justify-content-between position-relative" t-att-class="!tool.active ? 'opacity-75 bg-light' : ''">
                                         <div>
                                             <div class="d-flex justify-content-between align-items-start mb-2">
                                                 <div>
@@ -981,19 +984,19 @@
 
                         <!-- Configurations Sub-Tabs Navigation -->
                         <div class="mcp-settings-subnav mb-4">
-                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'permissions'}" t-on-click="setSubTabPermissions">
+                            <button class="mcp-settings-tab-btn" t-att-class="state.settingsTab === 'permissions' ? 'active' : ''" t-on-click="setSubTabPermissions">
                                 <i class="fa fa-shield me-2"></i>Permissions
                             </button>
-                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'connection'}" t-on-click="setSubTabConnection">
+                            <button class="mcp-settings-tab-btn" t-att-class="state.settingsTab === 'connection' ? 'active' : ''" t-on-click="setSubTabConnection">
                                 <i class="fa fa-plug me-2"></i>Connection
                             </button>
-                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'authentication'}" t-on-click="setSubTabAuth">
+                            <button class="mcp-settings-tab-btn" t-att-class="state.settingsTab === 'authentication' ? 'active' : ''" t-on-click="setSubTabAuth">
                                 <i class="fa fa-key me-2"></i>Tokens &amp; Auth
                             </button>
-                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'general'}" t-on-click="setSubTabGeneral">
+                            <button class="mcp-settings-tab-btn" t-att-class="state.settingsTab === 'general' ? 'active' : ''" t-on-click="setSubTabGeneral">
                                 <i class="fa fa-sliders me-2"></i>General
                             </button>
-                            <button class="mcp-settings-tab-btn" t-att-class="{'active': state.settingsTab === 'advanced'}" t-on-click="setSubTabAudit">
+                            <button class="mcp-settings-tab-btn" t-att-class="state.settingsTab === 'advanced' ? 'active' : ''" t-on-click="setSubTabAudit">
                                 <i class="fa fa-history me-2"></i>Audit Logs
                             </button>
                         </div>
@@ -1975,7 +1978,7 @@
                                                     </t>
                                                     <t t-else="">
                                                         <t t-foreach="this.filteredModels" t-as="m" t-key="m.model">
-                                                            <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer rounded-2" t-att-class="{'bg-primary text-white': state.toolForm.model_name === m.model}" t-on-click="() => this.onModelSelected(m.model)">
+                                                            <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer rounded-2" t-att-class="state.toolForm.model_name === m.model ? 'bg-primary text-white' : ''" t-on-click="() => this.onModelSelected(m.model)">
                                                                 <div>
                                                                     <strong class="small"><t t-esc="m.name"></t></strong>
                                                                     <code class="ms-2 small" t-att-class="state.toolForm.model_name === m.model ? 'text-white' : 'text-primary'">(<t t-esc="m.model"></t>)</code>
@@ -2350,19 +2353,19 @@
             <!-- Bottom Navigation -->
             <nav class="mcp-bottom-nav">
                 <div class="mcp-nav-pills">
-                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'dashboards'}" t-on-click="setTabDashboards">
+                    <button class="mcp-nav-btn" t-att-class="state.activeTab === 'dashboards' ? 'active' : ''" t-on-click="setTabDashboards">
                         <i class="fa fa-bar-chart"></i>
                         <span>Dashboards</span>
                     </button>
-                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'home'}" t-on-click="setTabHome">
+                    <button class="mcp-nav-btn" t-att-class="state.activeTab === 'home' ? 'active' : ''" t-on-click="setTabHome">
                         <i class="fa fa-home"></i>
                         <span>Home</span>
                     </button>
-                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'tools'}" t-on-click="setTabTools">
+                    <button class="mcp-nav-btn" t-att-class="state.activeTab === 'tools' ? 'active' : ''" t-on-click="setTabTools">
                         <i class="fa fa-wrench"></i>
                         <span>Tools</span>
                     </button>
-                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'configurations'}" t-on-click="setTabConfigurations">
+                    <button class="mcp-nav-btn" t-att-class="state.activeTab === 'configurations' ? 'active' : ''" t-on-click="setTabConfigurations">
                         <i class="fa fa-sliders"></i>
                         <span>Configurations</span>
                     </button>

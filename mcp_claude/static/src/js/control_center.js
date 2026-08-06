@@ -1594,6 +1594,59 @@ export class MCPControlCenter extends Component {
         }
     }
 
+
+    setFilterCategory(cat) {
+        this.state.dashboardCategoryFilter = cat;
+        this.loadDashboards();
+    }
+
+    toggleFilterFavorite() {
+        this.state.dashboardFavoriteFilter = !this.state.dashboardFavoriteFilter;
+        this.loadDashboards();
+    }
+
+    getSemanticColor(wname) {
+        const name = (wname || "").toLowerCase();
+        if (name.includes("revenue") || name.includes("trend")) return "#6366f1"; // Purple / Indigo
+        if (name.includes("sales") || name.includes("order") || name.includes("person")) return "#3b82f6"; // Royal Blue
+        if (name.includes("pipeline") || name.includes("stage")) return "#4f46e5"; // Deep Indigo
+        if (name.includes("opportunity") || name.includes("lead")) return "#14b8a6"; // Teal
+        if (name.includes("conversion") || name.includes("win")) return "#10b981"; // Emerald Green
+        if (name.includes("forecast") || name.includes("target")) return "#f59e0b"; // Amber
+        if (name.includes("risk") || name.includes("loss") || name.includes("alert")) return "#f43f5e"; // Rose Red
+        return "#64748b"; // Neutral Slate
+    }
+
+    getWidgetThemeGradient(wtype, wname, customColor) {
+        const name = (wname || "").toLowerCase();
+        const baseColor = this.getSemanticColor(wname);
+        
+        // Hero charts get subtle 2-step gradient; all standard charts use flat solid color
+        if (name.includes("revenue") || name.includes("pipeline")) {
+            return `linear-gradient(180deg, ${baseColor} 0%, #4338ca 100%)`;
+        }
+        return baseColor; // Flat solid color by default
+    }
+
+    getWidgetIcon(wtype, wname) {
+        const name = (wname || "").toLowerCase();
+        if (name.includes("revenue") || name.includes("trend")) return "fa-line-chart";
+        if (name.includes("person") || name.includes("customer") || name.includes("user")) return "fa-bar-chart";
+        if (name.includes("opportunity") || name.includes("lead")) return "fa-pie-chart";
+        if (wtype === "funnel") return "fa-filter";
+        if (wtype === "line_chart") return "fa-line-chart";
+        if (wtype === "bar_chart") return "fa-bar-chart";
+        return "fa-area-chart";
+    }
+
+    getWidgetBadgeLabel(wtype) {
+        if (wtype === "line_chart") return "Trend";
+        if (wtype === "bar_chart") return "Breakdown";
+        if (wtype === "pie_chart" || wtype === "donut_chart") return "Distribution";
+        if (wtype === "funnel") return "Funnel";
+        return "Analytics";
+    }
+
     getBarHeightPct(val, valuesArr) {
         if (!valuesArr || !valuesArr.length) return "20%";
         const maxVal = Math.max(...valuesArr, 1);
