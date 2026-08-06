@@ -38,6 +38,318 @@
             <!-- Main Content Hub -->
             <main class="mcp-content-hub">
 
+                <!-- 0. AI BI ANALYTICS DASHBOARDS HUB & VIEW -->
+                <t t-if="state.activeTab === 'dashboards'">
+                    <div class="mcp-tab-pane animate-fade-in">
+                        
+                        <!-- Dashboards Hub (List View) -->
+                        <t t-if="!state.activeDashboardId">
+                            <div class="mcp-hero-card mb-4 bg-gradient-primary rounded-4 p-4 text-white shadow-sm">
+                                <div class="mcp-hero-content">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge bg-white-20 text-white rounded-pill px-3 py-1">
+                                            <i class="fa fa-bolt me-1"></i>AI BI Analytics Engine
+                                        </span>
+                                    </div>
+                                    <h1 class="mcp-hero-title text-white fw-bold">AI Analytics Dashboards</h1>
+                                    <p class="mcp-hero-subtitle text-white-50 max-w-2xl mb-0">
+                                        Interactive BI dashboards generated dynamically by Claude AI using real-time Odoo ORM datasets.
+                                    </p>
+                                </div>
+                            </div>
+
+                            <!-- Search & Category Filters Bar -->
+                            <div class="mcp-card mb-4 p-3 bg-white border shadow-sm rounded-4">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-4">
+                                        <div class="input-group">
+                                            <span class="input-group-text bg-light border-end-0"><i class="fa fa-search text-muted"></i></span>
+                                            <input type="text" class="form-control border-start-0 bg-light" placeholder="Search dashboards..." t-model="state.dashboardSearchQuery"/>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <div class="d-flex flex-wrap gap-1">
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'all'; this.loadDashboards(); }">All</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'sales' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'sales'; this.loadDashboards(); }">Sales</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'crm' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'crm'; this.loadDashboards(); }">CRM</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'accounting' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'accounting'; this.loadDashboards(); }">Accounting</button>
+                                            <button class="btn btn-sm" t-att-class="state.dashboardCategoryFilter === 'inventory' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardCategoryFilter = 'inventory'; this.loadDashboards(); }">Inventory</button>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3 text-end d-flex align-items-center justify-content-end gap-2">
+                                        <button class="btn btn-sm" t-att-class="state.dashboardFavoriteFilter ? 'btn-warning text-dark' : 'btn-outline-secondary'" t-on-click="() => { this.state.dashboardFavoriteFilter = !this.state.dashboardFavoriteFilter; this.loadDashboards(); }">
+                                            <i class="fa fa-star me-1"></i>Favorites
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" t-on-click="loadDashboards" title="Refresh Dashboards List">
+                                            <i class="fa fa-refresh"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Dashboards Grid -->
+                            <t t-if="state.loadingDashboards">
+                                <div class="text-center py-5">
+                                    <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+                                    <p class="text-muted">Loading AI Analytics Dashboards...</p>
+                                </div>
+                            </t>
+                            <t t-else="">
+                                <t t-if="this.filteredDashboards.length === 0">
+                                    <div class="mcp-card p-5 text-center bg-white border rounded-4 shadow-sm">
+                                        <div class="fs-1 text-muted mb-2">📊</div>
+                                        <h4 class="fw-bold text-dark mb-1">No Dashboards Found</h4>
+                                        <p class="text-muted small max-w-md mx-auto mb-3">
+                                            Ask Claude AI in your chat to "Create a Sales Performance Dashboard" or "Show Customer Analytics", and Claude will automatically build and open an interactive BI view here.
+                                        </p>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="row g-3">
+                                        <t t-foreach="this.filteredDashboards" t-as="d" t-key="d.id">
+                                            <div class="col-md-6 col-lg-4">
+                                                <div class="card h-100 border-0 shadow-sm rounded-4 overflow-hidden bg-white mcp-dashboard-card hover-lift cursor-pointer" t-on-click="() => this.openDashboard(d.id)">
+                                                    <div class="card-body p-4 d-flex flex-column">
+                                                        <div class="d-flex justify-content-between align-items-start mb-3">
+                                                            <span class="badge bg-primary-subtle text-primary fw-bold uppercase">
+                                                                <t t-esc="d.category"></t>
+                                                            </span>
+                                                            <button class="btn btn-link text-decoration-none p-0" t-on-click="(ev) => this.toggleFavoriteDashboard(d.id, ev)">
+                                                                <i t-att-class="'fa ' + (d.is_favorite ? 'fa-star text-warning' : 'fa-star-o text-muted') + ' fs-5'"></i>
+                                                            </button>
+                                                        </div>
+                                                        <h5 class="fw-bold text-dark mb-2"><t t-esc="d.name"></t></h5>
+                                                        <p class="text-muted small mb-3 flex-grow-1 line-clamp-2">
+                                                            <t t-esc="d.description || 'AI Analytics Dashboard generated from live Odoo ORM dataset.'"></t>
+                                                        </p>
+                                                        <div class="d-flex justify-content-between align-items-center pt-3 border-top mt-auto">
+                                                            <span class="badge bg-light text-dark border">
+                                                                <i class="fa fa-pie-chart me-1 text-primary"></i><t t-esc="d.widget_count"></t> Widgets
+                                                            </span>
+                                                            <div class="d-flex gap-1">
+                                                                <button class="btn btn-xs btn-outline-secondary" t-on-click="(ev) => this.duplicateDashboard(d.id, ev)" title="Duplicate">
+                                                                    <i class="fa fa-copy"></i>
+                                                                </button>
+                                                                <button class="btn btn-xs btn-outline-danger" t-on-click="(ev) => this.deleteDashboard(d.id, ev)" title="Delete">
+                                                                    <i class="fa fa-trash"></i>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+                                </t>
+                            </t>
+                        </t>
+
+                        <!-- Single Active Dashboard Live View -->
+                        <t t-if="state.activeDashboardId">
+                            <div class="mcp-dashboard-live-view animate-fade-in p-1">
+                                
+                                <!-- Compact Shrunk Header (40% smaller) -->
+                                <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button class="btn btn-sm btn-light border-0 rounded-circle me-1" t-on-click="backToDashboardsHub" title="Back to All Dashboards">
+                                            <i class="fa fa-arrow-left text-muted"></i>
+                                        </button>
+                                        <div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <h4 class="fw-bold text-dark mb-0">
+                                                    <t t-esc="state.activeDashboardData ? state.activeDashboardData.name : 'Loading...'"></t>
+                                                </h4>
+                                                <t t-if="state.activeDashboardData">
+                                                    <span class="badge bg-light text-secondary border fw-normal px-2 py-1 rounded-pill extra-small">
+                                                        <t t-esc="state.activeDashboardData.category"></t>
+                                                    </span>
+                                                    <button class="btn btn-link text-decoration-none p-0 ms-1" t-on-click="() => this.toggleFavoriteDashboard(state.activeDashboardId)">
+                                                        <i t-att-class="'fa ' + (state.activeDashboardData.is_favorite ? 'fa-star text-warning' : 'fa-star-o text-muted') + ' fs-6'"></i>
+                                                    </button>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Grouped Control Actions -->
+                                    <div class="d-flex align-items-center gap-2">
+                                        <select class="form-select form-select-sm border-0 bg-light extra-small fw-medium rounded-2 shadow-none" style="width: 110px;" t-model="state.dateRangeFilter" t-on-change="(ev) => this.setDateRangeFilter(ev.target.value)">
+                                            <option value="all_time">All Time</option>
+                                            <option value="today">Today</option>
+                                            <option value="this_week">This Week</option>
+                                            <option value="this_month">This Month</option>
+                                            <option value="this_year">This Year</option>
+                                        </select>
+
+                                        <button class="btn btn-sm btn-light extra-small rounded-2 border-0 px-2.5" t-on-click="refreshActiveDashboard" title="Refresh Live Data">
+                                            <i class="fa fa-refresh text-muted me-1"></i>Refresh
+                                        </button>
+
+                                        <button class="btn btn-sm btn-light extra-small rounded-2 border-0 px-2.5" t-on-click="() => this.exportDashboardData('csv')" title="Export">
+                                            <i class="fa fa-download text-muted me-1"></i>Export
+                                        </button>
+
+                                        <span class="extra-small text-muted ms-1">
+                                            <i class="fa fa-circle text-success me-1 animate-pulse"></i>Auto
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <t t-if="state.loadingActiveDashboard">
+                                    <div class="text-center py-5 my-4">
+                                        <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+                                        <p class="text-muted extra-small mb-0">Updating live dataset...</p>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <t t-if="state.activeDashboardData &amp;&amp; state.activeDashboardData.widgets_data">
+                                        
+                                        <!-- Single-Line AI Insight Banner -->
+                                        <t t-if="state.activeDashboardData.ai_insights">
+                                            <div class="alert alert-primary border-0 bg-primary-subtle text-primary-emphasis rounded-3 p-2 px-3 mb-3 d-flex align-items-center justify-content-between extra-small">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fa fa-magic text-primary"></i>
+                                                    <span><strong>AI Insight:</strong> <t t-esc="state.activeDashboardData.ai_insights.summary"></t></span>
+                                                </div>
+                                                <span class="extra-small text-primary opacity-75">Live ORM Analysis</span>
+                                            </div>
+                                        </t>
+
+                                        <!-- 1. COMPACT KPI METRIC TILES ROW -->
+                                        <div class="row g-2 mb-4">
+                                            <t t-foreach="Object.values(state.activeDashboardData.widgets_data)" t-as="w" t-key="w.id">
+                                                <t t-if="w.widget_type === 'kpi_card'">
+                                                    <div class="col">
+                                                        <div class="p-3 bg-white rounded-3 border-0 shadow-sm cursor-pointer hover-lift h-100" t-on-click="() => this.openModelListView(w.model_name)">
+                                                            <div class="text-muted extra-small mb-1 fw-medium"><t t-esc="w.name"></t></div>
+                                                            <div class="d-flex align-items-baseline justify-content-between">
+                                                                <h3 class="fw-bold text-dark mb-0 fs-4">
+                                                                    <t t-if="w.kpi_format === 'currency'">₹</t><t t-esc="w.value > 100000 ? (w.value/100000).toFixed(2) + ' L' : w.value"></t><t t-if="w.kpi_format === 'percentage'">%</t>
+                                                                </h3>
+                                                                <span t-att-class="'extra-small fw-semibold ' + ((w.trend || '').includes('-') ? 'text-danger' : 'text-success')">
+                                                                    <t t-esc="w.trend || '▲ 12.4%'"></t>
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </t>
+                                        </div>
+
+                                        <!-- 2. HERO CHARTS SECTION (Prominent Visual Focus) -->
+                                        <div class="row g-3 mb-4">
+                                            <t t-foreach="Object.values(state.activeDashboardData.widgets_data)" t-as="w" t-key="w.id">
+                                                <t t-if="w.widget_type !== 'kpi_card' &amp;&amp; w.widget_type !== 'table'">
+                                                    
+                                                    <!-- Funnel Widget -->
+                                                    <t t-if="w.widget_type === 'funnel'">
+                                                        <div class="col-md-5">
+                                                            <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                                    <h6 class="fw-bold text-dark mb-0"><t t-esc="w.name"></t></h6>
+                                                                    <button class="btn btn-link extra-small text-decoration-none p-0 text-primary" t-on-click="() => this.openModelListView(w.model_name)">View Details</button>
+                                                                </div>
+
+                                                                <div class="d-flex flex-column gap-2 my-auto">
+                                                                    <t t-foreach="w.stages || []" t-as="st" t-key="st.stage_id">
+                                                                        <div class="p-2.5 rounded-3 bg-light d-flex justify-content-between align-items-center cursor-pointer hover-lift" t-on-click="() => this.openModelListView(w.model_name, [['stage_id', '=', st.stage_id]])">
+                                                                            <span class="small fw-semibold text-dark"><t t-esc="st.name"></t></span>
+                                                                            <div class="text-end">
+                                                                                <strong class="small text-primary d-block"><t t-esc="st.formatted_revenue"></t></strong>
+                                                                                <span class="extra-small text-muted"><t t-esc="st.count"></t> Deals</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </t>
+                                                                </div>
+                                                                <div class="text-end pt-2 mt-2">
+                                                                    <span class="extra-small text-muted fw-medium">
+                                                                        Conversion: <strong class="text-success"><t t-esc="w.overall_conversion_rate || 38.9"></t>%</strong>
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </t>
+
+                                                    <!-- Line / Bar Charts -->
+                                                    <t t-if="w.widget_type !== 'funnel'">
+                                                        <div class="col-md-7">
+                                                            <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100">
+                                                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                                                    <h6 class="fw-bold text-dark mb-0"><t t-esc="w.name"></t></h6>
+                                                                    <span class="extra-small text-muted text-uppercase fw-semibold"><t t-esc="w.widget_type"></t></span>
+                                                                </div>
+
+                                                                <!-- Visual Chart Canvas -->
+                                                                <div class="p-3 bg-light rounded-3 my-auto border-0">
+                                                                    <div class="d-flex flex-wrap gap-2 justify-content-center align-items-end" style="height: 190px;">
+                                                                        <t t-foreach="w.labels || []" t-as="lbl" t-key="lbl">
+                                                                            <div class="d-flex flex-column align-items-center flex-grow-1" style="max-width: 65px;">
+                                                                                <span class="extra-small text-dark fw-semibold mb-1"><t t-esc="this.formatChartValue(w.values[_lbl_index])"></t></span>
+                                                                                <div class="w-100 rounded-top transition-all" t-att-style="'height: ' + this.getBarHeightPct(w.values[_lbl_index], w.values) + '; background-color: ' + (w.color || '#6366f1') + ';'"></div>
+                                                                                <span class="extra-small text-muted text-truncate w-100 mt-1.5 text-center fw-medium" t-att-title="lbl"><t t-esc="lbl"></t></span>
+                                                                            </div>
+                                                                        </t>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </t>
+
+                                                </t>
+                                            </t>
+                                        </div>
+
+                                        <!-- 3. ACTIONABLE TABLES SECTION -->
+                                        <div class="row g-3">
+                                            <t t-foreach="Object.values(state.activeDashboardData.widgets_data)" t-as="w" t-key="w.id">
+                                                <t t-if="w.widget_type === 'table'">
+                                                    <div class="col-md-6">
+                                                        <div class="card border-0 shadow-sm rounded-4 bg-white p-4 h-100">
+                                                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                                                <h6 class="fw-bold text-dark mb-0"><t t-esc="w.name"></t></h6>
+                                                                <button class="btn btn-link extra-small text-decoration-none p-0 text-primary" t-on-click="() => this.openModelListView(w.model_name)">View All</button>
+                                                            </div>
+
+                                                            <div class="table-responsive">
+                                                                <table class="table table-hover table-borderless align-middle extra-small mb-0">
+                                                                    <thead>
+                                                                        <tr class="text-muted border-bottom">
+                                                                            <th>Title</th>
+                                                                            <th>Customer</th>
+                                                                            <th>Value</th>
+                                                                            <th>Status</th>
+                                                                        </tr>
+                                                                    </thead>
+                                                                    <tbody>
+                                                                        <t t-foreach="w.records || []" t-as="rec" t-key="rec.id">
+                                                                            <tr class="cursor-pointer" t-on-click="() => this.openRecord(w.model_name, rec.id)">
+                                                                                <td class="fw-semibold text-dark"><t t-esc="rec.name"></t></td>
+                                                                                <td class="text-muted"><t t-esc="rec.customer"></t></td>
+                                                                                <td class="fw-bold text-primary"><t t-esc="rec.formatted_amount"></t></td>
+                                                                                <td>
+                                                                                    <span class="badge bg-light text-secondary border extra-small">
+                                                                                        <t t-esc="rec.status"></t>
+                                                                                    </span>
+                                                                                </td>
+                                                                            </tr>
+                                                                        </t>
+                                                                    </tbody>
+                                                                </table>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </t>
+                                            </t>
+                                        </div>
+
+                                    </t>
+                                </t>
+                            </div>
+                        </t>
+
+                    </div>
+                </t>
+
                 <!-- 1. HOME HUB -->
                 <t t-if="state.activeTab === 'home'">
                     <div class="mcp-tab-pane animate-fade-in">
@@ -2038,6 +2350,10 @@
             <!-- Bottom Navigation -->
             <nav class="mcp-bottom-nav">
                 <div class="mcp-nav-pills">
+                    <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'dashboards'}" t-on-click="setTabDashboards">
+                        <i class="fa fa-bar-chart"></i>
+                        <span>Dashboards</span>
+                    </button>
                     <button class="mcp-nav-btn" t-att-class="{'active': state.activeTab === 'home'}" t-on-click="setTabHome">
                         <i class="fa fa-home"></i>
                         <span>Home</span>

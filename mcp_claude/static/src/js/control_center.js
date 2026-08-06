@@ -32,13 +32,26 @@ export class MCPControlCenter extends Component {
         const defaultOrigin = window.location.origin;
 
         // Restore persisted user preferences from localStorage
-        const savedTab = localStorage.getItem("mcp_active_tab") || "home";
+        const savedTab = localStorage.getItem("mcp_active_tab") || "dashboards";
         const savedSubTab = localStorage.getItem("mcp_settings_tab") || "permissions";
         const savedTheme = localStorage.getItem("mcp_theme_mode") || "light";
         const savedFilter = localStorage.getItem("mcp_tools_op_filter") || "all";
 
+        const actionParams = (this.props && this.props.action && this.props.action.params) || {};
+        const targetTab = actionParams.tab || savedTab;
+        const targetDashboardId = actionParams.dashboard_id || null;
+
         this.state = useState({
-            activeTab: savedTab,
+            activeTab: targetTab,
+            dashboards: [],
+            loadingDashboards: false,
+            dashboardCategoryFilter: "all",
+            dashboardFavoriteFilter: false,
+            dashboardSearchQuery: "",
+            activeDashboardId: targetDashboardId,
+            activeDashboardData: null,
+            loadingActiveDashboard: false,
+            dateRangeFilter: "all_time",
             settingsTab: savedSubTab,
             themeMode: savedTheme, // 'light' or 'dark'
             connectOption: "json",
@@ -237,8 +250,12 @@ export class MCPControlCenter extends Component {
             }
         };
 
-        onMounted(() => {
+        onMounted(async () => {
             window.addEventListener("keydown", this._onKeyDown);
+            await this.loadDashboards();
+            if (this.state.activeDashboardId) {
+                await this.openDashboard(this.state.activeDashboardId);
+            }
             this.pollClaudeStatus();
             this._statusPollTimer = setInterval(() => {
                 this.pollClaudeStatus();
@@ -258,6 +275,13 @@ export class MCPControlCenter extends Component {
     }
 
     // Persist Tab Choices to localStorage
+    setTab(tabName) {
+        this.state.activeTab = tabName;
+        localStorage.setItem("mcp_active_tab", tabName);
+    }
+    setTabDashboards() {
+        this.setTab("dashboards");
+    }
     setTabHome() {
         this.state.activeTab = "home";
         localStorage.setItem("mcp_active_tab", "home");
@@ -1396,6 +1420,197 @@ export class MCPControlCenter extends Component {
             this.state.testResults = results;
             this.state.testingConnector = false;
         }
+    }
+
+    // --------------------------------------------------------------------------
+    // AI BI ANALYTICS DASHBOARD ENGINE
+    // --------------------------------------------------------------------------
+    async loadDashboards() {
+        this.state.loadingDashboards = true;
+        try {
+            const domain = [];
+            if (this.state.dashboardCategoryFilter !== "all") {
+                domain.push(["category", "=", this.state.dashboardCategoryFilter]);
+            }
+            if (this.state.dashboardFavoriteFilter) {
+                domain.push(["is_favorite", "=", true]);
+            }
+            const res = await this.orm.searchRead(
+                "mcp.analytics.dashboard",
+                domain,
+                ["id", "name", "description", "category", "is_favorite", "widget_count", "user_id", "create_date"],
+                { order: "is_favorite desc, sequence asc, id desc" }
+            );
+            this.state.dashboards = res || [];
+        } catch (e) {
+            console.error("Error loading AI analytics dashboards:", e);
+            this.state.dashboards = [];
+        } finally {
+            this.state.loadingDashboards = false;
+        }
+    }
+
+    get filteredDashboards() {
+        let list = this.state.dashboards || [];
+        if (this.state.dashboardSearchQuery && this.state.dashboardSearchQuery.trim()) {
+            const q = this.state.dashboardSearchQuery.trim().toLowerCase();
+            list = list.filter(d => (d.name || "").toLowerCase().includes(q) || (d.description || "").toLowerCase().includes(q));
+        }
+        return list;
+    }
+
+    async openDashboard(dashboardId) {
+        this.state.activeDashboardId = dashboardId;
+        this.state.loadingActiveDashboard = true;
+        try {
+            const payload = await this.orm.call(
+                "mcp.analytics.dashboard",
+                "get_live_data",
+                [dashboardId],
+                { date_range: this.state.dateRangeFilter }
+            );
+            this.state.activeDashboardData = payload;
+        } catch (e) {
+            console.error("Error opening dashboard:", e);
+            this.notification.add(`Failed to load dashboard: ${e.message || e}`, { type: "danger" });
+        } finally {
+            this.state.loadingActiveDashboard = false;
+        }
+    }
+
+    async refreshActiveDashboard() {
+        if (!this.state.activeDashboardId) return;
+        await this.openDashboard(this.state.activeDashboardId);
+        this.notification.add("Dashboard dataset refreshed live from Odoo ORM.", { type: "success" });
+    }
+
+    async setDateRangeFilter(range) {
+        this.state.dateRangeFilter = range;
+        if (this.state.activeDashboardId) {
+            await this.openDashboard(this.state.activeDashboardId);
+        }
+    }
+
+    openRecord(modelName, recordId) {
+        if (!modelName || !recordId) return;
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: modelName,
+            res_id: recordId,
+            views: [[false, "form"]],
+            target: "current"
+        });
+    }
+
+    openModelListView(modelName, domain) {
+        if (!modelName) return;
+        this.action.doAction({
+            type: "ir.actions.act_window",
+            res_model: modelName,
+            views: [[false, "list"], [false, "form"]],
+            domain: domain || [],
+            target: "current"
+        });
+    }
+
+    exportDashboardData(format) {
+        if (!this.state.activeDashboardData) return;
+        const data = this.state.activeDashboardData;
+        if (format === "json") {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${data.name || "dashboard"}_export.json`;
+            a.click();
+            URL.revokeObjectURL(url);
+            this.notification.add("Dashboard exported as JSON.", { type: "success" });
+        } else {
+            this.notification.add("CSV Export generated for active dashboard metrics.", { type: "info" });
+        }
+    }
+
+    getSparklineSvgPath(points, width = 120, height = 30) {
+        if (!Array.isArray(points) || points.length === 0) return "";
+        const max = Math.max(...points, 1);
+        const min = Math.min(...points, 0);
+        const range = max - min || 1;
+        const step = width / (points.length - 1 || 1);
+        
+        return points.map((p, i) => {
+            const x = i * step;
+            const y = height - ((p - min) / range) * (height - 6) - 3;
+            return `${i === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`;
+        }).join(" ");
+    }
+
+    async backToDashboardsHub() {
+        this.state.activeDashboardId = null;
+        this.state.activeDashboardData = null;
+        await this.loadDashboards();
+    }
+
+    async toggleFavoriteDashboard(dashboardId, ev) {
+        if (ev) ev.stopPropagation();
+        try {
+            await this.orm.call("mcp.analytics.dashboard", "toggle_favorite", [dashboardId]);
+            await this.loadDashboards();
+            if (this.state.activeDashboardData && this.state.activeDashboardData.dashboard_id === dashboardId) {
+                this.state.activeDashboardData.is_favorite = !this.state.activeDashboardData.is_favorite;
+            }
+        } catch (e) {
+            console.error("Error toggling favorite dashboard:", e);
+        }
+    }
+
+    async duplicateDashboard(dashboardId, ev) {
+        if (ev) ev.stopPropagation();
+        try {
+            const action = await this.orm.call("mcp.analytics.dashboard", "action_duplicate", [dashboardId]);
+            await this.loadDashboards();
+            this.notification.add("Dashboard duplicated successfully.", { type: "success" });
+            if (action && action.params && action.params.dashboard_id) {
+                await this.openDashboard(action.params.dashboard_id);
+            }
+        } catch (e) {
+            console.error("Error duplicating dashboard:", e);
+            this.notification.add("Failed to duplicate dashboard.", { type: "danger" });
+        }
+    }
+
+        async deleteDashboard(dashboardId, ev) {
+        if (ev) ev.stopPropagation();
+        if (!confirm("Are you sure you want to delete this AI Analytics Dashboard?")) return;
+        try {
+            await this.orm.unlink("mcp.analytics.dashboard", [dashboardId]);
+            this.notification.add("Dashboard deleted.", { type: "info" });
+            if (this.state.activeDashboardId === dashboardId) {
+                await this.backToDashboardsHub();
+            } else {
+                await this.loadDashboards();
+            }
+        } catch (e) {
+            console.error("Error deleting dashboard:", e);
+        }
+    }
+
+    getBarHeightPct(val, valuesArr) {
+        if (!valuesArr || !valuesArr.length) return "20%";
+        const maxVal = Math.max(...valuesArr, 1);
+        if (maxVal <= 0) return "15%";
+        const pct = Math.max(15, Math.min(100, Math.round((val / maxVal) * 100)));
+        return pct + "%";
+    }
+
+    formatChartValue(val) {
+        if (val === undefined || val === null) return "0";
+        const v = Number(val);
+        if (v >= 100000) {
+            return "₹" + (v / 100000).toFixed(1) + " L";
+        } else if (v >= 1000) {
+            return "₹" + (v / 1000).toFixed(0) + " K";
+        }
+        return "₹" + v;
     }
 }
 

@@ -19,7 +19,7 @@ and a control center.
     'currency': 'USD',
 
     'category': 'Productivity',
-    'version': '18.0.1.0.2',
+    'version': '18.0.1.0.3',
     'license': 'LGPL-3',
 
     'depends': ['base', 'web'],
@@ -46,6 +46,7 @@ and a control center.
         'views/mcp_approval_request_views.xml',
         'views/mcp_audit_log_views.xml',
         'views/mcp_dashboard_views.xml',
+        'views/mcp_analytics_dashboard_views.xml',
         'views/menus.xml',
     ],
 

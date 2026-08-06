@@ -10,3 +10,4 @@ from . import mcp_tool
 from . import mcp_approval_request
 from . import mcp_audit_log
 from . import mcp_metrics
+from . import mcp_analytics_dashboard

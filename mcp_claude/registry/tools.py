@@ -189,11 +189,11 @@ class ToolRegistry:
     @classmethod
     def execute_tool(cls, env, name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         try:
-            admin_user = env['res.users'].sudo().search([('id', '=', 2)], limit=1)
-            if not admin_user:
+            admin_user = env['res.users'].sudo().browse(2)
+            if not admin_user.exists():
                 admin_user = env['res.users'].sudo().search([], limit=1)
-            if admin_user:
-                env = env.with_user(admin_user)
+            if admin_user and admin_user.exists():
+                env = env.with_user(admin_user.id)
         except Exception:
             pass
         # 1. Check Built-in Tools
@@ -607,7 +607,23 @@ def handle_search_opportunities(env, params):
 @mcp_tool(name="odoo_create_lead", description="Create Lead/Opportunity", category="CRM", read_only=False)
 def handle_create_lead(env, params):
     if 'crm.lead' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
-    l = env['crm.lead'].sudo().create({"name": params.get("name")})
+    admin_user = env['res.users'].sudo().browse(2)
+    uid = admin_user.id if admin_user.exists() else 2
+    crm_obj = env['crm.lead'].sudo().with_user(uid)
+    
+    vals = {
+        "name": params.get("name", "New Opportunity"),
+        "user_id": uid,
+        "type": params.get("type", "opportunity")
+    }
+    if params.get("partner_id"):
+        vals["partner_id"] = params.get("partner_id")
+    if params.get("expected_revenue"):
+        vals["expected_revenue"] = params.get("expected_revenue")
+    if params.get("stage_id"):
+        vals["stage_id"] = params.get("stage_id")
+
+    l = crm_obj.create(vals)
     return {"success": True, "id": l.id, "name": l.name}
 
 @mcp_tool(name="odoo_update_opportunity", description="Update Opportunity", category="CRM", read_only=False)
@@ -1151,3 +1167,210 @@ def handle_search_signature_requests(env, params):
     if 'sign.request' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
     recs = env['sign.request'].sudo().search([], limit=params.get('limit', 20))
     return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.reference} for r in recs]}
+
+
+# ------------------------------------------------------------------------------
+# 23. AI-POWERED ANALYTICS DASHBOARD GENERATION & MANAGEMENT
+# ------------------------------------------------------------------------------
+
+@mcp_tool(
+    name="odoo_generate_analytics_dashboard",
+    description="Generate an interactive BI Analytics Dashboard with live Odoo ORM data, KPI cards, charts (line, bar, pie, donut, area), leaderboards, and data tables. Automatically saves the dashboard in Odoo and opens it immediately on screen.",
+    category="Analytics & BI",
+    read_only=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "title": {"type": "string", "description": "Title of the analytics dashboard (e.g. Sales Performance Dashboard)"},
+            "description": {"type": "string", "description": "Summary of insights and metrics"},
+            "category": {"type": "string", "default": "sales", "description": "Category: sales, crm, purchase, inventory, accounting, hr, project, helpdesk, manufacturing, custom"},
+            "widgets": {
+                "type": "array",
+                "description": "List of chart and KPI widget configurations",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Widget or Chart Title"},
+                        "widget_type": {"type": "string", "description": "Widget type: kpi_card, line_chart, bar_chart, pie_chart, donut_chart, area_chart, table, pivot, progress"},
+                        "model_name": {"type": "string", "description": "Target Odoo model (e.g. sale.order, crm.lead, account.move, res.partner, stock.quant, hr.employee)"},
+                        "domain": {"type": "array", "description": "Odoo search domain filters"},
+                        "groupby_field": {"type": "string", "description": "Field to group by (e.g. date_order:month, user_id, stage_id, country_id)"},
+                        "measure_field": {"type": "string", "description": "Field to aggregate (e.g. amount_total, expected_revenue, id)"},
+                        "aggregation_type": {"type": "string", "default": "sum", "description": "sum, avg, count, min, max"},
+                        "kpi_value_format": {"type": "string", "default": "currency", "description": "currency, number, percentage"},
+                        "color_theme": {"type": "string", "default": "#4f46e5"},
+                        "icon": {"type": "string", "default": "fa-line-chart"},
+                        "trend_badge": {"type": "string", "description": "e.g. +14.2% vs last month"}
+                    },
+                    "required": ["name", "widget_type", "model_name"]
+                }
+            }
+        },
+        "required": ["title", "widgets"]
+    }
+)
+def handle_generate_analytics_dashboard(env, params):
+    title = params.get('title', 'AI Analytics Dashboard')
+    desc = params.get('description', '')
+    raw_cat = params.get('category', 'custom')
+    valid_cats = ['sales', 'crm', 'finance', 'inventory', 'hr', 'project', 'custom']
+    category = raw_cat if raw_cat in valid_cats else ('sales' if 'sale' in str(raw_cat).lower() else 'custom')
+    widgets = params.get('widgets', [])
+
+    dashboard_model = env['mcp.analytics.dashboard'].sudo()
+    widget_model = env['mcp.dashboard.widget'].sudo()
+
+    dashboard = dashboard_model.create({
+        'name': title,
+        'description': desc,
+        'category': category,
+        'is_favorite': True
+    })
+
+    widget_objs = []
+    for seq, w in enumerate(widgets, start=1):
+        target_model = w.get('model_name', 'crm.lead')
+        if target_model not in env and 'crm.lead' in env:
+            target_model = 'crm.lead'
+            
+        m_field = w.get('measure_field', 'id')
+        if target_model == 'crm.lead' and m_field == 'amount_total':
+            m_field = 'expected_revenue'
+
+        domain_str = json.dumps(w.get('domain', []))
+        w_rec = widget_model.create({
+            'dashboard_id': dashboard.id,
+            'name': w.get('name', f"Widget #{seq}"),
+            'widget_type': w.get('widget_type', 'kpi_card'),
+            'model_name': target_model,
+            'domain_json': domain_str,
+            'groupby_field': w.get('groupby_field', ''),
+            'measure_field': m_field,
+            'aggregation_type': w.get('aggregation_type', 'count'),
+            'sequence': seq * 10,
+            'color_theme': w.get('color_theme', '#4f46e5'),
+            'icon': w.get('icon', 'fa-line-chart'),
+            'kpi_value_format': w.get('kpi_value_format', 'number'),
+            'trend_badge': w.get('trend_badge', '')
+        })
+        widget_objs.append(w_rec)
+
+    return {
+        "success": True,
+        "dashboard_id": dashboard.id,
+        "title": dashboard.name,
+        "category": dashboard.category,
+        "widget_count": len(widget_objs),
+        "message": f"Successfully generated analytics dashboard '{dashboard.name}' with {len(widget_objs)} widgets.",
+        "open_action": {
+            "type": "ir.actions.client",
+            "tag": "mcp_claude.control_center",
+            "params": {
+                "tab": "dashboards",
+                "dashboard_id": dashboard.id
+            }
+        }
+    }
+
+@mcp_tool(
+    name="odoo_update_analytics_dashboard",
+    description="Update or refine an open BI Analytics Dashboard in Odoo (add new charts, replace KPIs, modify groupings, update filters).",
+    category="Analytics & BI",
+    read_only=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "dashboard_id": {"type": "integer", "description": "Target Dashboard ID (optional, defaults to most recent)"},
+            "title": {"type": "string", "description": "New dashboard title if renaming"},
+            "add_widgets": {
+                "type": "array",
+                "description": "New widgets/charts to add to the dashboard",
+                "items": {"type": "object"}
+            },
+            "remove_widget_ids": {"type": "array", "items": {"type": "integer"}}
+        }
+    }
+)
+def handle_update_analytics_dashboard(env, params):
+    dashboard_model = env['mcp.analytics.dashboard'].sudo()
+    widget_model = env['mcp.dashboard.widget'].sudo()
+
+    dash_id = params.get('dashboard_id')
+    if dash_id:
+        dash = dashboard_model.browse(dash_id)
+    else:
+        dash = dashboard_model.search([], limit=1, order='id desc')
+
+    if not dash or not dash.exists():
+        return {"success": False, "error": {"code": "not_found", "message": "Dashboard not found."}}
+
+    if params.get('title'):
+        dash.write({'name': params.get('title')})
+
+    if params.get('remove_widget_ids'):
+        rem_widgets = widget_model.browse(params.get('remove_widget_ids'))
+        rem_widgets.unlink()
+
+    if params.get('add_widgets'):
+        curr_seq = max(dash.widget_ids.mapped('sequence') or [0]) + 10
+        for w in params.get('add_widgets'):
+            domain_str = json.dumps(w.get('domain', []))
+            widget_model.create({
+                'dashboard_id': dash.id,
+                'name': w.get('name', 'New Chart'),
+                'widget_type': w.get('widget_type', 'kpi_card'),
+                'model_name': w.get('model_name', 'sale.order'),
+                'domain_json': domain_str,
+                'groupby_field': w.get('groupby_field', ''),
+                'measure_field': w.get('measure_field', 'id'),
+                'aggregation_type': w.get('aggregation_type', 'count'),
+                'sequence': curr_seq,
+                'color_theme': w.get('color_theme', '#10b981'),
+                'icon': w.get('icon', 'fa-line-chart'),
+                'kpi_value_format': w.get('kpi_value_format', 'number'),
+                'trend_badge': w.get('trend_badge', '')
+            })
+            curr_seq += 10
+
+    return {
+        "success": True,
+        "dashboard_id": dash.id,
+        "title": dash.name,
+        "widget_count": len(dash.widget_ids),
+        "message": f"Successfully updated dashboard '{dash.name}'."
+    }
+
+@mcp_tool(
+    name="odoo_list_analytics_dashboards",
+    description="List all saved AI BI Analytics Dashboards in Odoo.",
+    category="Analytics & BI",
+    read_only=True,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "category": {"type": "string"},
+            "is_favorite": {"type": "boolean"}
+        }
+    }
+)
+def handle_list_analytics_dashboards(env, params):
+    domain = []
+    if params.get('category'):
+        domain.append(('category', '=', params.get('category')))
+    if params.get('is_favorite') is not None:
+        domain.append(('is_favorite', '=', params.get('is_favorite')))
+
+    recs = env['mcp.analytics.dashboard'].sudo().search(domain, order='is_favorite desc, sequence asc, id desc')
+    result = []
+    for r in recs:
+        result.append({
+            'id': r.id,
+            'name': r.name,
+            'description': r.description,
+            'category': r.category,
+            'is_favorite': r.is_favorite,
+            'widget_count': r.widget_count,
+            'created_by': r.user_id.name,
+            'create_date': str(r.create_date) if r.create_date else ''
+        })
+    return {"success": True, "count": len(result), "dashboards": result}

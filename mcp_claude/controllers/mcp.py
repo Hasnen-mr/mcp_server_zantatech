@@ -382,7 +382,8 @@ class MCPTransportController(http.Controller):
             else:
                 t_name = ''
                 t_args = {}
-            _logger.info(f"MCP tools/call executing: tool='{t_name}', args={t_args}")
+            t_start = time.time()
+            _logger.info(f"[MCP STAGE 1 - REQUEST RECEIVED] tool='{t_name}', args={t_args}")
 
             try:
                 request._env = None
@@ -392,7 +393,11 @@ class MCPTransportController(http.Controller):
 
             mcp_env = request.env
             mcp_env.invalidate_all()
+            
+            t_exec_start = time.time()
             tool_res = ToolRegistry.execute_tool(mcp_env, t_name, t_args)
+            t_exec_end = time.time()
+            _logger.info(f"[MCP STAGE 2 - TOOL EXECUTED] tool='{t_name}' in {round((t_exec_end - t_exec_start)*1000, 2)} ms")
 
             resp_body = {
                 "jsonrpc": "2.0",
