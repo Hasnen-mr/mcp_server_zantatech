@@ -1,6 +1,6 @@
 // ============================================================================
 // MCP Claude Enterprise Control Center - Master Design System & UI Polish
-// Level: Enterprise Production-Ready (Notion / Linear / GitHub / Odoo Enterprise)
+// Design Standard: Modern Enterprise (Linear / Vercel / GitHub / Odoo Enterprise)
 // ============================================================================
 
 :root {
@@ -36,12 +36,12 @@
   --mcp-success-text: #15803d;
   --mcp-success-border: #bbf7d0;
 
-  // Warning / Caution / HTTP Notice / Read-Only
+  // Warning / Caution / HTTP Notice
   --mcp-warning-bg: #fffbeb;
   --mcp-warning-text: #b45309;
   --mcp-warning-border: #fde68a;
 
-  // Danger / Error / Revoked / Disabled
+  // Danger / Error / Revoked / Destructive
   --mcp-danger-bg: #fff1f2;
   --mcp-danger-text: #be123c;
   --mcp-danger-border: #fecdd3;
@@ -62,7 +62,7 @@
   --mcp-code-text: #38bdf8;
   --mcp-code-border: #1e293b;
 
-  // 8-Point Professional Spacing Tokens
+  // 8-Point Professional Spacing System
   --mcp-space-1: 4px;
   --mcp-space-2: 8px;
   --mcp-space-3: 12px;
@@ -86,8 +86,47 @@
   --mcp-shadow-lg: 0 10px 25px -3px rgba(15, 23, 42, 0.08), 0 4px 8px -4px rgba(15, 23, 42, 0.04);
   --mcp-shadow-xl: 0 20px 30px -5px rgba(15, 23, 42, 0.12), 0 8px 12px -6px rgba(15, 23, 42, 0.04);
 
-  // Animation Timing Token
-  --mcp-transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  // Animation Timing Token (Fast & Responsive)
+  --mcp-transition: all 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+// Dark Mode Variable Overrides
+.mcp-saas-container.theme-dark {
+  --mcp-bg: #0f172a;
+  --mcp-card-bg: #1e293b;
+  --mcp-card-hover: #334155;
+  --mcp-surface-subtle: #0f172a;
+  --mcp-surface-elevated: #1e293b;
+
+  --mcp-text-heading: #f8fafc;
+  --mcp-text-body: #e2e8f0;
+  --mcp-text-muted: #94a3b8;
+
+  --mcp-border: #334155;
+  --mcp-border-subtle: #1e293b;
+  --mcp-border-strong: #475569;
+
+  --mcp-input-bg: #1e293b;
+  --mcp-input-border: #475569;
+
+  --mcp-success-bg: #064e3b;
+  --mcp-success-text: #6ee7b7;
+  --mcp-success-border: #047857;
+
+  --mcp-warning-bg: #78350f;
+  --mcp-warning-text: #fde68a;
+  --mcp-warning-border: #b45309;
+
+  --mcp-danger-bg: #881337;
+  --mcp-danger-text: #fecdd3;
+  --mcp-danger-border: #be123c;
+
+  --mcp-info-bg: #0c4a6e;
+  --mcp-info-text: #7dd3fc;
+  --mcp-info-border: #0284c7;
+
+  background-color: var(--mcp-bg);
+  color: var(--mcp-text-body);
 }
 
 // Custom Scrollbar
@@ -119,12 +158,12 @@
   -webkit-font-smoothing: antialiased;
 
   // Heading System Hierarchy
-  h1 { font-size: 2.25rem; font-weight: 800; line-height: 1.25; color: var(--mcp-text-heading) !important; letter-spacing: -0.03em; }
-  h2 { font-size: 1.75rem; font-weight: 700; line-height: 1.3; color: var(--mcp-text-heading) !important; letter-spacing: -0.025em; }
-  h3 { font-size: 1.35rem; font-weight: 700; line-height: 1.35; color: var(--mcp-text-heading) !important; letter-spacing: -0.02em; }
-  h4 { font-size: 1.15rem; font-weight: 700; line-height: 1.4; color: var(--mcp-text-heading) !important; letter-spacing: -0.015em; }
-  h5 { font-size: 1rem; font-weight: 600; line-height: 1.45; color: var(--mcp-text-heading) !important; }
-  h6 { font-size: 0.875rem; font-weight: 600; line-height: 1.5; color: var(--mcp-text-heading) !important; }
+  h1 { font-size: 2.125rem; font-weight: 800; line-height: 1.25; color: var(--mcp-text-heading) !important; letter-spacing: -0.03em; }
+  h2 { font-size: 1.625rem; font-weight: 700; line-height: 1.3; color: var(--mcp-text-heading) !important; letter-spacing: -0.025em; }
+  h3 { font-size: 1.25rem; font-weight: 700; line-height: 1.35; color: var(--mcp-text-heading) !important; letter-spacing: -0.02em; }
+  h4 { font-size: 1.1rem; font-weight: 700; line-height: 1.4; color: var(--mcp-text-heading) !important; letter-spacing: -0.015em; }
+  h5 { font-size: 0.95rem; font-weight: 600; line-height: 1.45; color: var(--mcp-text-heading) !important; }
+  h6 { font-size: 0.85rem; font-weight: 600; line-height: 1.5; color: var(--mcp-text-heading) !important; }
 
   p, span, label, div {
     color: inherit;
@@ -172,9 +211,9 @@
     }
 
     &.btn-lg {
-      height: 46px;
+      height: 44px;
       padding: 0 1.5rem;
-      font-size: 1rem;
+      font-size: 0.95rem;
       border-radius: var(--mcp-radius-lg);
     }
   }
@@ -194,6 +233,32 @@
     &:active:not(:disabled) {
       background-color: var(--mcp-primary-active);
       border-color: var(--mcp-primary-active);
+    }
+  }
+
+  .btn-success {
+    background-color: #16a34a;
+    border-color: #16a34a;
+    color: var(--mcp-text-white) !important;
+    box-shadow: var(--mcp-shadow-xs);
+
+    &:hover:not(:disabled) {
+      background-color: #15803d;
+      border-color: #15803d;
+      box-shadow: var(--mcp-shadow-sm);
+    }
+  }
+
+  .btn-danger {
+    background-color: #dc2626;
+    border-color: #dc2626;
+    color: var(--mcp-text-white) !important;
+    box-shadow: var(--mcp-shadow-xs);
+
+    &:hover:not(:disabled) {
+      background-color: #b91c1c;
+      border-color: #b91c1c;
+      box-shadow: var(--mcp-shadow-sm);
     }
   }
 
@@ -244,6 +309,17 @@
       border-color: var(--mcp-success-text);
     }
   }
+
+  .btn-ghost {
+    background: transparent;
+    border-color: transparent;
+    color: var(--mcp-text-muted) !important;
+
+    &:hover:not(:disabled) {
+      background: var(--mcp-surface-subtle);
+      color: var(--mcp-text-heading) !important;
+    }
+  }
 }
 
 // Enterprise Sticky Header
@@ -264,7 +340,7 @@
 .mcp-brand-logo {
   display: flex;
   align-items: center;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
   font-weight: 700;
   color: var(--mcp-text-heading);
 }
@@ -317,7 +393,7 @@
 
 // Content Hub Layout
 .mcp-content-hub {
-  max-width: 1400px;
+  max-width: 1360px;
   margin: 0 auto;
   padding: var(--mcp-space-6) var(--mcp-space-8);
   padding-bottom: 140px;
@@ -333,13 +409,13 @@
   color: var(--mcp-text-white) !important;
 
   .mcp-hero-title {
-    font-size: 2.25rem;
+    font-size: 2.125rem;
     font-weight: 800;
     color: var(--mcp-text-white) !important;
   }
 
   .mcp-hero-subtitle {
-    font-size: 1.05rem;
+    font-size: 1rem;
     color: #cbd5e1 !important;
     max-width: 650px;
     margin-top: var(--mcp-space-2);
@@ -363,7 +439,7 @@
 // Unified Cards & Grid System
 .mcp-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
   gap: var(--mcp-space-4);
 }
 
@@ -381,17 +457,18 @@
   &:hover {
     box-shadow: var(--mcp-shadow-md);
     border-color: var(--mcp-border-strong);
+    transform: translateY(-1px);
   }
 }
 
 .mcp-stat-icon {
-  width: 48px;
-  height: 48px;
+  width: 46px;
+  height: 46px;
   border-radius: var(--mcp-radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.2rem;
 
   &.bg-success-light { background: var(--mcp-success-bg); color: var(--mcp-success-text); border: 1px solid var(--mcp-success-border); }
   &.bg-info-light { background: var(--mcp-info-bg); color: var(--mcp-info-text); border: 1px solid var(--mcp-info-border); }
@@ -401,9 +478,11 @@
 
 .mcp-stat-label {
   display: block;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: var(--mcp-text-muted) !important;
   font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
 }
 
 .mcp-stat-value {
@@ -423,6 +502,7 @@
 .mcp-section-title {
   color: var(--mcp-text-heading) !important;
   font-weight: 700;
+  font-size: 1.1rem;
 }
 
 // Connector URL Box
@@ -439,7 +519,7 @@
 // 3-Step Simple Guide Grid
 .mcp-simple-guide-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
   gap: var(--mcp-space-4);
 }
 
@@ -463,12 +543,13 @@
 }
 
 .mcp-guide-step-num {
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   border-radius: var(--mcp-radius-pill);
   background: var(--mcp-primary);
   color: var(--mcp-text-white);
   font-weight: 700;
+  font-size: 0.85rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -477,7 +558,7 @@
 
 .mcp-quick-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: var(--mcp-space-4);
 }
 
@@ -492,7 +573,13 @@
   gap: var(--mcp-space-2);
   color: var(--mcp-text-heading) !important;
   font-weight: 600;
+  font-size: 0.85rem;
   transition: var(--mcp-transition);
+  cursor: pointer;
+
+  i {
+    font-size: 1.25rem;
+  }
 
   &:hover {
     background: var(--mcp-card-hover);
@@ -514,6 +601,24 @@
   }
 }
 
+// Cards Grid for Tools
+.mcp-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--mcp-space-4);
+}
+
+.mcp-tool-card {
+  transition: var(--mcp-transition);
+  border: 1px solid var(--mcp-border);
+
+  &:hover {
+    border-color: var(--mcp-primary-border);
+    box-shadow: var(--mcp-shadow-md) !important;
+    transform: translateY(-2px);
+  }
+}
+
 // Enterprise Table Design
 .table-responsive {
   max-height: 520px;
@@ -531,13 +636,13 @@
       position: sticky;
       top: 0;
       background: var(--mcp-surface-subtle);
-      color: var(--mcp-text-heading) !important;
+      color: var(--mcp-text-muted) !important;
       z-index: 10;
       border-bottom: 2px solid var(--mcp-border);
       font-weight: 700;
-      font-size: 0.85rem;
+      font-size: 0.75rem;
       text-transform: uppercase;
-      letter-spacing: 0.03em;
+      letter-spacing: 0.05em;
       padding: var(--mcp-space-3) var(--mcp-space-4);
     }
 
@@ -554,15 +659,16 @@
       border-bottom: 1px solid var(--mcp-border-subtle);
       vertical-align: middle;
       padding: var(--mcp-space-3) var(--mcp-space-4);
+      font-size: 0.85rem;
 
       code {
         color: var(--mcp-info-text) !important;
         background: var(--mcp-info-bg);
         border: 1px solid var(--mcp-info-border);
-        padding: 0.25rem 0.5rem;
+        padding: 0.2rem 0.5rem;
         border-radius: var(--mcp-radius-sm);
         font-family: SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-        font-size: 0.85em;
+        font-size: 0.8em;
       }
     }
   }
@@ -570,10 +676,10 @@
 
 // Operation Badge Pills
 .mcp-operation-badge {
-  font-size: 0.7rem;
+  font-size: 0.6875rem;
   font-weight: 800;
   letter-spacing: 0.05em;
-  padding: 0.25rem 0.6rem;
+  padding: 0.2rem 0.55rem;
   border-radius: var(--mcp-radius-pill);
   text-transform: uppercase;
 
@@ -624,9 +730,9 @@
 // Enterprise Badge System
 .badge {
   font-weight: 600;
-  padding: 0.3rem 0.65rem;
+  padding: 0.25rem 0.6rem;
   border-radius: var(--mcp-radius-pill);
-  font-size: 0.75rem;
+  font-size: 0.725rem;
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -685,8 +791,10 @@
   padding: var(--mcp-space-2) var(--mcp-space-4);
   border-radius: var(--mcp-radius-md);
   font-weight: 600;
+  font-size: 0.875rem;
   white-space: nowrap;
   transition: var(--mcp-transition);
+  cursor: pointer;
 
   &.active {
     background: var(--mcp-primary-light);
@@ -703,7 +811,7 @@
 .form-label {
   color: var(--mcp-text-heading) !important;
   font-weight: 600;
-  font-size: 0.875rem;
+  font-size: 0.85rem;
   margin-bottom: var(--mcp-space-1);
 }
 
@@ -715,7 +823,7 @@
   height: 38px;
   padding: 0 0.85rem;
   font-size: 0.875rem;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 
   &:focus {
     border-color: var(--mcp-input-focus-border);
@@ -733,6 +841,7 @@
 .form-check-input {
   cursor: pointer;
   border-color: var(--mcp-border-strong);
+  transition: var(--mcp-transition);
 
   &:checked {
     background-color: var(--mcp-primary);
@@ -745,8 +854,13 @@
   }
 
   &:disabled {
-    opacity: 0.65;
+    opacity: 0.55;
     cursor: not-allowed;
+  }
+
+  &.form-check-danger:checked {
+    background-color: #be123c !important;
+    border-color: #be123c !important;
   }
 }
 
@@ -754,15 +868,15 @@
 .mcp-modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(15, 23, 42, 0.65);
-  backdrop-filter: blur(8px);
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 9999;
   overflow-y: auto;
   padding: var(--mcp-space-4);
-  animation: mcpFadeIn 0.2s ease-out;
+  animation: mcpFadeIn 0.18s ease-out;
 }
 
 .mcp-modal-dialog {
@@ -771,16 +885,40 @@
   border: 1px solid var(--mcp-border);
   border-radius: var(--mcp-radius-lg);
   width: 100%;
-  max-width: 650px;
+  max-width: 620px;
   max-height: 90vh;
-  overflow-y: auto;
-  padding: var(--mcp-space-6);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   box-shadow: var(--mcp-shadow-xl);
-  animation: mcpScaleUp 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: mcpScaleUp 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+
+  &.modal-xl {
+    max-width: 1100px;
+  }
+
+  &.modal-lg {
+    max-width: 850px;
+  }
 
   h3, h4, h5, h6 {
     color: var(--mcp-text-heading) !important;
   }
+}
+
+.mcp-modal-header {
+  flex: 0 0 auto;
+}
+
+.mcp-modal-body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  min-height: 0;
+  -webkit-overflow-scrolling: touch;
+}
+
+.mcp-modal-footer {
+  flex: 0 0 auto;
 }
 
 .mcp-wizard-step-box {
@@ -816,14 +954,15 @@
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.6rem 1.5rem;
+    padding: 0.55rem 1.4rem;
     border-radius: var(--mcp-radius-pill);
     border: none;
     background: transparent;
     color: var(--mcp-text-muted) !important;
     font-weight: 600;
-    font-size: 0.875rem;
+    font-size: 0.85rem;
     transition: var(--mcp-transition);
+    cursor: pointer;
 
     &:hover {
       color: var(--mcp-text-heading) !important;
@@ -832,7 +971,7 @@
     &.active {
       background: var(--mcp-primary) !important;
       color: var(--mcp-text-white) !important;
-      box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+      box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
     }
   }
 }
@@ -844,7 +983,7 @@
 }
 
 @keyframes mcpScaleUp {
-  from { opacity: 0; transform: scale(0.96); }
+  from { opacity: 0; transform: scale(0.97); }
   to { opacity: 1; transform: scale(1); }
 }
 
@@ -852,92 +991,96 @@
 .mcp-empty-state {
   padding: var(--mcp-space-8) var(--mcp-space-4);
   text-align: center;
+  background: var(--mcp-card-bg);
+  border: 1px border-dashed var(--mcp-border-strong);
+  border-radius: var(--mcp-radius-lg);
+  margin: var(--mcp-space-4) 0;
   
   .mcp-empty-icon {
-    font-size: 2.5rem;
+    font-size: 2.25rem;
     color: var(--mcp-text-muted);
+    opacity: 0.6;
     margin-bottom: var(--mcp-space-3);
   }
 
   h5 {
     color: var(--mcp-text-heading);
+    font-weight: 700;
     margin-bottom: var(--mcp-space-1);
   }
 
   p {
     color: var(--mcp-text-muted);
-    font-size: 0.875rem;
-    max-width: 420px;
+    font-size: 0.85rem;
+    max-width: 440px;
     margin: 0 auto var(--mcp-space-4);
   }
 }
 
-// High-Contrast Dark Theme Tokens
-.theme-dark {
-  --mcp-primary: #3b82f6;
-  --mcp-primary-hover: #60a5fa;
-  --mcp-primary-active: #2563eb;
-  --mcp-primary-light: rgba(59, 130, 246, 0.15);
-  --mcp-primary-border: rgba(59, 130, 246, 0.3);
-  --mcp-primary-glow: rgba(59, 130, 246, 0.25);
+// Skeleton Loading Component
+.mcp-skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: mcpShimmer 1.5s infinite;
+  border-radius: var(--mcp-radius-sm);
+}
 
-  --mcp-bg: #0f172a;
-  --mcp-card-bg: #1e293b;
-  --mcp-card-hover: #334155;
-  --mcp-surface-subtle: #1e293b;
-  --mcp-surface-elevated: #334155;
+@keyframes mcpShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
 
-  --mcp-text-heading: #ffffff;
-  --mcp-text-body: #f8fafc;
-  --mcp-text-muted: #94a3b8;
-
-  --mcp-border: rgba(255, 255, 255, 0.12);
-  --mcp-border-subtle: rgba(255, 255, 255, 0.06);
-  --mcp-border-strong: rgba(255, 255, 255, 0.2);
-
-  --mcp-success-bg: rgba(22, 101, 52, 0.2);
-  --mcp-success-text: #4ade80;
-  --mcp-success-border: rgba(74, 222, 128, 0.3);
-
-  --mcp-warning-bg: rgba(180, 83, 9, 0.2);
-  --mcp-warning-text: #fbbf24;
-  --mcp-warning-border: rgba(251, 191, 36, 0.3);
-
-  --mcp-danger-bg: rgba(153, 27, 27, 0.2);
-  --mcp-danger-text: #f87171;
-  --mcp-danger-border: rgba(248, 113, 113, 0.3);
-
-  --mcp-info-bg: rgba(7, 89, 133, 0.2);
-  --mcp-info-text: #38bdf8;
-  --mcp-info-border: rgba(56, 189, 248, 0.3);
-
-  --mcp-input-bg: #0f172a;
-  --mcp-input-border: #334155;
-
-  background-color: #0f172a !important;
-  color: #f8fafc !important;
-
-  h1, h2, h3, h4, h5, h6 {
-    color: #ffffff !important;
-  }
-
-  .text-muted {
-    color: #94a3b8 !important;
+// Responsive Design Overrides
+@media (max-width: 992px) {
+  .mcp-content-hub {
+    padding: var(--mcp-space-4);
+    padding-bottom: 120px;
   }
 
   .mcp-header {
-    background: rgba(15, 23, 42, 0.94) !important;
-    border-color: rgba(255, 255, 255, 0.12) !important;
+    padding: var(--mcp-space-3) var(--mcp-space-4);
+  }
+
+  .mcp-hero-card {
+    padding: var(--mcp-space-6) var(--mcp-space-4);
+  }
+
+  .mcp-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .mcp-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .mcp-quick-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .mcp-bottom-nav {
+    bottom: var(--mcp-space-4);
+    width: 90%;
+
+    .mcp-nav-pills {
+      justify-content: space-around;
+      width: 100%;
+
+      .mcp-nav-btn {
+        padding: 0.5rem 0.8rem;
+        font-size: 0.8rem;
+
+        span {
+          display: none;
+        }
+      }
+    }
   }
 
   .mcp-modal-dialog {
-    background: #1e293b !important;
-    color: #f8fafc !important;
-    border-color: rgba(255, 255, 255, 0.15) !important;
-  }
-
-  .mcp-nav-pills {
-    background: #1e293b !important;
-    border-color: rgba(255, 255, 255, 0.2) !important;
+    padding: var(--mcp-space-4);
+    max-width: 95%;
   }
 }
+

@@ -30,9 +30,10 @@ def send_http_request(server_url, api_key, payload):
     req = urllib.request.Request(
         endpoint,
         data=data,
-        headers={
+                headers={
             'Content-Type': 'application/json',
-            'Authorization': f'Bearer {api_key}'
+            'Authorization': f'Bearer {api_key}',
+            'Mcp-Session-Id': 'sess_stdio_claude_desktop'
         },
         method='POST'
     )

@@ -1,22 +1,49 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart } from "@odoo/owl";
+import { Component, useState, onWillStart, onMounted, onWillUnmount } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
 export class MCPControlCenter extends Component {
     static template = "mcp_claude.ControlCenter";
 
+    get generatedSchemaPreviewJson() {
+        try {
+            return JSON.stringify(this.generatedSchemaPreview, null, 2);
+        } catch (e) {
+            return "{}";
+        }
+    }
+
+    get testToolResultJson() {
+        try {
+            return JSON.stringify(this.state.testToolResult || {}, null, 2);
+        } catch (e) {
+            return "{}";
+        }
+    }
+
     setup() {
         this.orm = useService("orm");
         this.notification = useService("notification");
         this.action = useService("action");
+        this._reqId = 0;
 
         const defaultOrigin = window.location.origin;
+
+        // Restore persisted user preferences from localStorage
+        const savedTab = localStorage.getItem("mcp_active_tab") || "home";
+        const savedSubTab = localStorage.getItem("mcp_settings_tab") || "permissions";
+        const savedTheme = localStorage.getItem("mcp_theme_mode") || "light";
+        const savedFilter = localStorage.getItem("mcp_tools_op_filter") || "all";
+
         this.state = useState({
-            activeTab: "home",
-            settingsTab: "permissions",
-            connectOption: "json", // Default to json; updated dynamically by envInfo recommendation
+            activeTab: savedTab,
+            settingsTab: savedSubTab,
+            themeMode: savedTheme, // 'light' or 'dark'
+            connectOption: "json",
+            loadingData: true,
+            isSyncing: false,
             
             isHttp: window.location.protocol === "http:",
             httpsEnabled: window.location.protocol === "https:",
@@ -68,7 +95,7 @@ export class MCPControlCenter extends Component {
                     server_reachability: { label: "Server Reachability", status: "Online", ok: true, badge: "🟢 Online" },
                     mcp_endpoint: { label: "MCP Endpoint", status: "Reachable", ok: true, badge: "🟢 Reachable" },
                     oauth_support: { label: "OAuth Support", status: "Detected", ok: true, badge: "🟢 Detected" },
-                    recommended_connection: { label: "Recommended Connection", status: "Claude Desktop JSON Configuration", ok: true, badge: "📄 Stdio JSON" }
+                    recommended_connection: { label: "Recommended Connection", status: "Claude JSON Configuration", ok: true, badge: "📄 Stdio JSON" }
                 },
                 clientPlatform: this.detectClientPlatform(),
                 wizardStep: 1,
@@ -89,6 +116,16 @@ export class MCPControlCenter extends Component {
             showRawTokenModal: false,
             showAddToolModal: false,
             showQuickSearch: false,
+            showShortcutsHelpModal: false,
+            showConfirmDialog: false,
+            confirmDialogOptions: {
+                title: "Confirm Action",
+                message: "Are you sure you want to proceed?",
+                confirmText: "Confirm",
+                cancelText: "Cancel",
+                isDanger: true,
+                onConfirm: null
+            },
             showOperationNotAvailableModal: false,
             operationNotAvailableTitle: "Operation Not Available",
             operationNotAvailableMessage: "",
@@ -103,12 +140,22 @@ export class MCPControlCenter extends Component {
             sessions: [],
             auditLogs: [],
 
+            toolsSearchQuery: "",
+            toolsOperationFilter: savedFilter,
+            permissionsSearchQuery: "",
+
             // Multi-step Add/Edit Tool Modal State
             modalStep: 1,
             isEditingTool: false,
             availableModels: [],
             modelSearchQuery: "",
             availableFields: [],
+            fieldSearchQuery: "",
+            selectedPlatformTab: "win_standard",
+            fieldCategoryTab: "all",
+            showAdvancedSettings: false,
+            editingCustomName: false,
+            editingCustomDesc: false,
             loadingModels: false,
             loadingFields: false,
             toolForm: {
@@ -143,17 +190,124 @@ export class MCPControlCenter extends Component {
                 rateLimitRpm: 120,
             },
 
+            claudeStatus: {
+                connected: false,
+                status: "never_connected",
+                status_label: "Never Connected",
+                status_subtitle: "Initial setup not completed",
+                badge_class: "bg-secondary text-white",
+                icon_symbol: "⚫",
+                mode: "Not Available",
+                last_activity_text: "Never",
+                last_activity_iso: "",
+                client_name: "Claude Desktop",
+                client_version: "v1.0.0",
+                active_sessions_count: 0,
+                health_checks: {
+                    oauth: false,
+                    mcp_session: false,
+                    authentication: true,
+                    endpoint_reachable: true,
+                    tool_registration: true
+                }
+            },
+
             newToken: {
-                name: "Claude Desktop",
+                name: "Claude",
                 scopes: "full",
                 expiration_policy: "never",
                 allowed_ips: "",
             }
         });
 
+        // Keybindings Handler
+        this._onKeyDown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+                e.preventDefault();
+                this.state.showQuickSearch = !this.state.showQuickSearch;
+            } else if (e.key === "Escape") {
+                this.closeAllModals();
+            } else if (e.key === "?" && !["INPUT", "TEXTAREA"].includes(e.target.tagName)) {
+                e.preventDefault();
+                this.state.showShortcutsHelpModal = !this.state.showShortcutsHelpModal;
+            } else if (e.key === "/" && !["INPUT", "TEXTAREA"].includes(e.target.tagName)) {
+                e.preventDefault();
+                const inputEl = document.querySelector(".mcp-filter-bar input");
+                if (inputEl) inputEl.focus();
+            }
+        };
+
+        onMounted(() => {
+            window.addEventListener("keydown", this._onKeyDown);
+            this.pollClaudeStatus();
+            this._statusPollTimer = setInterval(() => {
+                this.pollClaudeStatus();
+            }, 5000);
+        });
+
+        onWillUnmount(() => {
+            window.removeEventListener("keydown", this._onKeyDown);
+            if (this._statusPollTimer) {
+                clearInterval(this._statusPollTimer);
+            }
+        });
+
         onWillStart(async () => {
             await this.loadAllData();
         });
+    }
+
+    // Persist Tab Choices to localStorage
+    setTabHome() {
+        this.state.activeTab = "home";
+        localStorage.setItem("mcp_active_tab", "home");
+    }
+    setTabTools() {
+        this.state.activeTab = "tools";
+        localStorage.setItem("mcp_active_tab", "tools");
+    }
+    setTabConfigurations() {
+        this.state.activeTab = "configurations";
+        localStorage.setItem("mcp_active_tab", "configurations");
+    }
+    setSubTabPermissions() {
+        this.state.settingsTab = "permissions";
+        localStorage.setItem("mcp_settings_tab", "permissions");
+    }
+    setSubTabConnection() {
+        this.state.settingsTab = "connection";
+        localStorage.setItem("mcp_settings_tab", "connection");
+    }
+    setSubTabAuth() {
+        this.state.settingsTab = "authentication";
+        localStorage.setItem("mcp_settings_tab", "authentication");
+    }
+    setSubTabGeneral() {
+        this.state.settingsTab = "general";
+        localStorage.setItem("mcp_settings_tab", "general");
+    }
+    setSubTabAudit() {
+        this.state.settingsTab = "advanced";
+        localStorage.setItem("mcp_settings_tab", "advanced");
+    }
+
+    toggleThemeMode() {
+        const nextTheme = this.state.themeMode === "dark" ? "light" : "dark";
+        this.state.themeMode = nextTheme;
+        localStorage.setItem("mcp_theme_mode", nextTheme);
+        this.notification.add(`Theme switched to ${nextTheme === "dark" ? "Dark Mode" : "Light Mode"}`, { type: "info" });
+    }
+
+    closeAllModals() {
+        this.state.showAddToolModal = false;
+        this.state.showConnectWizard = false;
+        this.state.showCreateTokenModal = false;
+        this.state.showRawTokenModal = false;
+        this.state.showTestToolModal = false;
+        this.state.showQuickSearch = false;
+        this.state.showShortcutsHelpModal = false;
+        this.state.showConfirmDialog = false;
+        this.state.showOperationNotAvailableModal = false;
     }
 
     detectClientPlatform() {
@@ -204,17 +358,32 @@ export class MCPControlCenter extends Component {
         }
     }
 
+    async pollClaudeStatus() {
+        try {
+            const status = await this.orm.call("mcp.tool", "get_claude_connection_status", []).catch(() => null);
+            if (status && typeof status === "object") {
+                this.state.claudeStatus = status;
+            }
+        } catch (e) {
+            console.warn("Poll status failed:", e);
+        }
+    }
+
     async loadAllData() {
+        const reqId = ++this._reqId;
+        this.state.isSyncing = true;
         try {
             const envInfo = await this.orm.call("mcp.tool", "get_environment_info", []).catch(() => null);
-            if (envInfo) {
-                this.state.envInfo = envInfo;
-                this.state.connectOption = envInfo.recommended_connection;
-                this.state.connectorUrl = envInfo.direct_url;
-                this.state.stdioJsonConfig = envInfo.config_json;
-                this.state.serverUrl = envInfo.base_url;
+            if (reqId !== this._reqId) return;
+
+            if (envInfo && typeof envInfo === "object") {
+                this.state.envInfo = Object.assign({}, this.state.envInfo, envInfo);
+                this.state.connectOption = envInfo.recommended_connection || this.state.connectOption;
+                this.state.connectorUrl = envInfo.direct_url || this.state.connectorUrl;
+                this.state.stdioJsonConfig = envInfo.config_json || this.state.stdioJsonConfig;
+                this.state.serverUrl = envInfo.base_url || this.state.serverUrl;
                 this.state.isHttp = !envInfo.is_https;
-                this.state.httpsEnabled = envInfo.is_https;
+                this.state.httpsEnabled = !!envInfo.is_https;
                 if (envInfo.wizard_params) {
                     this.state.wizardForm = {
                         python_path: envInfo.wizard_params.python_path || "python",
@@ -226,26 +395,42 @@ export class MCPControlCenter extends Component {
             }
 
             const tools = await this.orm.searchRead("mcp.tool", [], ["id", "name", "display_name", "description", "model_name", "operation", "search_fields", "result_fields", "active", "is_builtin", "sequence", "create_date"], { order: "sequence, id" }).catch(() => []);
-            const keys = await this.orm.searchRead("mcp.api.key", [], ["id", "name", "key_prefix", "scopes", "expiration_policy", "expires_at", "last_used_at", "last_used_ip", "active", "create_date"]).catch(() => []);
-            const clients = await this.orm.searchRead("mcp.oauth.client", [], ["id", "name", "client_id", "redirect_uri", "active"]).catch(() => []);
-            const sessions = await this.orm.searchRead("mcp.session", [], ["id", "client_name", "active", "expires_at", "create_date"]).catch(() => []);
-            const logs = await this.orm.searchRead("mcp.audit.log", [], ["id", "tool_name", "model_name", "action_type", "status", "create_date"], { limit: 15, order: "id desc" }).catch(() => []);
-            const backendPerms = await this.orm.call("mcp.model.rule", "get_app_permissions", []).catch(() => null);
+            if (reqId !== this._reqId) return;
 
-            this.state.tools = tools || [];
-            this.state.apiKeys = keys || [];
-            this.state.oauthClients = clients || [];
-            this.state.sessions = sessions || [];
-            this.state.auditLogs = logs || [];
-            if (backendPerms && backendPerms.length > 0) {
+            const keys = await this.orm.searchRead("mcp.api.key", [], ["id", "name", "key_prefix", "scopes", "expiration_policy", "expires_at", "last_used_at", "last_used_ip", "active", "create_date"]).catch(() => []);
+            if (reqId !== this._reqId) return;
+
+            const clients = await this.orm.searchRead("mcp.oauth.client", [], ["id", "name", "client_id", "redirect_uri", "active"]).catch(() => []);
+            if (reqId !== this._reqId) return;
+
+            const sessions = await this.orm.searchRead("mcp.session", [], ["id", "client_name", "active", "expires_at", "create_date"]).catch(() => []);
+            if (reqId !== this._reqId) return;
+
+            const logs = await this.orm.searchRead("mcp.audit.log", [], ["id", "tool_name", "model_name", "action_type", "status", "create_date"], { limit: 15, order: "id desc" }).catch(() => []);
+            if (reqId !== this._reqId) return;
+
+            const backendPerms = await this.orm.call("mcp.model.rule", "get_app_permissions", []).catch(() => null);
+            if (reqId !== this._reqId) return;
+
+            this.state.tools = Array.isArray(tools) ? tools : [];
+            this.state.apiKeys = Array.isArray(keys) ? keys : [];
+            this.state.oauthClients = Array.isArray(clients) ? clients : [];
+            this.state.sessions = Array.isArray(sessions) ? sessions : [];
+            this.state.auditLogs = Array.isArray(logs) ? logs : [];
+            if (Array.isArray(backendPerms) && backendPerms.length > 0) {
                 this.state.odooAppsPermissions = backendPerms;
             }
 
             this.state.stats.totalTools = this.state.tools.length;
-            this.state.stats.activeKeys = this.state.apiKeys.filter(k => k.active).length;
-            this.state.stats.activeSessions = this.state.sessions.filter(s => s.active).length;
+            this.state.stats.activeKeys = this.state.apiKeys.filter(k => k && k.active).length;
+            this.state.stats.activeSessions = this.state.sessions.filter(s => s && s.active).length;
         } catch (e) {
             console.error("Failed loading MCP data:", e);
+        } finally {
+            if (reqId === this._reqId) {
+                this.state.loadingData = false;
+                this.state.isSyncing = false;
+            }
         }
     }
 
@@ -273,10 +458,15 @@ export class MCPControlCenter extends Component {
 
     // Multi-Step Add/Edit Tool Handlers
     async openAddToolModal() {
+        this.state.modalStep = 1;
         this.state.isEditingTool = false;
         this.state.modelSearchQuery = "";
         this.state.fieldSearchQuery = "";
         this.state.availableFields = [];
+        this.state.fieldCategoryTab = "all";
+        this.state.showAdvancedSettings = false;
+        this.state.editingCustomName = false;
+        this.state.editingCustomDesc = false;
         this.state.toolForm = {
             id: null,
             name: "",
@@ -284,6 +474,7 @@ export class MCPControlCenter extends Component {
             description: "",
             model_name: "",
             operation: "search",
+            operations: ["search", "read"],
             search_fields: [],
             result_fields: [],
             is_builtin: false,
@@ -307,9 +498,14 @@ export class MCPControlCenter extends Component {
             rFields = tool.result_fields ? JSON.parse(tool.result_fields) : [];
         } catch (e) { rFields = []; }
 
+        this.state.modalStep = 1;
         this.state.isEditingTool = true;
         this.state.modelSearchQuery = "";
         this.state.fieldSearchQuery = "";
+        this.state.fieldCategoryTab = "all";
+        this.state.showAdvancedSettings = false;
+        this.state.editingCustomName = false;
+        this.state.editingCustomDesc = false;
         this.state.toolForm = {
             id: tool.id,
             name: tool.name,
@@ -317,6 +513,7 @@ export class MCPControlCenter extends Component {
             description: tool.description || "",
             model_name: tool.model_name || "",
             operation: tool.operation || "search",
+            operations: [tool.operation || "search"],
             search_fields: sFields,
             result_fields: rFields,
             is_builtin: tool.is_builtin || false,
@@ -329,8 +526,138 @@ export class MCPControlCenter extends Component {
         }
     }
 
+    nextWizardStep() {
+        if (this.state.modalStep === 1 && !this.state.toolForm.model_name) {
+            this.notification.add("Please select a target Odoo model before proceeding.", { type: "warning" });
+            return;
+        }
+        if (this.state.modalStep === 2 && (!Array.isArray(this.state.toolForm.operations) || this.state.toolForm.operations.length === 0)) {
+            this.notification.add("Please select at least one operation for the tool.", { type: "warning" });
+            return;
+        }
+        this.state.modalStep = Math.min(3, this.state.modalStep + 1);
+    }
+
+    prevWizardStep() {
+        this.state.modalStep = Math.max(1, this.state.modalStep - 1);
+    }
+
+    setWizardStepDirect(step) {
+        if (step > 1 && !this.state.toolForm.model_name) {
+            this.notification.add("Please select a target Odoo model first.", { type: "warning" });
+            return;
+        }
+        this.state.modalStep = Math.min(3, Math.max(1, step));
+    }
+
+    toggleOperation(op) {
+        if (!Array.isArray(this.state.toolForm.operations)) {
+            this.state.toolForm.operations = [];
+        }
+        const idx = this.state.toolForm.operations.indexOf(op);
+        if (idx >= 0) {
+            if (this.state.toolForm.operations.length > 1) {
+                this.state.toolForm.operations.splice(idx, 1);
+            } else {
+                this.notification.add("At least one operation must remain selected.", { type: "warning" });
+            }
+        } else {
+            this.state.toolForm.operations.push(op);
+        }
+        this.autoGenerateDescription();
+    }
+
+    selectAllOperations() {
+        this.state.toolForm.operations = ["search", "read", "create", "write", "delete", "aggregate"];
+        this.autoGenerateDescription();
+    }
+
+    setFieldCategoryTab(cat) {
+        this.state.fieldCategoryTab = cat || "all";
+    }
+
+    toggleAdvancedSettings() {
+        this.state.showAdvancedSettings = !this.state.showAdvancedSettings;
+    }
+
+    toggleEditingCustomName() {
+        this.state.editingCustomName = !this.state.editingCustomName;
+    }
+
+    toggleEditingCustomDesc() {
+        this.state.editingCustomDesc = !this.state.editingCustomDesc;
+    }
+
+    get estimatedTimeRemaining() {
+        if (this.state.modalStep === 1) return "~20 seconds remaining";
+        if (this.state.modalStep === 2) return "~10 seconds remaining";
+        return "Ready to register";
+    }
+
+    get categorizedAvailableFields() {
+        const fields = Array.isArray(this.state.availableFields) ? this.state.availableFields : [];
+        const query = (this.state.fieldSearchQuery || "").toLowerCase().trim();
+        
+        let filtered = fields;
+        if (query) {
+            filtered = fields.filter(f => f && ((f.name || "").toLowerCase().includes(query) || (f.label || "").toLowerCase().includes(query)));
+        }
+
+        const core = [];
+        const relations = [];
+        const dates = [];
+        const technical = [];
+
+        for (const f of filtered) {
+            if (!f || !f.name) continue;
+            const name = (f.name || "").toLowerCase();
+            const type = (f.type || "").toLowerCase();
+            
+            if (["id", "create_date", "write_date", "create_uid", "write_uid", "__last_update"].includes(name)) {
+                technical.push(f);
+            } else if (type.includes("many") || type.includes("one") || name.endsWith("_id") || name.endsWith("_ids")) {
+                relations.push(f);
+            } else if (type.includes("date") || type.includes("time")) {
+                dates.push(f);
+            } else {
+                core.push(f);
+            }
+        }
+
+        return {
+            all: filtered,
+            core,
+            relations,
+            dates,
+            technical,
+            total: fields.length
+        };
+    }
+
+    selectCategoryFields(cat) {
+        const catMap = this.categorizedAvailableFields;
+        let targetList = [];
+        if (cat === "core") targetList = catMap.core;
+        else if (cat === "relations") targetList = catMap.relations;
+        else if (cat === "dates") targetList = catMap.dates;
+        else if (cat === "technical") targetList = catMap.technical;
+        else targetList = catMap.all;
+
+        const currentSet = new Set(Array.isArray(this.state.toolForm.result_fields) ? this.state.toolForm.result_fields : []);
+        targetList.forEach(f => { if (f && f.name) currentSet.add(f.name); });
+        this.state.toolForm.result_fields = Array.from(currentSet);
+    }
+
+    get wizardCompletionPercentage() {
+        if (!this.state.toolForm.model_name) return 20;
+        if (this.state.modalStep === 1) return 40;
+        if (this.state.modalStep === 2) return 75;
+        return 100;
+    }
+
     closeAddToolModal() {
         this.state.showAddToolModal = false;
+        this.state.modalStep = 1;
     }
 
     async loadAvailableModels() {
@@ -370,6 +697,9 @@ export class MCPControlCenter extends Component {
         try {
             const fields = await this.orm.call("mcp.tool", "get_model_fields", [modelName]);
             this.state.availableFields = fields || [];
+            if (!this.state.isEditingTool && (!this.state.toolForm.result_fields || this.state.toolForm.result_fields.length === 0)) {
+                this.selectAllResultFields();
+            }
             if (updateDesc && !this.state.toolForm.description) {
                 this.autoGenerateDescription();
             }
@@ -391,6 +721,9 @@ export class MCPControlCenter extends Component {
     }
 
     toggleSearchField(fname) {
+        if (!Array.isArray(this.state.toolForm.search_fields)) {
+            this.state.toolForm.search_fields = [];
+        }
         const idx = this.state.toolForm.search_fields.indexOf(fname);
         if (idx >= 0) {
             this.state.toolForm.search_fields.splice(idx, 1);
@@ -401,6 +734,9 @@ export class MCPControlCenter extends Component {
     }
 
     toggleResultField(fname) {
+        if (!Array.isArray(this.state.toolForm.result_fields)) {
+            this.state.toolForm.result_fields = [];
+        }
         const idx = this.state.toolForm.result_fields.indexOf(fname);
         if (idx >= 0) {
             this.state.toolForm.result_fields.splice(idx, 1);
@@ -410,7 +746,8 @@ export class MCPControlCenter extends Component {
     }
 
     selectAllResultFields() {
-        this.state.toolForm.result_fields = this.state.availableFields.map(f => f.name);
+        const fields = Array.isArray(this.state.availableFields) ? this.state.availableFields : [];
+        this.state.toolForm.result_fields = fields.map(f => f.name);
     }
 
     clearResultFields() {
@@ -420,7 +757,7 @@ export class MCPControlCenter extends Component {
     autoGenerateDescription() {
         const model = this.state.toolForm.model_name || 'records';
         const op = this.state.toolForm.operation || 'search';
-        const sFields = this.state.toolForm.search_fields;
+        const sFields = Array.isArray(this.state.toolForm.search_fields) ? this.state.toolForm.search_fields : [];
         
         let desc = `${op.charAt(0).toUpperCase() + op.slice(1)} Odoo ${model}`;
         if (sFields && sFields.length > 0) {
@@ -430,85 +767,31 @@ export class MCPControlCenter extends Component {
     }
 
     get generatedSchemaPreview() {
-        const op = this.state.toolForm.operation;
-        const sFields = this.state.toolForm.search_fields;
+        const ops = Array.isArray(this.state.toolForm.operations) && this.state.toolForm.operations.length > 0 
+            ? this.state.toolForm.operations 
+            : [this.state.toolForm.operation || "search"];
         
-        if (op === "create") {
-            const props = {};
-            if (sFields) {
-                sFields.forEach(f => {
-                    props[f] = { "type": "string", "description": `Value for ${f}` };
-                });
+        const op = ops[0] || "search";
+        const model = this.state.toolForm.model_name || "res.partner";
+        const rFields = Array.isArray(this.state.toolForm.result_fields) ? this.state.toolForm.result_fields : [];
+        const cleanModel = model.replace(/\./g, '_');
+
+        return {
+            name: this.state.toolForm.name || `odoo_${op}_${cleanModel}`,
+            model_name: model,
+            allowed_operations: ops,
+            exposed_fields_count: rFields.length,
+            exposed_fields_sample: rFields.slice(0, 8),
+            inputSchema: {
+                type: "object",
+                properties: {
+                    domain: { type: "array", description: "Odoo search domain filter" },
+                    fields: { type: "array", items: { type: "string" }, default: rFields.slice(0, 5) },
+                    limit: { type: "integer", default: 10 }
+                },
+                required: op === "read" || op === "write" || op === "delete" ? ["id"] : []
             }
-            return {
-                "type": "object",
-                "properties": {
-                    "values": { "type": "object", "properties": props, "description": "Field values to create" }
-                },
-                "required": ["values"]
-            };
-        } else if (op === "write") {
-            const props = {};
-            if (sFields) {
-                sFields.forEach(f => {
-                    props[f] = { "type": "string", "description": `Value for ${f}` };
-                });
-            }
-            return {
-                "type": "object",
-                "properties": {
-                    "id": { "type": "integer", "description": "Target record ID" },
-                    "values": { "type": "object", "properties": props, "description": "Field values to update" }
-                },
-                "required": ["id", "values"]
-            };
-        } else if (op === "delete") {
-            return {
-                "type": "object",
-                "properties": {
-                    "id": { "type": "integer", "description": "Target record ID to delete" }
-                },
-                "required": ["id"]
-            };
-        } else if (op === "explain") {
-            return {
-                "type": "object",
-                "properties": {
-                    "model": { "type": "string", "description": "Target Odoo model name" },
-                    "id": { "type": "integer", "description": "Optional record ID" }
-                },
-                "required": ["model"]
-            };
-        } else if (op === "read") {
-            return {
-                "type": "object",
-                "properties": {
-                    "id": { "type": "integer", "description": "Target record ID" },
-                    "fields": { "type": "array", "items": { "type": "string" }, "description": "Fields to read" }
-                },
-                "required": ["id"]
-            };
-        } else if (op === "aggregate") {
-            return {
-                "type": "object",
-                "properties": {
-                    "domain": { "type": "array", "description": "Search domain" },
-                    "groupby": { "type": "array", "items": { "type": "string" }, "description": "Groupby dimensions" },
-                    "fields": { "type": "array", "items": { "type": "string" }, "description": "Fields to aggregate" }
-                }
-            };
-        } else {
-            const props = {
-                "limit": { "type": "integer", "default": 20, "description": "Max records (1-100)" },
-                "offset": { "type": "integer", "default": 0, "description": "Pagination offset" }
-            };
-            if (sFields) {
-                sFields.forEach(f => {
-                    props[f] = { "type": "string", "description": `Filter by ${f}` };
-                });
-            }
-            return { "type": "object", "properties": props };
-        }
+    }
     }
 
     get generatedExampleRequest() {
@@ -539,22 +822,14 @@ export class MCPControlCenter extends Component {
 
     async saveTool() {
         const form = this.state.toolForm;
-        if (!form.name || !form.model_name || !form.description) {
-            this.notification.add("Technical Name, Target Model, and Description are required.", { type: "danger" });
+        if (!form.model_name) {
+            this.notification.add("Target Odoo Model is required.", { type: "danger" });
             return;
         }
 
-        // Validate format
-        if (!/^[a-z0-9_]+$/.test(form.name)) {
-            this.notification.add("Technical Name must be lowercase alphanumeric with underscores only.", { type: "danger" });
-            return;
-        }
-
-        // Validate operation
-        if (!['search', 'read', 'aggregate', 'explain', 'create', 'write', 'delete'].includes(form.operation)) {
-            this.notification.add("Operation not allowed!", { type: "danger" });
-            return;
-        }
+        const ops = Array.isArray(form.operations) && form.operations.length > 0 ? form.operations : [form.operation || 'search'];
+        const cleanModel = form.model_name.replace(/\./g, '_');
+        let createdCount = 0;
 
         try {
             if (this.state.isEditingTool && form.id) {
@@ -567,16 +842,22 @@ export class MCPControlCenter extends Component {
                 }]);
                 this.notification.add(`Tool '${form.name}' updated successfully!`, { type: "success" });
             } else {
-                await this.orm.call("mcp.tool", "action_create_custom_tool", [{
-                    name: form.name,
-                    display_name: form.display_name || form.name,
-                    description: form.description,
-                    model_name: form.model_name,
-                    operation: form.operation,
-                    search_fields: form.search_fields,
-                    result_fields: form.result_fields
-                }]);
-                this.notification.add(`Tool '${form.name}' created & registered live!`, { type: "success" });
+                for (const op of ops) {
+                    const tName = form.name && ops.length === 1 ? form.name : `odoo_${op}_${cleanModel}`;
+                    const tDisp = `${op.charAt(0).toUpperCase() + op.slice(1)} ${form.model_name}`;
+                    const tDesc = `${op.charAt(0).toUpperCase() + op.slice(1)} Odoo ${form.model_name} records`;
+                    await this.orm.call("mcp.tool", "action_create_custom_tool", [{
+                        name: tName,
+                        display_name: tDisp,
+                        description: tDesc,
+                        model_name: form.model_name,
+                        operation: op,
+                        search_fields: form.search_fields,
+                        result_fields: form.result_fields
+                    }]);
+                    createdCount++;
+                }
+                this.notification.add(`${createdCount} Custom Tool(s) created & registered live!`, { type: "success" });
             }
 
             this.state.showAddToolModal = false;
@@ -597,20 +878,45 @@ export class MCPControlCenter extends Component {
         }
     }
 
+    promptConfirmation({ title, message, confirmText, isDanger = true, onConfirm }) {
+        this.state.confirmDialogOptions = {
+            title: title || "Confirm Action",
+            message: message || "Are you sure?",
+            confirmText: confirmText || "Confirm",
+            cancelText: "Cancel",
+            isDanger: isDanger,
+            onConfirm: onConfirm
+        };
+        this.state.showConfirmDialog = true;
+    }
+
+    async executeConfirmedAction() {
+        if (this.state.confirmDialogOptions.onConfirm) {
+            await this.state.confirmDialogOptions.onConfirm();
+        }
+        this.state.showConfirmDialog = false;
+    }
+
     async deleteCustomTool(tool) {
         if (tool.is_builtin) {
             this.notification.add("Built-in tools cannot be deleted.", { type: "warning" });
             return;
         }
-        if (!confirm(`Are you sure you want to delete custom tool '${tool.name}'?`)) return;
-
-        try {
-            await this.orm.call("mcp.tool", "action_delete_custom_tool", [tool.id]);
-            this.notification.add(`Custom Tool '${tool.name}' deleted.`, { type: "info" });
-            await this.loadAllData();
-        } catch (e) {
-            this.notification.add(`Delete Error: ${e.message}`, { type: "danger" });
-        }
+        this.promptConfirmation({
+            title: "Delete Custom Tool",
+            message: `Are you sure you want to permanently delete custom tool '${tool.name}'? This action cannot be undone.`,
+            confirmText: "Delete Tool",
+            isDanger: true,
+            onConfirm: async () => {
+                try {
+                    await this.orm.call("mcp.tool", "action_delete_custom_tool", [tool.id]);
+                    this.notification.add(`Custom Tool '${tool.name}' deleted.`, { type: "info" });
+                    await this.loadAllData();
+                } catch (e) {
+                    this.notification.add(`Delete Error: ${e.message}`, { type: "danger" });
+                }
+            }
+        });
     }
 
     openTestToolModal(tool) {
@@ -702,6 +1008,183 @@ export class MCPControlCenter extends Component {
         });
     }
 
+    setToolsOperationFilter(op) {
+        this.state.toolsOperationFilter = op || "all";
+        localStorage.setItem("mcp_tools_op_filter", this.state.toolsOperationFilter);
+    }
+
+    setSelectedPlatformTab(platform) {
+        this.state.selectedPlatformTab = platform || "win_standard";
+    }
+
+    get platformConfigDetails() {
+        const plat = this.state.selectedPlatformTab || "win_standard";
+        const bridgePath = "D:\\odoo-mcp\\mcp_claude\\bin\\mcp_bridge.py";
+        const pyExec = "D:\\Odoo\\venv\\Scripts\\python.exe";
+
+        const platforms = {
+            win_standard: {
+                id: "win_standard",
+                label: "Windows (Standard Installer)",
+                icon: "fa-windows",
+                configPath: "%APPDATA%\\Claude\\claude_desktop_config.json",
+                logPath: "%APPDATA%\\Claude\\logs\\",
+                verificationState: "verified",
+                statusBadge: "✅ Verified (Windows Local)",
+                statusClass: "bg-success text-white",
+                notes: "Tested & verified on Windows 10/11 local workstation. Local stdio bridge fully functional.",
+                snippet: JSON.stringify({
+                    mcpServers: {
+                        "odoo-claude": {
+                            command: pyExec,
+                            args: [bridgePath],
+                            env: {
+                                ODOO_URL: this.state.envInfo.base_url || "http://localhost:8069",
+                                ODOO_DB: "odoo18",
+                                ODOO_TOKEN: "mcp_live_default"
+                            }
+                        }
+                    }
+                }, null, 2)
+            },
+            win_msstore: {
+                id: "win_msstore",
+                label: "Windows (MS Store MSIX)",
+                icon: "fa-windows",
+                configPath: "%LOCALAPPDATA%\\Packages\\Claude_pzs8sxrjxfjjc\\LocalCache\\Roaming\\Claude\\claude_desktop_config.json",
+                logPath: "%LOCALAPPDATA%\\Packages\\Claude_pzs8sxrjxfjjc\\LocalCache\\Roaming\\Claude\\logs\\",
+                verificationState: "documented",
+                statusBadge: "🟡 Documented (MS Store MSIX)",
+                statusClass: "bg-warning text-dark",
+                notes: "Officially documented Microsoft AppContainer sandboxed location.",
+                snippet: JSON.stringify({
+                    mcpServers: {
+                        "odoo-claude": {
+                            command: pyExec,
+                            args: [bridgePath],
+                            env: {
+                                ODOO_URL: this.state.envInfo.base_url || "http://localhost:8069",
+                                ODOO_DB: "odoo18",
+                                ODOO_TOKEN: "mcp_live_default"
+                            }
+                        }
+                    }
+                }, null, 2)
+            },
+            mac_os: {
+                id: "mac_os",
+                label: "macOS App Bundle",
+                icon: "fa-apple",
+                configPath: "~/Library/Application Support/Claude/claude_desktop_config.json",
+                logPath: "~/Library/Logs/Claude/",
+                verificationState: "documented",
+                statusBadge: "🟡 Documented (macOS App)",
+                statusClass: "bg-warning text-dark",
+                notes: "Officially documented macOS Application Bundle path by Anthropic.",
+                snippet: JSON.stringify({
+                    mcpServers: {
+                        "odoo-claude": {
+                            command: "/usr/bin/python3",
+                            args: ["/path/to/mcp_claude/bin/mcp_bridge.py"],
+                            env: {
+                                ODOO_URL: this.state.envInfo.base_url || "https://your-odoo-domain.com",
+                                ODOO_DB: "odoo18",
+                                ODOO_TOKEN: "mcp_live_default"
+                            }
+                        }
+                    }
+                }, null, 2)
+            },
+            web_remote: {
+                id: "web_remote",
+                label: "Claude Web (claude.ai)",
+                icon: "fa-globe",
+                configPath: "https://your-odoo-domain.com/mcp",
+                logPath: "Odoo Server Logs (/var/log/odoo/)",
+                verificationState: "documented",
+                statusBadge: "🟡 Documented (Remote HTTPS Only)",
+                statusClass: "bg-info text-white",
+                notes: "Web browsers cannot run local stdio executables due to W3C sandbox rules. Connect via Remote HTTPS URL with OAuth 2.1.",
+                snippet: `Connect URL: ${this.state.envInfo.direct_url || "https://odoo.localhost:8443/mcp"}`
+            },
+            linux_notes: {
+                id: "linux_notes",
+                label: "Linux Native",
+                icon: "fa-linux",
+                configPath: "N/A (No Native App Released)",
+                logPath: "N/A",
+                verificationState: "unsupported",
+                statusBadge: "🔴 Unsupported (No Native App)",
+                statusClass: "bg-danger text-white",
+                notes: "Anthropic does not release a native Linux desktop app. Linux users must use Remote HTTPS connectors or Wine.",
+                snippet: "# Native Linux Stdio is Unsupported.\n# Recommended: Deploy Remote HTTPS OAuth Connector."
+            }
+        };
+
+        return platforms[plat] || platforms["win_standard"];
+    }
+
+
+
+    setSelectedToolCategory(category) {
+        this.state.selectedToolCategory = category || "All";
+    }
+
+    get toolsCategoryList() {
+        return [
+            "All", "Contacts", "CRM", "Sales", "Purchase", "Inventory", 
+            "Accounting", "Projects", "Employees", "Calendar", 
+            "Manufacturing", "Expenses", "Timesheets", "Generic / Technical"
+        ];
+    }
+    get filteredToolsList() {
+        const tools = Array.isArray(this.state.tools) ? this.state.tools : [];
+        const query = (this.state.toolsSearchQuery || "").toLowerCase().trim();
+        const opFilter = this.state.toolsOperationFilter || "all";
+        const catFilter = this.state.selectedToolCategory || "All";
+
+        return tools.filter(t => {
+            if (!t) return false;
+            const matchesQuery = !query || 
+                (t.name || "").toLowerCase().includes(query) || 
+                (t.display_name || "").toLowerCase().includes(query) || 
+                (t.description || "").toLowerCase().includes(query) ||
+                (t.category || "").toLowerCase().includes(query) ||
+                (t.model_name || "").toLowerCase().includes(query);
+            
+            const matchesOp = opFilter === "all" || t.operation === opFilter;
+            const matchesCat = catFilter === "All" || (t.category || "Generic / Technical").toLowerCase().includes(catFilter.toLowerCase());
+            return matchesQuery && matchesOp && matchesCat;
+        });
+    }
+
+    get filteredPermissionsList() {
+        const list = Array.isArray(this.state.odooAppsPermissions) ? this.state.odooAppsPermissions : [];
+        const query = (this.state.permissionsSearchQuery || "").toLowerCase().trim();
+        if (!query) return list;
+        return list.filter(app => 
+            app && ((app.name || "").toLowerCase().includes(query) || (app.id || "").toLowerCase().includes(query))
+        );
+    }
+
+    get filteredModels() {
+        const models = Array.isArray(this.state.availableModels) ? this.state.availableModels : [];
+        const query = (this.state.modelSearchQuery || "").toLowerCase().trim();
+        if (!query) return models.slice(0, 30);
+        return models.filter(m => 
+            m && ((m.model || "").toLowerCase().includes(query) || (m.name || "").toLowerCase().includes(query))
+        ).slice(0, 50);
+    }
+
+    get filteredAvailableFields() {
+        const fields = Array.isArray(this.state.availableFields) ? this.state.availableFields : [];
+        const query = (this.state.fieldSearchQuery || "").toLowerCase().trim();
+        if (!query) return fields;
+        return fields.filter(f => 
+            f && ((f.name || "").toLowerCase().includes(query) || (f.label || "").toLowerCase().includes(query))
+        );
+    }
+
     async toggleAppPermission(appId, perm) {
         const app = this.state.odooAppsPermissions.find(a => a.id === appId);
         if (!app) return;
@@ -709,6 +1192,44 @@ export class MCPControlCenter extends Component {
         app[perm] = !app[perm];
         await this.orm.call("mcp.model.rule", "update_app_permission", [appId, perm, app[perm]]).catch(() => {});
         this.notification.add(`Updated ${app.name} (${perm.toUpperCase()}): ${app[perm] ? 'Granted' : 'Revoked'}`, { type: "info" });
+    }
+
+    async bulkEnableAllPermissions() {
+        this.state.odooAppsPermissions.forEach(app => app.active = true);
+        this.notification.add("All Odoo Application Integrations Enabled", { type: "success" });
+    }
+
+    async bulkDisableAllPermissions() {
+        this.state.odooAppsPermissions.forEach(app => app.active = false);
+        this.notification.add("All Odoo Application Integrations Disabled", { type: "warning" });
+    }
+
+    async bulkSetReadOnlyPermissions() {
+        for (const app of this.state.odooAppsPermissions) {
+            app.read = true;
+            app.create = false;
+            app.write = false;
+            app.delete = false;
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'read', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'create', false]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'write', false]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'delete', false]).catch(() => {});
+        }
+        this.notification.add("Permissions Preset Applied: Read-Only Access across all apps", { type: "info" });
+    }
+
+    async bulkSetFullAccessPermissions() {
+        for (const app of this.state.odooAppsPermissions) {
+            app.read = true;
+            app.create = true;
+            app.write = true;
+            app.delete = true;
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'read', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'create', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'write', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'delete', true]).catch(() => {});
+        }
+        this.notification.add("Permissions Preset Applied: Full CRUD Access Granted", { type: "warning" });
     }
 
     closeOperationNotAvailableModal() {
@@ -862,7 +1383,7 @@ export class MCPControlCenter extends Component {
 
             if (results.serverReachable && results.mcpEndpoint && results.toolsListResponds) {
                 results.connectorReady = true;
-                results.summary = "All 6 production & protocol validation checks passed! Ready for Claude Desktop.";
+                results.summary = "All 6 production & protocol validation checks passed! Ready for Claude.";
                 this.notification.add("Connection Test Passed 100%!", { type: "success" });
             } else {
                 results.summary = `Validation Failed at step '${results.failedStep}': ${results.failureReason}`;

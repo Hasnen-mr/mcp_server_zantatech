@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
     <t t-name="mcp_claude.ControlCenter" owl="1">
-        <div class="mcp-saas-container">
+        <div t-att-class="'mcp-saas-container ' + (state.themeMode === 'dark' ? 'theme-dark' : 'theme-light')">
 
             <!-- Header -->
             <header class="mcp-header">
@@ -12,13 +12,24 @@
                         <span class="mcp-badge-version">Enterprise v18.0</span>
                     </div>
                 </div>
-                <div class="mcp-header-right">
+                <div class="mcp-header-right d-flex align-items-center gap-2">
+                    <t t-if="state.isSyncing">
+                        <span class="badge bg-warning text-dark me-2">
+                            <i class="fa fa-refresh fa-spin me-1"></i>Syncing...
+                        </span>
+                    </t>
                     <t t-if="state.isHttp">
-                        <div class="mcp-security-warning-pill me-3" title="Unencrypted HTTP connection detected">
-                            <i class="fa fa-exclamation-triangle text-warning me-1"></i> HTTP Unencrypted (Recommend HTTPS)
+                        <div class="mcp-security-warning-pill me-2" title="Unencrypted HTTP connection detected">
+                            <i class="fa fa-exclamation-triangle text-warning me-1"></i> HTTP Unencrypted
                         </div>
                     </t>
-                    <button class="mcp-quick-search-trigger">
+                    <button class="btn btn-sm btn-outline-secondary me-2" t-on-click="toggleThemeMode" title="Toggle Light/Dark Theme">
+                        <i t-att-class="'fa ' + (state.themeMode === 'dark' ? 'fa-sun-o text-warning' : 'fa-moon-o text-primary')"></i>
+                    </button>
+                    <button class="btn btn-sm btn-outline-secondary me-2" t-on-click="() => this.state.showShortcutsHelpModal = true" title="Keyboard Shortcuts (?)">
+                        <i class="fa fa-keyboard-o"></i>
+                    </button>
+                    <button class="mcp-quick-search-trigger" t-on-click="() => this.state.showQuickSearch = true">
                         <i class="fa fa-search me-2"></i>Quick Search (Ctrl+K)
                     </button>
                 </div>
@@ -32,8 +43,8 @@
                     <div class="mcp-tab-pane animate-fade-in">
                         <div class="mcp-hero-card">
                             <div class="mcp-hero-content">
-                                <h1 class="mcp-hero-title">Connect Claude Desktop to Odoo</h1>
-                                <p class="mcp-hero-subtitle">Enterprise-grade Remote Connector URL or Local Stdio Bridge for Anthropic Claude Desktop.</p>
+                                <h1 class="mcp-hero-title">Connect Claude to Odoo</h1>
+                                <p class="mcp-hero-subtitle">Enterprise-grade Remote Connector URL or Local Stdio Bridge for Claude.</p>
                                 <div class="mcp-hero-actions">
                                     <t t-if="state.envInfo.recommended_connection === 'url'">
                                         <button class="btn btn-primary btn-lg mcp-connect-hero-btn" t-on-click="copyConnectorUrl">
@@ -49,6 +60,133 @@
                                         <i class="fa fa-code me-2"></i>How to Connect
                                     </button>
                                 </div>
+                            </div>
+                        </div>
+
+                                                                        <!-- Production Hardened Claude Connection Engine Card -->
+                        <div class="mcp-card mb-4 border-0 shadow-sm rounded-4 overflow-hidden bg-white">
+                            <div class="p-3 px-4 border-bottom bg-light d-flex justify-content-between align-items-center">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="fs-5"><t t-esc="state.claudeStatus.icon_symbol"></t></span>
+                                    <div>
+                                        <h6 class="mb-0 text-dark fw-bold">Claude Live Connection Engine</h6>
+                                        <span class="extra-small text-muted">Multi-worker persistent connection monitoring &amp; live diagnostics</span>
+                                    </div>
+                                </div>
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="badge" t-att-class="state.claudeStatus.badge_class">
+                                        <t t-esc="state.claudeStatus.status_label"></t>
+                                    </span>
+                                    <button class="btn btn-xs btn-outline-secondary" t-on-click="pollClaudeStatus" title="Refresh Live Connection Engine">
+                                        <i class="fa fa-refresh me-1"></i>Refresh
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="p-4">
+                                <t t-if="state.claudeStatus.status === 'never_connected'">
+                                    <div class="text-center py-4">
+                                        <div class="fs-2 text-muted mb-2">⚫</div>
+                                        <h5 class="fw-bold text-dark mb-1">No Claude Connection Detected</h5>
+                                        <p class="text-muted small mb-3 max-w-md mx-auto">
+                                            Complete the connection setup to start using Claude AI inside your Odoo instance.
+                                        </p>
+                                        <button class="btn btn-primary shadow-sm" t-on-click="setTabConfigurations">
+                                            <i class="fa fa-plug me-1"></i>Setup Claude Now
+                                        </button>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <!-- Top Status Header -->
+                                    <div class="d-flex align-items-center justify-content-between mb-4 p-3 bg-light rounded border">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="fs-2">
+                                                <t t-if="state.claudeStatus.status === 'connected'">🟢</t>
+                                                <t t-elif="state.claudeStatus.status === 'idle'">🔵</t>
+                                                <t t-elif="state.claudeStatus.status === 'connecting'">
+                                                    <i class="fa fa-spinner fa-spin text-warning fs-3"></i>
+                                                </t>
+                                                <t t-else="">🔴</t>
+                                            </div>
+                                            <div>
+                                                <h4 class="fw-bold text-dark mb-0">
+                                                    Claude <t t-esc="state.claudeStatus.status_label"></t>
+                                                </h4>
+                                                <span class="small text-muted"><t t-esc="state.claudeStatus.status_subtitle"></t></span>
+                                            </div>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge bg-primary fs-6 px-3 py-2">
+                                                <t t-esc="state.claudeStatus.active_sessions_count || 0"></t> Active Session(s)
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <!-- Active Sessions Cards (Multiple Claude Instances Support) -->
+                                    <h6 class="fw-bold text-dark uppercase extra-small mb-2"><i class="fa fa-desktop me-1 text-primary"></i>Active Claude Instances</h6>
+                                    <div class="row g-3 mb-4">
+                                        <t t-foreach="state.claudeStatus.sessions || []" t-as="sess" t-key="sess.session_id">
+                                            <div class="col-md-6">
+                                                <div class="p-3 border rounded-3 bg-white shadow-sm h-100">
+                                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                                        <strong class="text-dark"><t t-esc="sess.client"></t></strong>
+                                                        <span class="badge" t-att-class="sess.badge_class">
+                                                            <t t-esc="sess.status"></t>
+                                                        </span>
+                                                    </div>
+                                                    <div class="extra-small text-muted font-monospace mb-2"><t t-esc="sess.session_id"></t></div>
+                                                    <div class="row g-2 extra-small border-top pt-2 mt-1">
+                                                        <div class="col-6">
+                                                            <span class="text-muted d-block">Transport Mode</span>
+                                                            <strong class="text-dark"><t t-esc="sess.transport"></t></strong>
+                                                        </div>
+                                                        <div class="col-6">
+                                                            <span class="text-muted d-block">Last Heartbeat</span>
+                                                            <strong class="text-primary"><t t-esc="sess.last_activity_text"></t></strong>
+                                                        </div>
+                                                        <div class="col-6 mt-1">
+                                                            <span class="text-muted d-block">Connected Since</span>
+                                                            <span class="text-dark"><t t-esc="sess.connected_since_text"></t></span>
+                                                        </div>
+                                                        <div class="col-6 mt-1">
+                                                            <span class="text-muted d-block">Requests / Latency</span>
+                                                            <span class="badge bg-secondary"><t t-esc="sess.request_count"></t> Req (<t t-esc="sess.avg_response_time_ms"></t>ms)</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+
+                                    <!-- Diagnostics Grid (8 Live System Checks) -->
+                                    <h6 class="fw-bold text-dark uppercase extra-small mb-2"><i class="fa fa-stethoscope me-1 text-info"></i>System Health Diagnostics</h6>
+                                    <div class="row g-2 mb-4">
+                                        <t t-foreach="state.claudeStatus.diagnostics || []" t-as="diag" t-key="diag.name">
+                                            <div class="col-md-3 col-6">
+                                                <div class="p-2 px-3 border rounded bg-light d-flex align-items-center gap-2">
+                                                    <i t-att-class="'fa ' + (diag.ok ? 'fa-check-circle text-success' : 'fa-times-circle text-danger') + ' fs-6'"></i>
+                                                    <div class="text-truncate">
+                                                        <span class="extra-small fw-bold d-block text-dark text-truncate"><t t-esc="diag.name"></t></span>
+                                                        <span class="extra-small text-muted text-truncate d-block"><t t-esc="diag.desc"></t></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </t>
+                                    </div>
+
+                                    <!-- Connection Activity Timeline (Newest First) -->
+                                    <h6 class="fw-bold text-dark uppercase extra-small mb-2"><i class="fa fa-history me-1 text-warning"></i>Recent Connection Timeline</h6>
+                                    <div class="p-3 border rounded bg-light">
+                                        <div class="d-flex flex-wrap gap-3 extra-small">
+                                            <t t-foreach="state.claudeStatus.timeline || []" t-as="evt" t-key="evt.time + evt.event">
+                                                <div class="d-flex align-items-center gap-1 bg-white p-1 px-2 rounded border shadow-sm">
+                                                    <span class="text-muted fw-bold"><t t-esc="evt.time"></t></span>
+                                                    <span class="badge bg-primary uppercase"><t t-esc="evt.event"></t></span>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </div>
+                                </t>
                             </div>
                         </div>
 
@@ -179,7 +317,7 @@
                         <!-- Connection Options & Dynamic Instructions Section -->
                         <div class="mcp-section-card my-4">
                             <div class="d-flex justify-content-between align-items-center mb-3">
-                                <h4 class="mcp-section-title mb-0"><i class="fa fa-bolt text-warning me-2"></i>Claude Desktop Connection Methods</h4>
+                                <h4 class="mcp-section-title mb-0"><i class="fa fa-bolt text-warning me-2"></i>Claude Connection Options</h4>
                                 <div class="btn-group" role="group">
                                     <button class="btn btn-sm" t-att-class="state.connectOption === 'url' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setConnectOption('url')">
                                         <i class="fa fa-globe me-1"></i>Direct URL
@@ -201,7 +339,7 @@
                                         </div>
                                         <span class="text-muted small">Connects directly over secure HTTPS</span>
                                     </div>
-                                    <p class="text-muted small mb-3">Claude Desktop connects directly to <code><t t-esc="state.envInfo.direct_url"></t></code> without local proxy scripts.</p>
+                                    <p class="text-muted small mb-3">Claude connects directly to <code><t t-esc="state.envInfo.direct_url"></t></code> without local proxy scripts.</p>
 
                                     <div class="input-group mb-3">
                                         <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.envInfo.direct_url" readonly="readonly"/>
@@ -215,7 +353,7 @@
                                             <div class="mcp-guide-step-num">1</div>
                                             <div class="mcp-guide-step-content">
                                                 <h6>Open Claude Settings</h6>
-                                                <p class="text-muted small mb-0">Open Claude Desktop → Click profile icon → <strong>Settings → Connectors</strong>.</p>
+                                                <p class="text-muted small mb-0">Open Claude → Click profile icon → <strong>Settings → Connectors</strong>.</p>
                                             </div>
                                         </div>
                                         <div class="mcp-guide-step">
@@ -239,7 +377,7 @@
                                 <div class="p-3 bg-dark border border-secondary rounded">
                                     <div class="d-flex justify-content-between align-items-center mb-2">
                                         <div class="d-flex align-items-center">
-                                            <span class="fs-5 fw-bold text-white me-2">📄 Claude Desktop JSON Configuration</span>
+                                            <span class="fs-5 fw-bold text-white me-2">📄 Claude JSON Configuration</span>
                                             <span class="badge bg-secondary">Alternative Option</span>
                                         </div>
                                         <button class="btn btn-sm btn-success" t-on-click="copyJsonConfig">
@@ -285,8 +423,8 @@
                                         <div class="mcp-guide-step">
                                             <div class="mcp-guide-step-num">3</div>
                                             <div class="mcp-guide-step-content">
-                                                <h6>Restart Claude Desktop</h6>
-                                                <p class="text-muted small mb-0">Quit Claude Desktop completely from system tray and re-open.</p>
+                                                <h6>Restart Claude</h6>
+                                                <p class="text-muted small mb-0">Quit Claude completely from system tray and re-open.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -314,7 +452,7 @@
                                             <i class="fa fa-exclamation-triangle fa-lg me-3 mt-1 text-warning"></i>
                                             <div>
                                                 <strong class="d-block text-warning mb-1">Direct URL connections require an HTTPS-accessible server.</strong>
-                                                <span class="small text-light">Your current Odoo instance is running on localhost and cannot be reached by Claude Desktop over OAuth. Use the <strong>Desktop Local Development</strong> configuration instead.</span>
+                                                <span class="small text-light">Your current Odoo instance is running on localhost and cannot be reached by Claude over OAuth. Use the <strong>Desktop Local Development</strong> configuration instead.</span>
                                             </div>
                                         </div>
                                     </t>
@@ -392,6 +530,7 @@
                                 <p class="text-muted small mt-3 mb-0"><t t-esc="state.testResults.summary"></t></p>
                             </div>
                         </t>
+
                     </div>
                 </t>
 
@@ -410,17 +549,27 @@
 
                         <!-- Filter & Search Control Bar -->
                         <div class="mcp-filter-bar bg-white p-3 rounded-3 border shadow-sm mb-4">
+                            <!-- Application Category Filter Pills -->
+                            <div class="mb-3 d-flex flex-wrap align-items-center gap-1 border-bottom pb-2">
+                                <span class="text-muted extra-small uppercase fw-bold me-2"><i class="fa fa-folder-open me-1"></i>Category:</span>
+                                <t t-foreach="this.toolsCategoryList" t-as="cat" t-key="cat">
+                                    <button class="btn btn-sm py-1 px-2" t-att-class="(state.selectedToolCategory || 'All') === cat ? 'btn-dark text-white fw-bold shadow-sm' : 'btn-outline-secondary text-muted'" t-on-click="() => this.setSelectedToolCategory(cat)">
+                                        <t t-esc="cat"></t>
+                                    </button>
+                                </t>
+                            </div>
+
                             <div class="row g-3 align-items-center">
                                 <div class="col-md-5">
                                     <div class="input-group">
                                         <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa fa-search"></i></span>
-                                        <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Filter by tool name, model, or description..." t-model="state.toolsSearchQuery"/>
+                                        <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Filter by tool name, category, model..." t-model="state.toolsSearchQuery"/>
                                     </div>
                                 </div>
                                 <div class="col-md-7">
                                     <div class="d-flex flex-wrap align-items-center gap-1 justify-content-md-end">
                                         <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('all')">
-                                            All (<t t-esc="state.tools.length"></t>)
+                                            All (<t t-esc="(state.tools || []).length"></t>)
                                         </button>
                                         <button class="btn btn-sm" t-att-class="state.toolsOperationFilter === 'search' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setToolsOperationFilter('search')">
                                             Search
@@ -444,7 +593,7 @@
 
                         <!-- Action-Oriented Tool Cards Grid -->
                         <div class="mcp-card-grid my-4">
-                            <t t-if="this.filteredToolsList.length === 0">
+                            <t t-if="!this.filteredToolsList || this.filteredToolsList.length === 0">
                                 <div class="col-12 text-center p-5 bg-white rounded border shadow-sm text-muted">
                                     <i class="fa fa-wrench fa-3x mb-3 text-secondary opacity-50"></i>
                                     <h5>No matching MCP tools found</h5>
@@ -560,7 +709,7 @@
                                         <label class="form-label text-muted small uppercase fw-bold">Recommended Method</label>
                                         <div class="fw-bold text-success fs-6">
                                             <t t-if="state.envInfo.recommended_connection === 'url'">🌐 Direct URL Connection</t>
-                                            <t t-else="">📄 Claude Desktop JSON Config</t>
+                                            <t t-else="">📄 Claude JSON Config</t>
                                         </div>
                                     </div>
                                     <div class="col-md-3">
@@ -662,11 +811,11 @@
                                     </div>
                                 </t>
 
-                                <!-- Section 2: Claude Desktop Compatibility Card -->
+                                <!-- Section 2: Claude Compatibility Card -->
                                 <t t-if="state.envInfo.claude_compatibility">
                                     <div class="mb-4 p-3 bg-black rounded border border-secondary">
                                         <div class="d-flex justify-content-between align-items-center mb-3">
-                                            <h6 class="text-white mb-0 fw-bold fs-6"><i class="fa fa-check-square-o text-success me-2"></i>Claude Desktop Compatibility</h6>
+                                            <h6 class="text-white mb-0 fw-bold fs-6"><i class="fa fa-check-square-o text-success me-2"></i>Claude Compatibility</h6>
                                             <span class="badge bg-success"><t t-esc="state.envInfo.claude_compatibility.badge"></t></span>
                                         </div>
                                         <div class="row g-2">
@@ -693,11 +842,11 @@
                                     </div>
                                 </t>
 
-                                <!-- Section 3: Claude Desktop Connection Wizard (Platform-Aware Setup) -->
+                                <!-- Section 3: Claude Connection Wizard (Platform-Aware Setup) -->
                                 <div class="mcp-section-card my-4 p-4 bg-dark border border-primary rounded shadow">
                                     <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom border-secondary">
                                         <div>
-                                            <h4 class="mb-1 text-white fw-bold"><i class="fa fa-magic text-warning me-2"></i>Claude Desktop Connection Wizard</h4>
+                                            <h4 class="mb-1 text-white fw-bold"><i class="fa fa-magic text-warning me-2"></i>Claude Connection Wizard</h4>
                                             <p class="text-muted small mb-0">Platform-aware setup guide &amp; dynamic configuration generator</p>
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
@@ -819,7 +968,7 @@
                                                         <span class="fs-6 fw-bold text-white"><i class="fa fa-globe text-primary me-2"></i>🌐 Direct URL Connection</span>
                                                         <span class="badge bg-success">✅ Recommended</span>
                                                     </div>
-                                                    <p class="text-muted small mb-3">Connect Claude Desktop directly over HTTPS without running local proxy scripts.</p>
+                                                    <p class="text-muted small mb-3">Connect Claude directly over HTTPS without running local proxy scripts.</p>
                                                     <div class="input-group mb-3">
                                                         <input type="text" class="form-control form-control-lg font-monospace bg-dark text-info border-secondary" t-att-value="state.envInfo.direct_url" readonly="readonly"/>
                                                         <button class="btn btn-primary btn-lg" t-on-click="copyConnectorUrl"><i class="fa fa-copy me-2"></i>Copy URL</button>
@@ -853,7 +1002,7 @@
                                                 <!-- Primary Card: Stdio JSON Configuration -->
                                                 <div class="p-3 mb-3 bg-dark border border-success rounded">
                                                     <div class="d-flex justify-content-between align-items-center mb-2">
-                                                        <span class="fs-6 fw-bold text-white"><i class="fa fa-code text-success me-2"></i>📄 Claude Desktop JSON Configuration</span>
+                                                        <span class="fs-6 fw-bold text-white"><i class="fa fa-code text-success me-2"></i>📄 Claude JSON Configuration</span>
                                                         <span class="badge bg-success">✅ Recommended</span>
                                                     </div>
                                                     <p class="text-muted small mb-2">Dynamic stdio configuration generated from administrator-configured executable paths.</p>
@@ -926,7 +1075,7 @@
                                                 <!-- Informational Note -->
                                                 <div class="alert alert-info border-0 rounded-3 mb-3 bg-dark border-start border-info border-4">
                                                     <h6 class="text-info fw-bold mb-1"><i class="fa fa-info-circle me-2"></i>Informational Note</h6>
-                                                    <p class="text-muted small mb-0">Some Microsoft Store (MSIX) installations use a virtualized configuration directory. If configuration changes appear to have no effect, verify which location your installation is using. Always restart Claude Desktop completely after editing.</p>
+                                                    <p class="text-muted small mb-0">Some Microsoft Store (MSIX) installations use a virtualized configuration directory. If configuration changes appear to have no effect, verify which location your installation is using. Always restart Claude completely after editing.</p>
                                                 </div>
                                             </t>
 
@@ -1007,8 +1156,8 @@
 
                                         <!-- Restart Reminder Banner -->
                                         <div class="alert alert-warning border-0 rounded-3 mb-3 bg-dark border-start border-warning border-4">
-                                            <h6 class="text-warning fw-bold mb-1"><i class="fa fa-refresh me-2"></i>Restart Claude Desktop Reminder</h6>
-                                            <p class="text-muted small mb-0">Restart Claude Desktop completely after saving or pasting configuration. Some installations only reload MCP servers during application startup.</p>
+                                            <h6 class="text-warning fw-bold mb-1"><i class="fa fa-refresh me-2"></i>Restart Claude Reminder</h6>
+                                            <p class="text-muted small mb-0">Restart Claude completely after saving or pasting configuration. Some installations only reload MCP servers during application startup.</p>
                                         </div>
 
                                         <div class="d-flex justify-content-start">
@@ -1023,7 +1172,10 @@
                         <t t-if="state.settingsTab === 'authentication'">
                             <div class="mcp-section-card">
                                 <div class="d-flex justify-content-between align-items-center mb-3">
-                                    <h4><i class="fa fa-key text-warning me-2"></i>Multi-Client Connector Tokens</h4>
+                                    <div>
+                                        <h4 class="mb-1"><i class="fa fa-key text-warning me-2"></i>Multi-Client Connector Tokens</h4>
+                                        <p class="text-muted small mb-0">Manage high-entropy tokens for authenticating Claude and external clients.</p>
+                                    </div>
                                     <div>
                                         <button class="btn btn-sm btn-primary me-2" t-on-click="openCreateTokenModal">
                                             <i class="fa fa-plus me-1"></i>New Client Token
@@ -1034,49 +1186,88 @@
                                     </div>
                                 </div>
 
-                                <div class="table-responsive my-3">
-                                    <table class="table mcp-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Token Name</th>
-                                                <th>Prefix</th>
-                                                <th>Scope</th>
-                                                <th>Created</th>
-                                                <th>Last Used</th>
-                                                <th>Expires</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <t t-foreach="state.apiKeys" t-as="key" t-key="key.id">
+                                <t t-if="!state.apiKeys || state.apiKeys.length === 0">
+                                    <div class="mcp-empty-state">
+                                        <i class="fa fa-key mcp-empty-icon"></i>
+                                        <h5>No Connector Tokens Found</h5>
+                                        <p>Create your first client connector token to authenticate Claude or remote AI agents securely.</p>
+                                        <button class="btn btn-primary" t-on-click="openCreateTokenModal">
+                                            <i class="fa fa-plus me-1"></i>Generate First Token
+                                        </button>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="table-responsive my-3">
+                                        <table class="table mcp-table align-middle">
+                                            <thead>
                                                 <tr>
-                                                    <td class="fw-bold"><t t-esc="key.name"></t></td>
-                                                    <td><code><t t-esc="key.key_prefix"></t>...</code></td>
-                                                    <td><span class="badge bg-secondary"><t t-esc="key.scopes or 'full'"></t></span></td>
-                                                    <td><t t-esc="key.create_date"></t></td>
-                                                    <td><t t-esc="key.last_used_at or 'Never'"></t></td>
-                                                    <td><t t-esc="key.expires_at or 'Never'"></t></td>
-                                                    <td>
-                                                        <t t-if="key.active"><span class="badge bg-success">Active</span></t>
-                                                        <t t-else=""><span class="badge bg-danger">Revoked</span></t>
-                                                    </td>
+                                                    <th>Token Name</th>
+                                                    <th>Prefix</th>
+                                                    <th>Scope</th>
+                                                    <th>Created</th>
+                                                    <th>Last Used</th>
+                                                    <th>Expires</th>
+                                                    <th>Status</th>
                                                 </tr>
-                                            </t>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="state.apiKeys" t-as="key" t-key="key.id">
+                                                    <tr>
+                                                        <td class="fw-bold"><t t-esc="key.name"></t></td>
+                                                        <td><code><t t-esc="key.key_prefix"></t>...</code></td>
+                                                        <td><span class="badge bg-secondary"><t t-esc="key.scopes or 'full'"></t></span></td>
+                                                        <td><t t-esc="key.create_date"></t></td>
+                                                        <td><t t-esc="key.last_used_at or 'Never'"></t></td>
+                                                        <td><t t-esc="key.expires_at or 'Never'"></t></td>
+                                                        <td>
+                                                            <t t-if="key.active"><span class="badge bg-success">Active</span></t>
+                                                            <t t-else=""><span class="badge bg-danger">Revoked</span></t>
+                                                        </td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </t>
                             </div>
                         </t>
 
                         <!-- Sub-Tab: Permissions -->
                         <t t-if="state.settingsTab === 'permissions'">
                             <div class="mcp-section-card animate-fade-in">
-                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                                     <div>
-                                        <h4><i class="fa fa-shield text-primary me-2"></i>Odoo Apps &amp; Model CRUD Permissions</h4>
+                                        <h4 class="mb-1"><i class="fa fa-shield text-primary me-2"></i>Odoo Apps &amp; Model CRUD Permissions</h4>
                                         <p class="text-muted small mb-0">Configure granular Read, Create, Write, and Delete access for AI Agents across Odoo applications.</p>
                                     </div>
-                                    <span class="badge bg-success p-2 fs-6"><i class="fa fa-check-circle me-1"></i>Full CRUD Access Control</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-success p-2 fs-6"><i class="fa fa-check-circle me-1"></i>Full Access Governance</span>
+                                    </div>
+                                </div>
+
+                                <!-- Bulk Permissions Toolbar & Search -->
+                                <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2 bg-light p-2 rounded-3 border">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button class="btn btn-sm btn-outline-primary" t-on-click="bulkEnableAllPermissions" title="Enable integration for all apps">
+                                            <i class="fa fa-check-square-o me-1"></i>Enable All Apps
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-secondary" t-on-click="bulkDisableAllPermissions" title="Disable all integrations">
+                                            <i class="fa fa-square-o me-1"></i>Disable All Apps
+                                        </button>
+                                        <div class="vr my-1"></div>
+                                        <button class="btn btn-sm btn-outline-info" t-on-click="bulkSetReadOnlyPermissions" title="Set Read permission for all active apps">
+                                            <i class="fa fa-eye me-1"></i>Read-Only Preset
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-warning text-dark" t-on-click="bulkSetFullAccessPermissions" title="Grant Read, Create, Write, Delete across all apps">
+                                            <i class="fa fa-unlock me-1"></i>Full Access Preset
+                                        </button>
+                                    </div>
+                                    <div class="mcp-filter-bar">
+                                        <div class="input-group input-group-sm" style="max-width: 250px;">
+                                            <span class="input-group-text bg-white"><i class="fa fa-search text-muted"></i></span>
+                                            <input type="text" class="form-control" placeholder="Search Odoo Apps..." t-model="state.permissionsSearchQuery"/>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div class="table-responsive">
@@ -1088,12 +1279,12 @@
                                                 <th class="text-center">Read (Search)</th>
                                                 <th class="text-center">Create (New)</th>
                                                 <th class="text-center">Write (Update)</th>
-                                                <th class="text-center">Delete (Unlink)</th>
+                                                <th class="text-center text-danger">Delete (Unlink)</th>
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            <t t-if="state.odooAppsPermissions &amp;&amp; state.odooAppsPermissions.length &gt; 0">
-                                                <t t-foreach="state.odooAppsPermissions" t-as="app" t-key="app.id">
+                                            <t t-if="filteredPermissionsList &amp;&amp; filteredPermissionsList.length &gt; 0">
+                                                <t t-foreach="filteredPermissionsList" t-as="app" t-key="app.id">
                                                     <tr>
                                                         <td>
                                                             <div class="d-flex align-items-center">
@@ -1124,12 +1315,19 @@
                                                             </div>
                                                         </td>
                                                         <td class="text-center">
-                                                            <div class="form-check form-switch d-inline-block" title="Toggle Delete Permission">
-                                                                <input class="form-check-input cursor-pointer" type="checkbox" t-att-checked="app.delete" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'delete')"/>
+                                                            <div class="form-check form-switch d-inline-block" title="Toggle Delete Permission (Destructive Action)">
+                                                                <input class="form-check-input form-check-danger cursor-pointer" type="checkbox" t-att-checked="app.delete" t-att-disabled="!app.active" t-on-change="() => this.toggleAppPermission(app.id, 'delete')"/>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 </t>
+                                            </t>
+                                            <t t-else="">
+                                                <tr>
+                                                    <td colspan="6" class="text-center text-muted py-4">
+                                                        <i class="fa fa-info-circle me-1"></i>No matching Odoo applications found.
+                                                    </td>
+                                                </tr>
                                             </t>
                                         </tbody>
                                     </table>
@@ -1158,28 +1356,37 @@
                         <t t-if="state.settingsTab === 'advanced'">
                             <div class="mcp-section-card">
                                 <h4><i class="fa fa-history text-danger me-2"></i>Security Event Audit Trail</h4>
-                                <div class="table-responsive mt-3">
-                                    <table class="table mcp-table">
-                                        <thead>
-                                            <tr>
-                                                <th>Event Description</th>
-                                                <th>Target Resource</th>
-                                                <th>Action Type</th>
-                                                <th>Date</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            <t t-foreach="state.auditLogs" t-as="log" t-key="log.id">
+                                <t t-if="!state.auditLogs || state.auditLogs.length === 0">
+                                    <div class="mcp-empty-state">
+                                        <i class="fa fa-history mcp-empty-icon"></i>
+                                        <h5>No Security Audit Logs Recorded</h5>
+                                        <p>Tool execution history and administrative security events will be logged here automatically.</p>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div class="table-responsive mt-3">
+                                        <table class="table mcp-table align-middle">
+                                            <thead>
                                                 <tr>
-                                                    <td class="fw-bold"><t t-esc="log.tool_name or 'System Event'"></t></td>
-                                                    <td><t t-esc="log.model_name or 'N/A'"></t></td>
-                                                    <td><span class="badge bg-dark"><t t-esc="log.action_type or 'execute'"></t></span></td>
-                                                    <td><t t-esc="log.create_date"></t></td>
+                                                    <th>Event Description</th>
+                                                    <th>Target Resource</th>
+                                                    <th>Action Type</th>
+                                                    <th>Date</th>
                                                 </tr>
-                                            </t>
-                                        </tbody>
-                                    </table>
-                                </div>
+                                            </thead>
+                                            <tbody>
+                                                <t t-foreach="state.auditLogs" t-as="log" t-key="log.id">
+                                                    <tr>
+                                                        <td class="fw-bold"><t t-esc="log.tool_name or 'System Event'"></t></td>
+                                                        <td><t t-esc="log.model_name or 'N/A'"></t></td>
+                                                        <td><span class="badge bg-dark"><t t-esc="log.action_type or 'execute'"></t></span></td>
+                                                        <td><t t-esc="log.create_date"></t></td>
+                                                    </tr>
+                                                </t>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </t>
                             </div>
                         </t>
                     </div>
@@ -1215,7 +1422,7 @@
                         <div class="mcp-modal-body">
                             <div class="mb-3">
                                 <label class="form-label">Client / Connector Name</label>
-                                <input type="text" class="form-control" placeholder="e.g. Claude Desktop, VS Code, Production Agent" t-model="state.newToken.name"/>
+                                <input type="text" class="form-control" placeholder="e.g. Claude, VS Code, Production Agent" t-model="state.newToken.name"/>
                             </div>
                             <div class="mb-3">
                                 <label class="form-label">Permission Scope</label>
@@ -1272,162 +1479,444 @@
 
             <t t-if="state.showConnectWizard">
                 <div class="mcp-modal-backdrop animate-fade-in">
-                    <div class="mcp-modal-dialog mcp-wizard-dialog">
-                        <div class="mcp-modal-header">
-                            <h3><i class="fa fa-rocket text-primary me-2"></i>Add Custom Connector in Claude Desktop</h3>
+                    <div class="mcp-modal-dialog modal-lg border-0 shadow-lg rounded-4 overflow-hidden">
+                        <div class="mcp-modal-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="mb-1 text-white fw-bold"><i class="fa fa-rocket text-primary me-2"></i>Claude Connection Guide &amp; Platform Config</h4>
+                                <p class="small text-white-50 mb-0">Select your installation method to get exact paths, configurations, and logs.</p>
+                            </div>
                             <button class="btn-close btn-close-white" t-on-click="closeConnectWizard"></button>
                         </div>
-                        <div class="mcp-modal-body">
-                            <div class="mcp-wizard-step-box mb-4">
-                                <h5>Option 1: Remote SSE Connector URL</h5>
-                                <div class="input-group my-2">
-                                    <input type="text" class="form-control font-monospace bg-dark text-info" t-att-value="state.connectorUrl" readonly="readonly"/>
-                                    <button class="btn btn-success" t-on-click="copyConnectorUrl">
-                                        <i class="fa fa-copy me-1"></i>Copy URL
-                                    </button>
+
+                        <!-- Platform Selector Bar -->
+                        <div class="bg-black p-2 border-bottom border-secondary d-flex justify-content-around align-items-center flex-wrap gap-1">
+                            <button class="btn btn-sm" t-att-class="state.selectedPlatformTab === 'win_standard' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setSelectedPlatformTab('win_standard')">
+                                <i class="fa fa-windows me-1"></i>Win Standard
+                            </button>
+                            <button class="btn btn-sm" t-att-class="state.selectedPlatformTab === 'win_msstore' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setSelectedPlatformTab('win_msstore')">
+                                <i class="fa fa-windows me-1"></i>Win Store (MSIX)
+                            </button>
+                            <button class="btn btn-sm" t-att-class="state.selectedPlatformTab === 'mac_os' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setSelectedPlatformTab('mac_os')">
+                                <i class="fa fa-apple me-1"></i>macOS App
+                            </button>
+                            <button class="btn btn-sm" t-att-class="state.selectedPlatformTab === 'web_remote' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setSelectedPlatformTab('web_remote')">
+                                <i class="fa fa-globe me-1"></i>Claude Web / HTTPS
+                            </button>
+                            <button class="btn btn-sm" t-att-class="state.selectedPlatformTab === 'linux_notes' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setSelectedPlatformTab('linux_notes')">
+                                <i class="fa fa-linux me-1"></i>Linux Notes
+                            </button>
+                        </div>
+
+                        <div class="mcp-modal-body p-4 bg-dark text-white">
+                            <!-- Platform Header & Status Badge -->
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <div>
+                                    <h5 class="mb-0 text-light fw-bold">
+                                        <i t-att-class="'fa ' + this.platformConfigDetails.icon + ' text-primary me-2'"></i>
+                                        <t t-esc="this.platformConfigDetails.label"></t>
+                                    </h5>
+                                    <span class="text-muted small"><t t-esc="this.platformConfigDetails.notes"></t></span>
                                 </div>
-                                <p class="text-muted small mb-0">Paste into <strong>Claude Settings → Connectors → Add Custom Connector</strong>.</p>
+                                <span class="badge px-3 py-2" t-att-class="this.platformConfigDetails.statusClass">
+                                    <t t-esc="this.platformConfigDetails.statusBadge"></t>
+                                </span>
                             </div>
 
-                            <div class="mcp-wizard-step-box border-top pt-3">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <h5 class="mb-0">Option 2: Local Stdio Bridge JSON</h5>
-                                    <button class="btn btn-sm btn-outline-success" t-on-click="copyJsonConfig">
-                                        <i class="fa fa-copy me-1"></i>Copy JSON
+                            <!-- Path Info Box -->
+                            <div class="p-3 mb-3 bg-black border border-secondary rounded-3">
+                                <div class="row g-2 extra-small">
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block uppercase fw-bold mb-1">Configuration Path</span>
+                                        <code class="text-info text-break"><t t-esc="this.platformConfigDetails.configPath"></t></code>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <span class="text-muted d-block uppercase fw-bold mb-1">Log Directory</span>
+                                        <code class="text-warning text-break"><t t-esc="this.platformConfigDetails.logPath"></t></code>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Snippet Preview -->
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <span class="text-muted small uppercase fw-bold">Ready Configuration Snippet</span>
+                                    <button class="btn btn-sm btn-outline-success py-0" t-on-click="copyJsonConfig">
+                                        <i class="fa fa-copy me-1"></i>Copy Snippet
                                     </button>
                                 </div>
-                                <pre class="p-2 bg-dark text-warning font-monospace small rounded"><code><t t-esc="state.stdioJsonConfig"></t></code></pre>
-                                <p class="text-muted small mb-0">Paste into <code>claude_desktop_config.json</code>.</p>
+                                <pre class="p-3 bg-black text-info font-monospace small rounded-3 border border-secondary mb-0"><code><t t-esc="this.platformConfigDetails.snippet"></t></code></pre>
                             </div>
                         </div>
-                        <div class="mcp-modal-footer">
-                            <button class="btn btn-secondary" t-on-click="closeConnectWizard">Close</button>
+
+                        <div class="mcp-modal-footer bg-dark border-top border-secondary p-3 d-flex justify-content-between">
+                            <button class="btn btn-outline-light btn-sm" t-on-click="copyConnectorUrl"><i class="fa fa-link me-1"></i>Copy HTTPS URL</button>
+                            <button class="btn btn-primary" t-on-click="closeConnectWizard">Done</button>
                         </div>
                     </div>
                 </div>
             </t>
 
-            <!-- 7. Smart 1-Page Quick-Add / Edit Tool Drawer Modal -->
+            <!-- 7. Single-Question Guided Setup Experience Modal -->
             <t t-if="state.showAddToolModal">
                 <div class="mcp-modal-backdrop animate-fade-in">
-                    <div class="mcp-modal-dialog modal-lg border-0 shadow-lg rounded-4 overflow-hidden">
-                        <div class="mcp-modal-header bg-primary text-white p-4">
-                            <div class="d-flex align-items-center">
-                                <i class="fa fa-magic fa-lg me-3"></i>
-                                <div>
-                                    <h4 class="mb-0 text-white font-weight-bold">
-                                        <t t-if="state.isEditingTool">Configure Custom MCP Tool</t>
-                                        <t t-else="">Quick-Add Custom MCP Tool</t>
-                                    </h4>
-                                    <p class="small text-white-50 mb-0">Select model and operation to auto-generate &amp; register tool live.</p>
-                                </div>
+                    <div class="mcp-modal-dialog modal-xl border-0 shadow-lg rounded-4 overflow-hidden" style="max-width: 1100px;">
+                        
+                        <!-- Header with Step Progress Pills -->
+                        <div class="mcp-modal-header bg-dark text-white p-4 d-flex justify-content-between align-items-center">
+                            <div>
+                                <h4 class="mb-1 text-white fw-bold">
+                                    <i class="fa fa-magic text-warning me-2"></i>
+                                    <t t-if="state.isEditingTool">Configure Custom MCP Tool</t>
+                                    <t t-else="">Create New Custom MCP Tool</t>
+                                </h4>
+                                <p class="small text-white-50 mb-0">Build, configure, and register safe ERP access tools for Claude AI.</p>
                             </div>
                             <button class="btn-close btn-close-white" t-on-click="closeAddToolModal"></button>
                         </div>
-                        <div class="mcp-modal-body p-4 bg-white">
 
-                            <!-- Section 1: Model & Operation Row -->
-                            <div class="row g-3 mb-4">
-                                <div class="col-md-6">
-                                    <label class="form-label font-weight-bold text-dark mb-1">Target Odoo Model <span class="text-danger">*</span></label>
-                                    <div class="input-group">
-                                        <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa fa-database"></i></span>
-                                        <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Type model (e.g. crm.lead, res.partner)..." t-model="state.modelSearchQuery"/>
-                                    </div>
-                                    <div class="model-select-list border rounded-3 p-2 mt-2 bg-light text-dark" style="max-height: 160px; overflow-y: auto;">
-                                        <t t-if="state.loadingModels">
-                                            <div class="text-center p-2 text-muted small"><i class="fa fa-spinner fa-spin me-2"></i>Loading models...</div>
-                                        </t>
-                                        <t t-else="">
-                                            <t t-foreach="this.filteredModels" t-as="m" t-key="m.model">
-                                                <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer rounded-2" t-att-class="{'bg-primary text-white': state.toolForm.model_name === m.model}" t-on-click="() => this.onModelSelected(m.model)">
-                                                    <div>
-                                                        <strong class="small"><t t-esc="m.name"></t></strong>
-                                                        <code class="ms-2 small" t-att-class="state.toolForm.model_name === m.model ? 'text-white' : 'text-primary'">(<t t-esc="m.model"></t>)</code>
+                        <!-- Wizard Stepper Nav Bar (Streamlined 3 Steps) -->
+                        <div class="bg-black p-3 border-bottom border-secondary d-flex justify-content-around align-items-center flex-wrap gap-2">
+                            <button class="btn btn-sm" t-att-class="state.modalStep === 1 ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary text-muted'" t-on-click="() => this.setWizardStepDirect(1)">
+                                <span class="badge bg-white text-dark me-1">1</span> Target Model
+                            </button>
+                            <i class="fa fa-chevron-right text-muted small"></i>
+                            <button class="btn btn-sm" t-att-class="state.modalStep === 2 ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary text-muted'" t-on-click="() => this.setWizardStepDirect(2)" t-att-disabled="!state.toolForm.model_name">
+                                <span class="badge bg-white text-dark me-1">2</span> Operations &amp; AI Data Config
+                            </button>
+                            <i class="fa fa-chevron-right text-muted small"></i>
+                            <button class="btn btn-sm" t-att-class="state.modalStep === 3 ? 'btn-primary text-white fw-bold' : 'btn-outline-secondary text-muted'" t-on-click="() => this.setWizardStepDirect(3)" t-att-disabled="!state.toolForm.model_name">
+                                <span class="badge bg-white text-dark me-1">3</span> Review &amp; Register
+                            </button>
+                        </div>
+
+                        <!-- Modal Main Area: Content + Live Sidebar -->
+                        <div class="mcp-modal-body p-0 bg-light">
+                            <div class="row g-0">
+                                <!-- Main Setup Step Area -->
+                                <div class="col-lg-8 p-4 bg-white border-end">
+
+                                    <!-- STEP 1: Single Question - Target Odoo Model -->
+                                    <t t-if="state.modalStep === 1">
+                                        <div class="animate-fade-in">
+                                            <h4 class="fw-bold text-dark mb-1">What do you want this tool to work with?</h4>
+                                            <p class="text-muted small mb-4">Select an Odoo application or database model for AI access.</p>
+
+                                            <!-- Popular App Cards -->
+                                            <div class="mb-4">
+                                                <label class="form-label text-muted small fw-bold uppercase d-block">Popular Applications</label>
+                                                <div class="row g-2">
+                                                    <div class="col-md-4">
+                                                        <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'res.partner' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('res.partner')">
+                                                            <div class="fs-4 mb-1">👥</div>
+                                                            <div class="fw-bold text-dark small">Contacts</div>
+                                                            <code class="extra-small text-muted">res.partner</code>
+                                                        </div>
                                                     </div>
-                                                    <t t-if="state.toolForm.model_name === m.model">
-                                                        <i class="fa fa-check-circle text-white"></i>
+                                                    <div class="col-md-4">
+                                                        <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'crm.lead' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('crm.lead')">
+                                                            <div class="fs-4 mb-1">🤝</div>
+                                                            <div class="fw-bold text-dark small">CRM Leads</div>
+                                                            <code class="extra-small text-muted">crm.lead</code>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'sale.order' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('sale.order')">
+                                                            <div class="fs-4 mb-1">🛒</div>
+                                                            <div class="fw-bold text-dark small">Sales Orders</div>
+                                                            <code class="extra-small text-muted">sale.order</code>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'account.move' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('account.move')">
+                                                            <div class="fs-4 mb-1">🧮</div>
+                                                            <div class="fw-bold text-dark small">Invoices</div>
+                                                            <code class="extra-small text-muted">account.move</code>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'product.product' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('product.product')">
+                                                            <div class="fs-4 mb-1">📦</div>
+                                                            <div class="fw-bold text-dark small">Products</div>
+                                                            <code class="extra-small text-muted">product.product</code>
+                                                        </div>
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'purchase.order' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('purchase.order')">
+                                                            <div class="fs-4 mb-1">🚚</div>
+                                                            <div class="fw-bold text-dark small">Purchase Orders</div>
+                                                            <code class="extra-small text-muted">purchase.order</code>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <!-- Searchable Model Picker -->
+                                            <div class="mb-3">
+                                                <label class="form-label font-weight-bold text-dark mb-1">Or Search All Odoo Models</label>
+                                                <div class="input-group">
+                                                    <span class="input-group-text bg-light border-end-0 text-muted"><i class="fa fa-search"></i></span>
+                                                    <input type="text" class="form-control bg-light border-start-0 ps-0" placeholder="Type to search (e.g. hr.employee, stock.picking)..." t-model="state.modelSearchQuery"/>
+                                                </div>
+                                                <div class="model-select-list border rounded-3 p-2 mt-2 bg-light text-dark" style="max-height: 320px; overflow-y: auto;">
+                                                    <t t-if="state.loadingModels">
+                                                        <div class="text-center p-2 text-muted small"><i class="fa fa-spinner fa-spin me-2"></i>Loading models...</div>
+                                                    </t>
+                                                    <t t-else="">
+                                                        <t t-foreach="this.filteredModels" t-as="m" t-key="m.model">
+                                                            <div class="model-item-row p-2 border-bottom d-flex justify-content-between align-items-center cursor-pointer rounded-2" t-att-class="{'bg-primary text-white': state.toolForm.model_name === m.model}" t-on-click="() => this.onModelSelected(m.model)">
+                                                                <div>
+                                                                    <strong class="small"><t t-esc="m.name"></t></strong>
+                                                                    <code class="ms-2 small" t-att-class="state.toolForm.model_name === m.model ? 'text-white' : 'text-primary'">(<t t-esc="m.model"></t>)</code>
+                                                                </div>
+                                                                <t t-if="state.toolForm.model_name === m.model">
+                                                                    <i class="fa fa-check-circle text-white"></i>
+                                                                </t>
+                                                            </div>
+                                                        </t>
                                                     </t>
                                                 </div>
-                                            </t>
-                                        </t>
-                                    </div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label class="form-label font-weight-bold text-dark mb-1">Operation Type <span class="text-danger">*</span></label>
-                                    <div class="d-flex flex-wrap gap-2 mt-1">
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'search' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('search')">Search</button>
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'read' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('read')">Read</button>
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'aggregate' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('aggregate')">Aggregate</button>
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'explain' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('explain')">Explain</button>
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'create' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('create')">Create</button>
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'write' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('write')">Update</button>
-                                        <button type="button" class="btn btn-sm flex-fill" t-att-class="state.toolForm.operation === 'delete' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.onOperationSelected('delete')">Delete</button>
-                                    </div>
-
-                                    <div class="mt-3">
-                                        <label class="form-label font-weight-bold text-dark mb-1">Technical Tool Name</label>
-                                        <input type="text" class="form-control font-monospace bg-light" placeholder="e.g. odoo_create_crm_lead" t-model="state.toolForm.name" t-att-disabled="state.isEditingTool"/>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Section 2: Allowed Fields Checkboxes (Skip for Delete) -->
-                            <t t-if="state.toolForm.operation !== 'delete'">
-                                <div class="mb-4">
-                                    <div class="d-flex justify-content-between align-items-center mb-2">
-                                        <label class="form-label font-weight-bold text-dark m-0">
-                                            <i class="fa fa-list-check me-1 text-primary"></i>
-                                            <t t-if="['create', 'write'].includes(state.toolForm.operation)">Allowed Editable Fields</t>
-                                            <t t-else="">Exposed Search &amp; Result Fields</t>
-                                        </label>
-                                        <div class="d-flex align-items-center gap-2">
-                                            <input type="text" class="form-control form-control-sm bg-light" style="width: 200px;" placeholder="Filter fields..." t-model="state.fieldSearchQuery"/>
-                                            <button class="btn btn-sm btn-link text-primary p-0" t-on-click="selectAllResultFields">Select All</button>
-                                            <button class="btn btn-sm btn-link text-muted p-0" t-on-click="clearResultFields">Clear</button>
+                                            </div>
                                         </div>
-                                    </div>
+                                    </t>
 
-                                    <div class="fields-list-box border rounded-3 p-3 bg-light" style="max-height: 200px; overflow-y: auto;">
-                                        <t t-if="state.loadingFields">
-                                            <div class="text-center p-3 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading fields...</div>
-                                        </t>
-                                        <t t-elif="this.filteredAvailableFields.length === 0">
-                                            <div class="text-center p-3 text-muted small">Select a target model above to load available fields.</div>
-                                        </t>
-                                        <t t-else="">
-                                            <div class="row g-2">
-                                                <t t-foreach="this.filteredAvailableFields" t-as="f" t-key="f.name">
-                                                    <div class="col-md-4">
-                                                        <div class="form-check p-2 bg-white rounded border">
-                                                            <input class="form-check-input ms-0 me-2" type="checkbox" t-att-id="'rf_' + f.name" t-att-checked="state.toolForm.result_fields.includes(f.name)" t-on-change="() => this.toggleResultField(f.name)"/>
-                                                            <label class="form-check-label small cursor-pointer" t-att-for="'rf_' + f.name">
-                                                                <strong class="text-dark"><t t-esc="f.label"></t></strong>
-                                                                <code class="text-muted d-block extra-small">(<t t-esc="f.name"></t>)</code>
-                                                            </label>
+                                    <!-- STEP 2: Operations (Multiselect) & What Info AI Should Receive -->
+                                    <t t-if="state.modalStep === 2">
+                                        <div class="animate-fade-in">
+                                            
+                                            <!-- Section A: Multiselect Operations -->
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <div>
+                                                    <h4 class="fw-bold text-dark mb-1">What operations should AI be allowed to perform?</h4>
+                                                    <p class="text-muted small mb-0">Select one or multiple allowed operations for model <code><t t-esc="state.toolForm.model_name"></t></code>.</p>
+                                                </div>
+                                                <button class="btn btn-xs btn-outline-primary" t-on-click="selectAllOperations">+ Select All Operations</button>
+                                            </div>
+
+                                            <div class="row g-2 mb-4">
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded-3 cursor-pointer text-start h-100 d-flex align-items-start gap-2" t-att-class="(state.toolForm.operations || []).includes('search') ? 'border-primary bg-primary-light shadow-sm' : 'bg-white'" t-on-click="() => this.toggleOperation('search')">
+                                                        <input class="form-check-input mt-1" type="checkbox" t-att-checked="(state.toolForm.operations || []).includes('search')"/>
+                                                        <div>
+                                                            <div class="fw-bold text-dark small mb-1">🔍 Search</div>
+                                                            <div class="extra-small text-muted">Find matching records using search filters and domains.</div>
                                                         </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded-3 cursor-pointer text-start h-100 d-flex align-items-start gap-2" t-att-class="(state.toolForm.operations || []).includes('read') ? 'border-primary bg-primary-light shadow-sm' : 'bg-white'" t-on-click="() => this.toggleOperation('read')">
+                                                        <input class="form-check-input mt-1" type="checkbox" t-att-checked="(state.toolForm.operations || []).includes('read')"/>
+                                                        <div>
+                                                            <div class="fw-bold text-dark small mb-1">📖 Read</div>
+                                                            <div class="extra-small text-muted">Retrieve specific record field values by record ID.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded-3 cursor-pointer text-start h-100 d-flex align-items-start gap-2" t-att-class="(state.toolForm.operations || []).includes('create') ? 'border-primary bg-primary-light shadow-sm' : 'bg-white'" t-on-click="() => this.toggleOperation('create')">
+                                                        <input class="form-check-input mt-1" type="checkbox" t-att-checked="(state.toolForm.operations || []).includes('create')"/>
+                                                        <div>
+                                                            <div class="fw-bold text-dark small mb-1">➕ Create</div>
+                                                            <div class="extra-small text-muted">Insert new Odoo records safely into the database.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded-3 cursor-pointer text-start h-100 d-flex align-items-start gap-2" t-att-class="(state.toolForm.operations || []).includes('write') ? 'border-primary bg-primary-light shadow-sm' : 'bg-white'" t-on-click="() => this.toggleOperation('write')">
+                                                        <input class="form-check-input mt-1" type="checkbox" t-att-checked="(state.toolForm.operations || []).includes('write')"/>
+                                                        <div>
+                                                            <div class="fw-bold text-dark small mb-1">✏️ Update</div>
+                                                            <div class="extra-small text-muted">Modify existing record values in Odoo.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded-3 cursor-pointer text-start h-100 d-flex align-items-start gap-2" t-att-class="(state.toolForm.operations || []).includes('delete') ? 'border-danger bg-danger-light shadow-sm' : 'bg-white'" t-on-click="() => this.toggleOperation('delete')">
+                                                        <input class="form-check-input mt-1" type="checkbox" t-att-checked="(state.toolForm.operations || []).includes('delete')"/>
+                                                        <div>
+                                                            <div class="fw-bold text-danger small mb-1">🗑️ Delete</div>
+                                                            <div class="extra-small text-muted">Unlink record (Requires human approval queue).</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="p-3 border rounded-3 cursor-pointer text-start h-100 d-flex align-items-start gap-2" t-att-class="(state.toolForm.operations || []).includes('aggregate') ? 'border-primary bg-primary-light shadow-sm' : 'bg-white'" t-on-click="() => this.toggleOperation('aggregate')">
+                                                        <input class="form-check-input mt-1" type="checkbox" t-att-checked="(state.toolForm.operations || []).includes('aggregate')"/>
+                                                        <div>
+                                                            <div class="fw-bold text-dark small mb-1">📊 Aggregate</div>
+                                                            <div class="extra-small text-muted">Generate group-by summary reports and counts.</div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <hr class="my-4"/>
+
+                                            <!-- Section B: What Info Should AI Receive? -->
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <div>
+                                                    <h5 class="fw-bold text-dark mb-1"><i class="fa fa-database text-info me-2"></i>What info should AI receive?</h5>
+                                                    <p class="text-muted small mb-0">By default, all standard core fields are automatically enabled for AI response payloads.</p>
+                                                </div>
+                                                <div class="d-flex align-items-center gap-1">
+                                                    <button class="btn btn-xs btn-outline-primary" t-on-click="() => this.selectCategoryFields('all')">+ Add All Fields</button>
+                                                    <button class="btn btn-xs btn-outline-secondary" t-on-click="clearResultFields">Clear</button>
+                                                </div>
+                                            </div>
+
+                                            <!-- Category Tabs Bar -->
+                                            <div class="d-flex flex-wrap gap-1 mb-2">
+                                                <button class="btn btn-xs" t-att-class="state.fieldCategoryTab === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFieldCategoryTab('all')">
+                                                    All (<t t-esc="this.categorizedAvailableFields.all.length"></t>)
+                                                </button>
+                                                <button class="btn btn-xs" t-att-class="state.fieldCategoryTab === 'core' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFieldCategoryTab('core')">
+                                                    Core (<t t-esc="this.categorizedAvailableFields.core.length"></t>)
+                                                </button>
+                                                <button class="btn btn-xs" t-att-class="state.fieldCategoryTab === 'relations' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFieldCategoryTab('relations')">
+                                                    Relations (<t t-esc="this.categorizedAvailableFields.relations.length"></t>)
+                                                </button>
+                                                <button class="btn btn-xs" t-att-class="state.fieldCategoryTab === 'dates' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFieldCategoryTab('dates')">
+                                                    Dates (<t t-esc="this.categorizedAvailableFields.dates.length"></t>)
+                                                </button>
+                                                <button class="btn btn-xs" t-att-class="state.fieldCategoryTab === 'technical' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFieldCategoryTab('technical')">
+                                                    Technical (<t t-esc="this.categorizedAvailableFields.technical.length"></t>)
+                                                </button>
+                                            </div>
+
+                                            <div class="mb-2">
+                                                <input type="text" class="form-control form-control-sm bg-light" placeholder="Search fields by name..." t-model="state.fieldSearchQuery"/>
+                                            </div>
+
+                                            <!-- Compact Field Chips Grid -->
+                                            <div class="fields-list-box border rounded-3 p-2 bg-light mb-3" style="max-height: 220px; overflow-y: auto;">
+                                                <t t-if="state.loadingFields">
+                                                    <div class="text-center p-2 text-muted"><i class="fa fa-spinner fa-spin me-2"></i>Loading fields...</div>
+                                                </t>
+                                                <t t-elif="!this.filteredAvailableFields || this.filteredAvailableFields.length === 0">
+                                                    <div class="text-center p-2 text-muted small">No fields found for model <t t-esc="state.toolForm.model_name"></t>.</div>
+                                                </t>
+                                                <t t-else="">
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        <t t-foreach="this.filteredAvailableFields" t-as="f" t-key="f.name">
+                                                            <div class="p-2 border rounded-3 bg-white cursor-pointer d-flex align-items-center" t-att-class="(state.toolForm.result_fields || []).includes(f.name) ? 'border-primary bg-primary-light' : ''" t-on-click="() => this.toggleResultField(f.name)">
+                                                                <input class="form-check-input me-2" type="checkbox" t-att-id="'rf_' + f.name" t-att-checked="(state.toolForm.result_fields || []).includes(f.name)"/>
+                                                                <div>
+                                                                    <strong class="small text-dark d-block"><t t-esc="f.label"></t></strong>
+                                                                    <code class="text-muted extra-small"><t t-esc="f.name"></t></code>
+                                                                </div>
+                                                            </div>
+                                                        </t>
                                                     </div>
                                                 </t>
                                             </div>
-                                        </t>
+                                        </div>
+                                    </t>
+
+                                    <!-- STEP 3: Review & Register Live -->
+                                    <t t-if="state.modalStep === 3">
+                                        <div class="animate-fade-in">
+                                            <h4 class="fw-bold text-dark mb-1">Review before creating</h4>
+                                            <p class="text-muted small mb-3">Check configuration details before registering live.</p>
+
+                                            <!-- Summary Cards -->
+                                            <div class="row g-2 mb-3">
+                                                <div class="col-md-6">
+                                                    <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center h-100">
+                                                        <div>
+                                                            <span class="text-muted extra-small uppercase d-block fw-bold">Target Odoo Model</span>
+                                                            <strong class="fs-6 text-dark d-block"><t t-esc="state.toolForm.model_name"></t></strong>
+                                                        </div>
+                                                        <button class="btn btn-xs btn-outline-secondary" t-on-click="() => this.setWizardStepDirect(1)">
+                                                            <i class="fa fa-pencil me-1"></i>Edit Model
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-6">
+                                                    <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center h-100">
+                                                        <div>
+                                                            <span class="text-muted extra-small uppercase d-block fw-bold">Allowed Operations</span>
+                                                            <div class="d-flex flex-wrap gap-1 mt-1">
+                                                                <t t-foreach="state.toolForm.operations || ['search']" t-as="op" t-key="op">
+                                                                    <span class="badge bg-primary uppercase"><t t-esc="op"></t></span>
+                                                                </t>
+                                                            </div>
+                                                        </div>
+                                                        <button class="btn btn-xs btn-outline-secondary" t-on-click="() => this.setWizardStepDirect(2)">
+                                                            <i class="fa fa-pencil me-1"></i>Edit Operations
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                                <div class="col-md-12">
+                                                    <div class="p-3 bg-light rounded border d-flex justify-content-between align-items-center">
+                                                        <div>
+                                                            <span class="text-muted extra-small uppercase d-block fw-bold mb-1">AI Response Information</span>
+                                                            <strong class="text-success fs-6"><t t-esc="(state.toolForm.result_fields || []).length"></t> Fields Selected for AI Response Payloads</strong>
+                                                            <div class="extra-small text-muted mt-1">AI will receive these configured field values in tool execution responses.</div>
+                                                        </div>
+                                                        <button class="btn btn-sm btn-outline-primary shadow-sm" t-on-click="() => this.setWizardStepDirect(2)">
+                                                            <i class="fa fa-pencil me-1"></i>Edit Fields
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </t>
+                                </div>
+                                <!-- Live Setup Progress Sidebar (Desktop Only) -->
+                                <div class="col-lg-4 p-4 bg-light d-none d-lg-block">
+                                    <div class="mcp-sidebar-card p-3 bg-white rounded border shadow-sm sticky-top" style="top: 20px;">
+                                        <h6 class="fw-bold text-dark mb-3"><i class="fa fa-tasks text-primary me-2"></i>Setup Progress</h6>
+
+                                        <div class="mb-3">
+                                            <div class="d-flex justify-content-between small mb-1">
+                                                <span class="text-muted">Completion</span>
+                                                <strong class="text-primary"><t t-esc="this.wizardCompletionPercentage"></t>%</strong>
+                                            </div>
+                                            <div class="progress" style="height: 6px;">
+                                                <div class="progress-bar bg-primary" t-att-style="'width: ' + this.wizardCompletionPercentage + '%'"></div>
+                                            </div>
+                                            <div class="extra-small text-muted mt-1"><t t-esc="this.estimatedTimeRemaining"></t></div>
+                                        </div>
+
+                                        <hr/>
+
+                                        <div class="extra-small text-muted uppercase fw-bold mb-2">Checklist</div>
+                                        <div class="small">
+                                            <div t-att-class="state.toolForm.model_name ? 'text-success fw-bold' : 'text-muted'" class="mb-1">
+                                                <i t-att-class="'fa ' + (state.toolForm.model_name ? 'fa-check-circle' : 'fa-circle-o') + ' me-1'"></i>Model Selected
+                                            </div>
+                                            <div t-att-class="state.toolForm.operation ? 'text-success fw-bold' : 'text-muted'" class="mb-1">
+                                                <i t-att-class="'fa ' + (state.toolForm.operation ? 'fa-check-circle' : 'fa-circle-o') + ' me-1'"></i>Operation Chosen
+                                            </div>
+                                            <div t-att-class="(state.toolForm.result_fields || []).length > 0 ? 'text-success fw-bold' : 'text-muted'" class="mb-1">
+                                                <i t-att-class="'fa ' + ((state.toolForm.result_fields || []).length > 0 ? 'fa-check-circle' : 'fa-circle-o') + ' me-1'"></i>Fields Selected (<t t-esc="(state.toolForm.result_fields || []).length"></t>)
+                                            </div>
+                                            <div t-att-class="state.modalStep === 4 ? 'text-success fw-bold' : 'text-muted'">
+                                                <i t-att-class="'fa ' + (state.modalStep === 4 ? 'fa-check-circle' : 'fa-circle-o') + ' me-1'"></i>Review Complete
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
-                            </t>
-
-                            <!-- Section 3: Prompt Description -->
-                            <div class="mb-3">
-                                <label class="form-label font-weight-bold text-dark mb-1">AI Prompt Description <span class="text-danger">*</span></label>
-                                <textarea class="form-control bg-light" rows="2" placeholder="e.g. Search Odoo Contacts by name, email, or company." t-model="state.toolForm.description"></textarea>
                             </div>
+                        </div>
 
-                        </div>
-                        <div class="mcp-modal-footer bg-light p-3 d-flex justify-content-between">
+                        <!-- Sticky Footer Navigation -->
+                        <div class="mcp-modal-footer bg-light p-3 border-top d-flex justify-content-between align-items-center">
                             <button class="btn btn-secondary" t-on-click="closeAddToolModal">Cancel</button>
-                            <button class="btn btn-primary btn-lg shadow-sm" t-on-click="saveTool">
-                                <i class="fa fa-check me-2"></i>Auto-Generate &amp; Save Tool Live
-                            </button>
+                            <div class="d-flex align-items-center gap-2">
+                                <t t-if="state.modalStep &gt; 1">
+                                    <button class="btn btn-outline-secondary" t-on-click="prevWizardStep"><i class="fa fa-arrow-left me-1"></i>Back</button>
+                                </t>
+                                <t t-if="state.modalStep &lt; 3">
+                                    <button class="btn btn-primary shadow-sm" t-on-click="nextWizardStep">Continue <i class="fa fa-arrow-right ms-1"></i></button>
+                                </t>
+                                <t t-else="">
+                                    <button class="btn btn-success btn-lg shadow-sm" t-on-click="saveTool">
+                                        <i class="fa fa-check me-2"></i>Register Tool Live
+                                    </button>
+                                </t>
+                            </div>
                         </div>
+
                     </div>
                 </div>
             </t>
@@ -1466,7 +1955,7 @@
                             <t t-if="state.testToolResult">
                                 <div class="mt-3">
                                     <label class="form-label font-weight-bold text-dark mb-1">Live Execution Response</label>
-                                    <pre class="p-3 bg-dark text-success font-monospace rounded border" style="max-height: 250px; overflow-y: auto;"><code><t t-esc="JSON.stringify(state.testToolResult, null, 2)"></t></code></pre>
+                                    <pre class="p-3 bg-dark text-success font-monospace rounded border" style="max-height: 250px; overflow-y: auto;"><code><t t-esc="this.testToolResultJson"></t></code></pre>
                                 </div>
                             </t>
 
@@ -1476,6 +1965,71 @@
                             <button class="btn btn-success btn-lg shadow-sm" t-on-click="runToolTestExecution" t-att-disabled="state.testToolExecuting">
                                 <i class="fa fa-play me-2"></i>Run Test Execution
                             </button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- 9. Standardized Confirmation Dialog Modal -->
+            <t t-if="state.showConfirmDialog">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog" style="max-width: 440px;">
+                        <div t-att-class="'mcp-modal-header p-3 ' + (state.confirmDialogOptions.isDanger ? 'bg-danger text-white' : 'bg-primary text-white')">
+                            <h5 class="mb-0 text-white fw-bold">
+                                <i t-att-class="'fa ' + (state.confirmDialogOptions.isDanger ? 'fa-exclamation-triangle' : 'fa-info-circle') + ' me-2'"></i>
+                                <t t-esc="state.confirmDialogOptions.title"></t>
+                            </h5>
+                            <button class="btn-close btn-close-white" t-on-click="() => this.state.showConfirmDialog = false"></button>
+                        </div>
+                        <div class="mcp-modal-body p-4 bg-white text-start">
+                            <p class="mb-0 text-dark fs-6"><t t-esc="state.confirmDialogOptions.message"></t></p>
+                        </div>
+                        <div class="mcp-modal-footer bg-light p-3 d-flex justify-content-end gap-2">
+                            <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.state.showConfirmDialog = false">
+                                <t t-esc="state.confirmDialogOptions.cancelText || 'Cancel'"></t>
+                            </button>
+                            <button t-att-class="'btn btn-sm ' + (state.confirmDialogOptions.isDanger ? 'btn-danger' : 'btn-primary')" t-on-click="executeConfirmedAction">
+                                <t t-esc="state.confirmDialogOptions.confirmText || 'Confirm'"></t>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </t>
+
+            <!-- 10. Keyboard Shortcuts Cheat Sheet Modal -->
+            <t t-if="state.showShortcutsHelpModal">
+                <div class="mcp-modal-backdrop animate-fade-in">
+                    <div class="mcp-modal-dialog" style="max-width: 500px;">
+                        <div class="mcp-modal-header bg-dark text-white p-3">
+                            <h5 class="mb-0 text-white fw-bold"><i class="fa fa-keyboard-o me-2 text-warning"></i>Keyboard Shortcuts</h5>
+                            <button class="btn-close btn-close-white" t-on-click="() => this.state.showShortcutsHelpModal = false"></button>
+                        </div>
+                        <div class="mcp-modal-body p-3 bg-white">
+                            <div class="table-responsive">
+                                <table class="table table-sm table-borderless align-middle mb-0">
+                                    <tbody>
+                                        <tr>
+                                            <td><kbd class="bg-dark text-white px-2 py-1">Ctrl + K</kbd> or <kbd class="bg-dark text-white px-2 py-1">⌘ + K</kbd></td>
+                                            <td class="text-muted">Toggle Quick Search &amp; Command Palette</td>
+                                        </tr>
+                                        <tr>
+                                            <td><kbd class="bg-dark text-white px-2 py-1">/</kbd></td>
+                                            <td class="text-muted">Focus Search Input</td>
+                                        </tr>
+                                        <tr>
+                                            <td><kbd class="bg-dark text-white px-2 py-1">Esc</kbd></td>
+                                            <td class="text-muted">Close active modal or drawer</td>
+                                        </tr>
+                                        <tr>
+                                            <td><kbd class="bg-dark text-white px-2 py-1">?</kbd></td>
+                                            <td class="text-muted">Toggle Keyboard Shortcuts Help</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        <div class="mcp-modal-footer bg-light p-2 d-flex justify-content-end">
+                            <button class="btn btn-sm btn-secondary" t-on-click="() => this.state.showShortcutsHelpModal = false">Close</button>
                         </div>
                     </div>
                 </div>

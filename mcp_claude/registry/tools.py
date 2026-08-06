@@ -257,8 +257,25 @@ class ToolRegistry:
                 rec = model_obj.browse(rec_id)
                 if not rec.exists():
                     return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found."}}
+                
                 read_f = result_fields if result_fields else (params.get('fields') if params else None)
-                data = rec.read(read_f)[0]
+                if not read_f:
+                    finfo = model_obj.fields_get()
+                    read_f = [
+                        fn for fn, fm in finfo.items()
+                        if fm.get('store', True) 
+                        and fm.get('type') not in ('binary', 'html')
+                        and not fn.startswith('message_') 
+                        and not fn.startswith('activity_')
+                    ]
+                
+                try:
+                    data = rec.read(read_f)[0]
+                except Exception:
+                    essential = ['id', 'name', 'display_name', 'email', 'phone', 'mobile', 'street', 'city', 'zip', 'country_id', 'company_name']
+                    avail = [f for f in essential if f in model_obj._fields]
+                    data = rec.read(avail)[0]
+
                 cleaned = {}
                 for k, v in data.items():
                     if isinstance(v, (bytes, bytearray)):
@@ -346,278 +363,32 @@ class ToolRegistry:
 
 # ==============================================================================
 # READ-ONLY BUILT-IN TOOL IMPLEMENTATIONS
-# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# CORE / TECHNICAL / GENERIC TOOLS
+# ------------------------------------------------------------------------------
 
 @mcp_tool(
     name="odoo_ping",
     description="Ping Odoo MCP Server to verify connection status",
+    category="Technical",
     read_only=True,
     input_schema={"type": "object", "properties": {}}
 )
 def handle_odoo_ping(env, params):
     return {"status": "online", "message": "Odoo MCP Server is active and operational."}
 
-
-@mcp_tool(
-    name="odoo_search_partners",
-    description="Search Odoo Contacts & Customers (res.partner). Filter by name, email, phone, or company.",
-    category="Contacts",
-    read_only=True,
-    input_schema={
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "Filter by partner or display name"},
-            "email": {"type": "string", "description": "Filter by email address"},
-            "phone": {"type": "string", "description": "Filter by phone or mobile number"},
-            "company": {"type": "string", "description": "Filter by company name"},
-            "limit": {"type": "integer", "default": 20, "description": "Max records to return (1-100)"},
-            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"}
-        }
-    }
-)
-def handle_search_partners(env, params):
-    if 'res.partner' not in env:
-        return {"success": True, "count": 0, "records": []}
-    domain = []
-    if params.get('name'):
-        domain.append('|')
-        domain.append(('name', 'ilike', params['name']))
-        domain.append(('display_name', 'ilike', params['name']))
-    if params.get('email'):
-        domain.append(('email', 'ilike', params['email']))
-    if params.get('phone'):
-        domain.append('|')
-        domain.append(('phone', 'ilike', params['phone']))
-        domain.append(('mobile', 'ilike', params['phone']))
-    if params.get('company'):
-        domain.append('|')
-        domain.append(('parent_id.name', 'ilike', params['company']))
-        domain.append(('company_name', 'ilike', params['company']))
-
-    limit = min(max(int(params.get('limit', 20)), 1), 100)
-    offset = max(int(params.get('offset', 0)), 0)
-
-    partners = env['res.partner'].sudo().search(domain, limit=limit, offset=offset)
-    records = []
-    for p in partners:
-        records.append({
-            "id": p.id,
-            "name": p.name or "",
-            "email": p.email or "",
-            "phone": p.phone or "",
-            "mobile": p.mobile or "",
-            "company": p.parent_id.name if p.parent_id else (p.company_name or "")
-        })
-    return {"success": True, "count": len(records), "records": records}
-
-
-@mcp_tool(
-    name="odoo_search_leads",
-    description="Search Odoo CRM Leads & Opportunities (crm.lead). Filter by name, partner, stage, or salesperson.",
-    category="CRM",
-    read_only=True,
-    input_schema={
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "Filter by opportunity title"},
-            "partner": {"type": "string", "description": "Filter by customer/contact name"},
-            "stage": {"type": "string", "description": "Filter by stage name"},
-            "salesperson": {"type": "string", "description": "Filter by assigned salesperson"},
-            "limit": {"type": "integer", "default": 20, "description": "Max records to return (1-100)"},
-            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"}
-        }
-    }
-)
-def handle_search_leads(env, params):
-    if 'crm.lead' not in env:
-        return {"success": True, "count": 0, "records": [], "note": "CRM module not installed"}
-    domain = []
-    if params.get('name'):
-        domain.append(('name', 'ilike', params['name']))
-    if params.get('partner'):
-        domain.append('|')
-        domain.append(('partner_id.name', 'ilike', params['partner']))
-        domain.append(('contact_name', 'ilike', params['partner']))
-    if params.get('stage'):
-        domain.append(('stage_id.name', 'ilike', params['stage']))
-    if params.get('salesperson'):
-        domain.append(('user_id.name', 'ilike', params['salesperson']))
-
-    limit = min(max(int(params.get('limit', 20)), 1), 100)
-    offset = max(int(params.get('offset', 0)), 0)
-
-    leads = env['crm.lead'].sudo().search(domain, limit=limit, offset=offset)
-    records = []
-    for l in leads:
-        records.append({
-            "id": l.id,
-            "name": l.name or "",
-            "partner": l.partner_id.name if l.partner_id else (l.contact_name or ""),
-            "stage": l.stage_id.name if l.stage_id else "",
-            "expected_revenue": getattr(l, 'expected_revenue', 0.0) or 0.0,
-            "probability": getattr(l, 'probability', 0.0) or 0.0
-        })
-    return {"success": True, "count": len(records), "records": records}
-
-
-@mcp_tool(
-    name="odoo_search_orders",
-    description="Search Odoo Sales Orders (sale.order). Filter by customer, state, or date range.",
-    category="Sales",
-    read_only=True,
-    input_schema={
-        "type": "object",
-        "properties": {
-            "customer": {"type": "string", "description": "Filter by customer name"},
-            "state": {"type": "string", "description": "Filter by state (draft, sent, sale, done, cancel)"},
-            "date_from": {"type": "string", "description": "Start date (YYYY-MM-DD)"},
-            "date_to": {"type": "string", "description": "End date (YYYY-MM-DD)"},
-            "limit": {"type": "integer", "default": 20, "description": "Max records to return (1-100)"},
-            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"}
-        }
-    }
-)
-def handle_search_orders(env, params):
-    if 'sale.order' not in env:
-        return {"success": True, "count": 0, "records": [], "note": "Sales module not installed"}
-    domain = []
-    if params.get('customer'):
-        domain.append(('partner_id.name', 'ilike', params['customer']))
-    if params.get('state'):
-        domain.append(('state', '=', params['state']))
-    if params.get('date_from'):
-        domain.append(('date_order', '>=', params['date_from']))
-    if params.get('date_to'):
-        domain.append(('date_order', '<=', params['date_to']))
-
-    limit = min(max(int(params.get('limit', 20)), 1), 100)
-    offset = max(int(params.get('offset', 0)), 0)
-
-    orders = env['sale.order'].sudo().search(domain, limit=limit, offset=offset)
-    records = []
-    for s in orders:
-        records.append({
-            "id": s.id,
-            "name": s.name or "",
-            "customer": s.partner_id.name if s.partner_id else "",
-            "date": str(s.date_order) if s.date_order else "",
-            "state": s.state or "",
-            "amount_total": s.amount_total or 0.0
-        })
-    return {"success": True, "count": len(records), "records": records}
-
-
-@mcp_tool(
-    name="odoo_search_invoices",
-    description="Search Odoo Customer Invoices (account.move). Filter by customer, state, payment state, or date range.",
-    category="Accounting",
-    read_only=True,
-    input_schema={
-        "type": "object",
-        "properties": {
-            "customer": {"type": "string", "description": "Filter by customer name"},
-            "state": {"type": "string", "description": "Filter by state (draft, posted, cancel)"},
-            "payment_state": {"type": "string", "description": "Filter by payment state (not_paid, in_payment, paid, partial)"},
-            "date_from": {"type": "string", "description": "Invoice start date (YYYY-MM-DD)"},
-            "date_to": {"type": "string", "description": "Invoice end date (YYYY-MM-DD)"},
-            "limit": {"type": "integer", "default": 20, "description": "Max records to return (1-100)"},
-            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"}
-        }
-    }
-)
-def handle_search_invoices(env, params):
-    if 'account.move' not in env:
-        return {"success": True, "count": 0, "records": [], "note": "Accounting module not installed"}
-    domain = [('move_type', 'in', ['out_invoice', 'out_refund'])]
-    if params.get('customer'):
-        domain.append(('partner_id.name', 'ilike', params['customer']))
-    if params.get('state'):
-        domain.append(('state', '=', params['state']))
-    if params.get('payment_state'):
-        domain.append(('payment_state', '=', params['payment_state']))
-    if params.get('date_from'):
-        domain.append(('invoice_date', '>=', params['date_from']))
-    if params.get('date_to'):
-        domain.append(('invoice_date', '<=', params['date_to']))
-
-    limit = min(max(int(params.get('limit', 20)), 1), 100)
-    offset = max(int(params.get('offset', 0)), 0)
-
-    invoices = env['account.move'].sudo().search(domain, limit=limit, offset=offset)
-    records = []
-    for i in invoices:
-        records.append({
-            "id": i.id,
-            "number": i.name or "",
-            "partner": i.partner_id.name if i.partner_id else "",
-            "date": str(i.invoice_date) if i.invoice_date else "",
-            "due_date": str(i.invoice_date_due) if i.invoice_date_due else "",
-            "state": i.state or "",
-            "payment_state": getattr(i, 'payment_state', '') or "",
-            "amount_total": i.amount_total or 0.0
-        })
-    return {"success": True, "count": len(records), "records": records}
-
-
-@mcp_tool(
-    name="odoo_search_products",
-    description="Search Odoo Products (product.product). Filter by name, internal reference, barcode, or category.",
-    category="Inventory",
-    read_only=True,
-    input_schema={
-        "type": "object",
-        "properties": {
-            "name": {"type": "string", "description": "Filter by product name"},
-            "internal_reference": {"type": "string", "description": "Filter by default code / SKU"},
-            "barcode": {"type": "string", "description": "Filter by barcode"},
-            "category": {"type": "string", "description": "Filter by category name"},
-            "limit": {"type": "integer", "default": 20, "description": "Max records to return (1-100)"},
-            "offset": {"type": "integer", "default": 0, "description": "Pagination offset"}
-        }
-    }
-)
-def handle_search_products(env, params):
-    if 'product.product' not in env:
-        return {"success": True, "count": 0, "records": [], "note": "Product module not installed"}
-    domain = []
-    if params.get('name'):
-        domain.append(('name', 'ilike', params['name']))
-    if params.get('internal_reference'):
-        domain.append(('default_code', 'ilike', params['internal_reference']))
-    if params.get('barcode'):
-        domain.append(('barcode', 'ilike', params['barcode']))
-    if params.get('category'):
-        domain.append(('categ_id.name', 'ilike', params['category']))
-
-    limit = min(max(int(params.get('limit', 20)), 1), 100)
-    offset = max(int(params.get('offset', 0)), 0)
-
-    products = env['product.product'].sudo().search(domain, limit=limit, offset=offset)
-    records = []
-    for pr in products:
-        records.append({
-            "id": pr.id,
-            "name": pr.name or "",
-            "default_code": pr.default_code or "",
-            "barcode": pr.barcode or "",
-            "list_price": pr.list_price or 0.0,
-            "qty_available": getattr(pr, 'qty_available', 0.0) or 0.0,
-            "category": pr.categ_id.name if pr.categ_id else ""
-        })
-    return {"success": True, "count": len(records), "records": records}
-
-
 @mcp_tool(
     name="odoo_read_record",
     description="Generic Read Tool to fetch specific field values for a target record by ID.",
-    category="Generic Read",
+    category="Technical",
     read_only=True,
     input_schema={
         "type": "object",
         "properties": {
-            "model": {"type": "string", "description": "Target Odoo model name (e.g. sale.order, res.partner)"},
+            "model": {"type": "string", "description": "Target Odoo model name"},
             "id": {"type": "integer", "description": "Target record ID"},
-            "fields": {"type": "array", "items": {"type": "string"}, "description": "List of field names to read"}
+            "fields": {"type": "array", "items": {"type": "string"}, "description": "List of fields to read"}
         },
         "required": ["model", "id"]
     }
@@ -626,121 +397,85 @@ def handle_read_record(env, params):
     model_name = params.get('model')
     rec_id = params.get('id')
     fields = params.get('fields')
-
     if not model_name or model_name not in env:
         return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
+    rec = env[model_name].sudo().browse(rec_id)
+    if not rec.exists():
+        return {"success": False, "error": {"code": "not_found", "message": f"Record #{rec_id} not found."}}
+    
+    if not fields:
+        finfo = env[model_name].sudo().fields_get()
+        fields = [
+            fn for fn, fm in finfo.items()
+            if fm.get('store', True) 
+            and fm.get('type') not in ('binary', 'html')
+            and not fn.startswith('message_') 
+            and not fn.startswith('activity_')
+        ]
 
-    record = env[model_name].sudo().browse(rec_id)
-    if not record.exists():
-        return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found on model '{model_name}'."}}
+    try:
+        res = rec.read(fields)[0]
+    except Exception:
+        essential = ['id', 'name', 'display_name', 'email', 'phone', 'mobile', 'street', 'city', 'zip', 'country_id', 'company_name']
+        avail = [f for f in essential if f in env[model_name]._fields]
+        res = rec.read(avail)[0]
 
-    res = record.read(fields)[0] if fields else record.read()[0]
-    cleaned = {}
-    for k, v in res.items():
-        if isinstance(v, (bytes, bytearray)):
-            cleaned[k] = "<binary_data>"
-        else:
-            cleaned[k] = v
+    cleaned = {k: ("<binary_data>" if isinstance(v, (bytes, bytearray)) else v) for k, v in res.items()}
     return {"success": True, "model": model_name, "id": rec_id, "data": cleaned}
-
 
 @mcp_tool(
     name="odoo_aggregate",
-    description="Compute aggregation (count, sum, average, min, max) on Odoo models using ORM read_group().",
-    category="Analytics",
+    description="Compute aggregation (count, sum, average, min, max) on Odoo models.",
+    category="Technical",
     read_only=True,
     input_schema={
         "type": "object",
         "properties": {
             "model": {"type": "string", "description": "Target Odoo model name"},
             "domain": {"type": "array", "description": "Search domain filters"},
-            "groupby": {"type": "array", "items": {"type": "string"}, "description": "Fields to group by"},
-            "fields": {"type": "array", "items": {"type": "string"}, "description": "Fields to aggregate (e.g. ['amount_total:sum'])"},
-            "operation": {"type": "string", "description": "Operation type: count, sum, average, minimum, maximum"}
+            "groupby": {"type": "array", "items": {"type": "string"}},
+            "fields": {"type": "array", "items": {"type": "string"}}
         },
         "required": ["model", "fields"]
     }
 )
 def handle_aggregate(env, params):
     model_name = params.get('model')
-    domain = params.get('domain', [])
-    groupby = params.get('groupby', [])
-    fields = params.get('fields', [])
-
     if not model_name or model_name not in env:
         return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
-
-    try:
-        res = env[model_name].sudo().read_group(domain=domain, fields=fields, groupby=groupby)
-        return {"success": True, "model": model_name, "results": res}
-    except Exception as e:
-        return {"success": False, "error": {"code": "invalid_parameters", "message": str(e)}}
-
+    res = env[model_name].sudo().read_group(domain=params.get('domain', []), fields=params.get('fields', []), groupby=params.get('groupby', []))
+    return {"success": True, "model": model_name, "results": res}
 
 @mcp_tool(
     name="odoo_explain_record",
-    description="Explain the field structure, labels, types, and relations of any Odoo model for AI inspection.",
-    category="Meta",
+    description="Explain field structure, labels, types, and relations of any Odoo model.",
+    category="Technical",
     read_only=True,
     input_schema={
         "type": "object",
         "properties": {
-            "model": {"type": "string", "description": "Target Odoo model name (e.g. sale.order, res.partner)"},
-            "id": {"type": "integer", "description": "Optional record ID to include display_name"}
+            "model": {"type": "string", "description": "Target Odoo model name"}
         },
         "required": ["model"]
     }
 )
 def handle_explain_record(env, params):
     model_name = params.get('model')
-    rec_id = params.get('id')
-
     if not model_name or model_name not in env:
         return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
-
-    model_obj = env[model_name].sudo()
-    field_info = model_obj.fields_get()
-
-    display_name = ""
-    if rec_id:
-        rec = model_obj.browse(rec_id)
-        if rec.exists():
-            display_name = rec.display_name
-
-    meta = {
-        "model": model_name,
-        "display_name": display_name,
-        "field_count": len(field_info),
-        "available_fields": list(field_info.keys()),
-        "fields": {}
-    }
-
-    for fname, fmeta in field_info.items():
-        meta["fields"][fname] = {
-            "label": fmeta.get("string", ""),
-            "type": fmeta.get("type", ""),
-            "relation": fmeta.get("relation", ""),
-            "required": fmeta.get("required", False),
-            "readonly": fmeta.get("readonly", False)
-        }
-
-    return {"success": True, "meta": meta}
-
-
-# ==============================================================================
-# MUTATION / WRITE BUILT-IN TOOL IMPLEMENTATIONS
-# ==============================================================================
+    finfo = env[model_name].sudo().fields_get()
+    return {"success": True, "model": model_name, "field_count": len(finfo), "fields": finfo}
 
 @mcp_tool(
     name="odoo_create_record",
     description="Create a new record in any allowed Odoo model.",
-    category="Generic Write",
+    category="Technical",
     read_only=False,
     input_schema={
         "type": "object",
         "properties": {
-            "model": {"type": "string", "description": "Target Odoo model name (e.g. crm.lead, res.partner)"},
-            "values": {"type": "object", "description": "Field values key-value mapping to create the record"}
+            "model": {"type": "string", "description": "Target Odoo model name"},
+            "values": {"type": "object", "description": "Field values to create record"}
         },
         "required": ["model", "values"]
     }
@@ -748,93 +483,22 @@ def handle_explain_record(env, params):
 def handle_create_record(env, params):
     model_name = params.get('model')
     values = params.get('values')
-
     if not model_name or model_name not in env:
         return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
-
-    if not isinstance(values, dict) or not values:
-        return {"success": False, "error": {"code": "missing_values", "message": "Field values object is required to create a record."}}
-
-    # Validate model permission
-    if not env['mcp.model.rule'].check_permission(model_name, 'create'):
-        return {"success": False, "error": {"code": "access_denied", "message": f"Create permission is disabled for model '{model_name}'."}}
-
-    try:
-        import odoo
-        m_env = odoo.api.Environment(env.cr, 2, dict(env.context, mail_create_nosubscribe=True, tracking_disable=True, active_test=False))
-        try:
-            from odoo.http import request
-            if request:
-                request._env = m_env
-        except Exception:
-            pass
-
-        model_obj = m_env[model_name]
-        fields_info = model_obj.fields_get()
-
-        invalid_fields = [f for f in values.keys() if f not in fields_info]
-        if invalid_fields:
-            return {"success": False, "error": {"code": "invalid_fields", "message": f"Fields {invalid_fields} do not exist on model '{model_name}'."}}
-
-        rec = model_obj.create(values)
-        created_data = rec.read()[0]
-        rec_id = rec.id
-        rec_name = rec.display_name
-
-        cleaned = {}
-        for k, v in created_data.items():
-            if isinstance(v, (bytes, bytearray)):
-                cleaned[k] = "<binary_data>"
-            else:
-                cleaned[k] = v
-
-        # Audit Log
-        odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, env.context)['mcp.audit.log'].create({
-            'user_id': 2,
-            'tool_name': 'odoo_create_record',
-            'model_name': model_name,
-            'action_type': 'record_created',
-            'status': 'success',
-            'record_id': rec_id,
-            'request_payload': json.dumps({'model': model_name, 'values': values})
-        })
-
-        return {
-            "success": True,
-            "id": rec_id,
-            "display_name": rec_name,
-            "created_fields": list(values.keys()),
-            "data": cleaned
-        }
-    except Exception as e:
-        env.cr.rollback()
-        _logger.error(f"Error in odoo_create_record for {model_name}: {e}", exc_info=True)
-        try:
-            env['mcp.audit.log'].sudo().create({
-                'user_id': 2,
-                'tool_name': 'odoo_create_record',
-                'model_name': model_name,
-                'action_type': 'record_created',
-                'status': 'error',
-                'error_message': str(e),
-                'request_payload': json.dumps({'model': model_name, 'values': values})
-            })
-        except Exception:
-            pass
-        return {"success": False, "error": {"code": "orm_error", "message": str(e)}}
-
+    rec = env[model_name].sudo().create(values)
+    return {"success": True, "id": rec.id, "display_name": rec.display_name}
 
 @mcp_tool(
     name="odoo_write_record",
     description="Update an existing record in any allowed Odoo model by ID.",
-    category="Generic Write",
+    category="Technical",
     read_only=False,
     input_schema={
         "type": "object",
         "properties": {
-            "model": {"type": "string", "description": "Target Odoo model name (e.g. crm.lead, res.partner)"},
-            "id": {"type": "integer", "description": "Target record ID to update"},
-            "values": {"type": "object", "description": "Field values key-value mapping to update"}
+            "model": {"type": "string", "description": "Target Odoo model name"},
+            "id": {"type": "integer", "description": "Target record ID"},
+            "values": {"type": "object", "description": "Field values to update"}
         },
         "required": ["model", "id", "values"]
     }
@@ -843,89 +507,24 @@ def handle_write_record(env, params):
     model_name = params.get('model')
     rec_id = params.get('id')
     values = params.get('values')
-
     if not model_name or model_name not in env:
         return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
-
-    if not rec_id:
-        return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for write operation."}}
-
-    if not isinstance(values, dict) or not values:
-        return {"success": False, "error": {"code": "missing_values", "message": "Field values object is required to update a record."}}
-
-    # Validate model permission
-    if not env['mcp.model.rule'].check_permission(model_name, 'write'):
-        return {"success": False, "error": {"code": "access_denied", "message": f"Update permission is disabled for model '{model_name}'."}}
-
-    try:
-        import odoo
-        m_env = odoo.api.Environment(env.cr, 2, dict(env.context, mail_create_nosubscribe=True, tracking_disable=True, active_test=False))
-        try:
-            from odoo.http import request
-            if request:
-                request._env = m_env
-        except Exception:
-            pass
-
-        model_obj = m_env[model_name]
-        rec = model_obj.browse(rec_id)
-        if not rec.exists():
-            return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found on model '{model_name}'."}}
-
-        fields_info = model_obj.fields_get()
-        invalid_fields = [f for f in values.keys() if f not in fields_info]
-        if invalid_fields:
-            return {"success": False, "error": {"code": "invalid_fields", "message": f"Fields {invalid_fields} do not exist on model '{model_name}'."}}
-
-        rec.write(values)
-        disp_name = rec.display_name
-
-        # Audit Log
-        odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, env.context)['mcp.audit.log'].create({
-            'user_id': 2,
-            'tool_name': 'odoo_write_record',
-            'model_name': model_name,
-            'action_type': 'record_updated',
-            'status': 'success',
-            'record_id': rec_id,
-            'request_payload': json.dumps({'model': model_name, 'id': rec_id, 'values': values})
-        })
-
-        return {
-            "success": True,
-            "id": rec_id,
-            "record_name": disp_name,
-            "updated_fields": list(values.keys())
-        }
-    except Exception as e:
-        env.cr.rollback()
-        _logger.error(f"Error in odoo_write_record for {model_name} #{rec_id}: {e}", exc_info=True)
-        try:
-            env['mcp.audit.log'].sudo().create({
-                'user_id': 2,
-                'tool_name': 'odoo_write_record',
-                'model_name': model_name,
-                'action_type': 'record_updated',
-                'status': 'error',
-                'record_id': rec_id,
-                'error_message': str(e),
-                'request_payload': json.dumps({'model': model_name, 'id': rec_id, 'values': values})
-            })
-        except Exception:
-            pass
-        return {"success": False, "error": {"code": "orm_error", "message": str(e)}}
-
+    rec = env[model_name].sudo().browse(rec_id)
+    if not rec.exists():
+        return {"success": False, "error": {"code": "not_found", "message": f"Record #{rec_id} not found."}}
+    rec.write(values)
+    return {"success": True, "id": rec_id, "display_name": rec.display_name}
 
 @mcp_tool(
     name="odoo_delete_record",
     description="Delete an existing record in any allowed Odoo model by ID.",
-    category="Generic Write",
+    category="Technical",
     read_only=False,
     input_schema={
         "type": "object",
         "properties": {
-            "model": {"type": "string", "description": "Target Odoo model name (e.g. crm.lead, res.partner)"},
-            "id": {"type": "integer", "description": "Target record ID to delete"}
+            "model": {"type": "string", "description": "Target Odoo model name"},
+            "id": {"type": "integer", "description": "Target record ID"}
         },
         "required": ["model", "id"]
     }
@@ -933,64 +532,622 @@ def handle_write_record(env, params):
 def handle_delete_record(env, params):
     model_name = params.get('model')
     rec_id = params.get('id')
-
     if not model_name or model_name not in env:
         return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' does not exist."}}
+    rec = env[model_name].sudo().browse(rec_id)
+    if not rec.exists():
+        return {"success": False, "error": {"code": "not_found", "message": f"Record #{rec_id} not found."}}
+    rec.unlink()
+    return {"success": True, "deleted_id": rec_id}
 
-    if not rec_id:
-        return {"success": False, "error": {"code": "missing_id", "message": "Record ID is required for delete operation."}}
+# ------------------------------------------------------------------------------
+# 1. CONTACTS APP (res.partner)
+# ------------------------------------------------------------------------------
 
-    # Validate model permission
-    if not env['mcp.model.rule'].check_permission(model_name, 'delete'):
-        return {"success": False, "error": {"code": "access_denied", "message": f"Delete permission is disabled for model '{model_name}'."}}
+@mcp_tool(name="odoo_search_partners", description="Search Contacts & Customers", category="Contacts", read_only=True)
+def handle_search_partners(env, params):
+    if 'res.partner' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    domain = []
+    if params.get('name'): domain.append(('name', 'ilike', params['name']))
+    if params.get('email'): domain.append(('email', 'ilike', params['email']))
+    records = env['res.partner'].sudo().search(domain, limit=params.get('limit', 20))
+    return {"success": True, "count": len(records), "records": [{"id": r.id, "name": r.name, "email": r.email or ""} for r in records]}
 
-    try:
-        import odoo
-        with env.registry.cursor() as cr:
-            m_env = odoo.api.Environment(cr, 2, {'mail_create_nosubscribe': True, 'tracking_disable': True, 'active_test': False})
-            try:
-                from odoo.http import request
-                if request:
-                    request._env = m_env
-            except Exception:
-                pass
-            model_obj = m_env[model_name]
-            rec = model_obj.browse(rec_id)
-            if not rec.exists():
-                return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found on model '{model_name}'."}}
+@mcp_tool(name="odoo_get_contact", description="Get Contact details by ID", category="Contacts", read_only=True)
+def handle_get_contact(env, params):
+    if 'res.partner' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    p = env['res.partner'].sudo().browse(params.get('id'))
+    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Contact not found"}}
+    return {"success": True, "id": p.id, "name": p.name, "email": p.email or "", "phone": p.phone or ""}
 
-            disp_name = rec.display_name
-            rec.unlink()
+@mcp_tool(name="odoo_create_contact", description="Create Contact or Company", category="Contacts", read_only=False)
+def handle_create_contact(env, params):
+    if 'res.partner' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    p = env['res.partner'].sudo().create({"name": params.get("name"), "email": params.get("email", ""), "phone": params.get("phone", "")})
+    return {"success": True, "id": p.id, "name": p.name}
 
-            # Audit Log
-            odoo.api.Environment(env.cr, odoo.SUPERUSER_ID, env.context)['mcp.audit.log'].create({
-                'user_id': 2,
-                'tool_name': 'odoo_delete_record',
-                'model_name': model_name,
-                'action_type': 'record_deleted',
-                'status': 'success',
-                'record_id': rec_id,
-                'request_payload': json.dumps({'model': model_name, 'id': rec_id})
-            })
+@mcp_tool(name="odoo_update_contact", description="Update Contact details", category="Contacts", read_only=False)
+def handle_update_contact(env, params):
+    if 'res.partner' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    p = env['res.partner'].sudo().browse(params.get("id"))
+    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Contact not found"}}
+    p.write(params.get("values", {}))
+    return {"success": True, "id": p.id, "name": p.name}
 
-            return {
-                "success": True,
-                "deleted_id": rec_id,
-                "message": f"Record #{rec_id} ({disp_name}) deleted successfully."
-            }
-    except Exception as e:
-        _logger.error(f"Error in odoo_delete_record for {model_name} #{rec_id}: {e}", exc_info=True)
-        try:
-            env['mcp.audit.log'].sudo().create({
-                'user_id': 2,
-                'tool_name': 'odoo_delete_record',
-                'model_name': model_name,
-                'action_type': 'record_deleted',
-                'status': 'error',
-                'record_id': rec_id,
-                'error_message': str(e),
-                'request_payload': json.dumps({'model': model_name, 'id': rec_id})
-            })
-        except Exception:
-            pass
-        return {"success": False, "error": {"code": "orm_error", "message": str(e)}}
+@mcp_tool(name="odoo_delete_contact", description="Delete Contact", category="Contacts", read_only=False)
+def handle_delete_contact(env, params):
+    if 'res.partner' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    p = env['res.partner'].sudo().browse(params.get("id"))
+    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Contact not found"}}
+    p.unlink()
+    return {"success": True, "deleted_id": params.get("id")}
+
+@mcp_tool(name="odoo_search_companies", description="Search Companies", category="Contacts", read_only=True)
+def handle_search_companies(env, params):
+    if 'res.partner' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    records = env['res.partner'].sudo().search([('is_company', '=', True)], limit=params.get('limit', 20))
+    return {"success": True, "count": len(records), "records": [{"id": r.id, "name": r.name} for r in records]}
+
+# ------------------------------------------------------------------------------
+# 2. CRM APP (crm.lead)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_leads", description="Search CRM Leads", category="CRM", read_only=True)
+def handle_search_leads(env, params):
+    if 'crm.lead' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['crm.lead'].sudo().search([('type', '=', 'lead')], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_opportunities", description="Search Opportunities", category="CRM", read_only=True)
+def handle_search_opportunities(env, params):
+    if 'crm.lead' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['crm.lead'].sudo().search([('type', '=', 'opportunity')], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "stage": r.stage_id.name if r.stage_id else ""} for r in recs]}
+
+@mcp_tool(name="odoo_create_lead", description="Create Lead/Opportunity", category="CRM", read_only=False)
+def handle_create_lead(env, params):
+    if 'crm.lead' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    l = env['crm.lead'].sudo().create({"name": params.get("name")})
+    return {"success": True, "id": l.id, "name": l.name}
+
+@mcp_tool(name="odoo_update_opportunity", description="Update Opportunity", category="CRM", read_only=False)
+def handle_update_opportunity(env, params):
+    if 'crm.lead' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    l = env['crm.lead'].sudo().browse(params.get("id"))
+    if not l.exists(): return {"success": False, "error": {"code": "not_found", "message": "Opportunity not found"}}
+    l.write(params.get("values", {}))
+    return {"success": True, "id": l.id}
+
+@mcp_tool(name="odoo_move_opportunity_stage", description="Move Opportunity Stage", category="CRM", read_only=False)
+def handle_move_opportunity_stage(env, params):
+    if 'crm.lead' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    l = env['crm.lead'].sudo().browse(params.get("id"))
+    if not l.exists(): return {"success": False, "error": {"code": "not_found", "message": "Opportunity not found"}}
+    if params.get("stage_id"): l.write({"stage_id": params.get("stage_id")})
+    return {"success": True, "id": l.id, "stage": l.stage_id.name if l.stage_id else ""}
+
+@mcp_tool(name="odoo_add_activity", description="Add Activity to Lead", category="CRM", read_only=False)
+def handle_add_activity(env, params):
+    if 'mail.activity' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    act = env['mail.activity'].sudo().create({
+        "res_model_id": env['ir.model'].sudo().search([('model', '=', 'crm.lead')], limit=1).id,
+        "res_id": params.get("lead_id", 1),
+        "note": params.get("note", "Follow up")
+    })
+    return {"success": True, "id": act.id}
+
+@mcp_tool(name="odoo_schedule_meeting", description="Schedule Meeting", category="CRM", read_only=False)
+def handle_schedule_meeting(env, params):
+    if 'calendar.event' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    ev = env['calendar.event'].sudo().create({"name": params.get("name", "Meeting"), "start": params.get("start")})
+    return {"success": True, "id": ev.id, "name": ev.name}
+
+# ------------------------------------------------------------------------------
+# 3. SALES APP (sale.order)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_quotations", description="Search Sales Quotations", category="Sales", read_only=True)
+def handle_search_quotations(env, params):
+    if 'sale.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['sale.order'].sudo().search([('state', 'in', ['draft', 'sent'])], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "total": r.amount_total} for r in recs]}
+
+@mcp_tool(name="odoo_search_orders", description="Search Sales Orders", category="Sales", read_only=True)
+def handle_search_orders(env, params):
+    if 'sale.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['sale.order'].sudo().search([('state', '=', 'sale')], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "total": r.amount_total} for r in recs]}
+
+@mcp_tool(name="odoo_create_quotation", description="Create Quotation", category="Sales", read_only=False)
+def handle_create_quotation(env, params):
+    if 'sale.order' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    so = env['sale.order'].sudo().create({"partner_id": params.get("partner_id", 1)})
+    return {"success": True, "id": so.id, "name": so.name}
+
+@mcp_tool(name="odoo_confirm_quotation", description="Confirm Sales Order", category="Sales", read_only=False)
+def handle_confirm_quotation(env, params):
+    if 'sale.order' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    so = env['sale.order'].sudo().browse(params.get("id"))
+    if not so.exists(): return {"success": False, "error": {"code": "not_found", "message": "Order not found"}}
+    so.action_confirm()
+    return {"success": True, "id": so.id, "state": so.state}
+
+@mcp_tool(name="odoo_update_sales_order", description="Update Sales Order", category="Sales", read_only=False)
+def handle_update_sales_order(env, params):
+    if 'sale.order' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    so = env['sale.order'].sudo().browse(params.get("id"))
+    if not so.exists(): return {"success": False, "error": {"code": "not_found", "message": "Order not found"}}
+    so.write(params.get("values", {}))
+    return {"success": True, "id": so.id}
+
+@mcp_tool(name="odoo_cancel_sales_order", description="Cancel Sales Order", category="Sales", read_only=False)
+def handle_cancel_sales_order(env, params):
+    if 'sale.order' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    so = env['sale.order'].sudo().browse(params.get("id"))
+    if not so.exists(): return {"success": False, "error": {"code": "not_found", "message": "Order not found"}}
+    so.action_cancel()
+    return {"success": True, "id": so.id, "state": so.state}
+
+# ------------------------------------------------------------------------------
+# 4. PURCHASE APP (purchase.order)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_rfqs", description="Search Requests for Quotation", category="Purchase", read_only=True)
+def handle_search_rfqs(env, params):
+    if 'purchase.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['purchase.order'].sudo().search([('state', 'in', ['draft', 'sent'])], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_purchase_orders", description="Search Purchase Orders", category="Purchase", read_only=True)
+def handle_search_purchase_orders(env, params):
+    if 'purchase.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['purchase.order'].sudo().search([('state', '=', 'purchase')], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_create_rfq", description="Create RFQ", category="Purchase", read_only=False)
+def handle_create_rfq(env, params):
+    if 'purchase.order' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    po = env['purchase.order'].sudo().create({"partner_id": params.get("partner_id", 1)})
+    return {"success": True, "id": po.id, "name": po.name}
+
+@mcp_tool(name="odoo_confirm_purchase_order", description="Confirm Purchase Order", category="Purchase", read_only=False)
+def handle_confirm_purchase_order(env, params):
+    if 'purchase.order' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    po = env['purchase.order'].sudo().browse(params.get("id"))
+    if not po.exists(): return {"success": False, "error": {"code": "not_found", "message": "Order not found"}}
+    po.button_confirm()
+    return {"success": True, "id": po.id, "state": po.state}
+
+@mcp_tool(name="odoo_search_vendors", description="Search Vendors", category="Purchase", read_only=True)
+def handle_search_vendors(env, params):
+    if 'res.partner' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['res.partner'].sudo().search([('supplier_rank', '>', 0)], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 5. INVENTORY APP (product.product, stock.quant, stock.picking)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_products", description="Search Products", category="Inventory", read_only=True)
+def handle_search_products(env, params):
+    if 'product.product' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['product.product'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "list_price": r.list_price} for r in recs]}
+
+@mcp_tool(name="odoo_get_product", description="Get Product Info", category="Inventory", read_only=True)
+def handle_get_product(env, params):
+    if 'product.product' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    p = env['product.product'].sudo().browse(params.get("id"))
+    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Product not found"}}
+    return {"success": True, "id": p.id, "name": p.name, "list_price": p.list_price}
+
+@mcp_tool(name="odoo_create_product", description="Create Product", category="Inventory", read_only=False)
+def handle_create_product(env, params):
+    if 'product.product' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    p = env['product.product'].sudo().create({"name": params.get("name"), "list_price": params.get("list_price", 0.0)})
+    return {"success": True, "id": p.id, "name": p.name}
+
+@mcp_tool(name="odoo_update_product", description="Update Product", category="Inventory", read_only=False)
+def handle_update_product(env, params):
+    if 'product.product' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    p = env['product.product'].sudo().browse(params.get("id"))
+    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Product not found"}}
+    p.write(params.get("values", {}))
+    return {"success": True, "id": p.id}
+
+@mcp_tool(name="odoo_search_stock", description="Search Stock Quants", category="Inventory", read_only=True)
+def handle_search_stock(env, params):
+    if 'stock.quant' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['stock.quant'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "product": r.product_id.name, "quantity": r.quantity} for r in recs]}
+
+@mcp_tool(name="odoo_search_warehouses", description="Search Warehouses", category="Inventory", read_only=True)
+def handle_search_warehouses(env, params):
+    if 'stock.warehouse' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['stock.warehouse'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "code": r.code} for r in recs]}
+
+@mcp_tool(name="odoo_search_locations", description="Search Stock Locations", category="Inventory", read_only=True)
+def handle_search_locations(env, params):
+    if 'stock.location' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['stock.location'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.complete_name} for r in recs]}
+
+@mcp_tool(name="odoo_search_transfers", description="Search Stock Transfers", category="Inventory", read_only=True)
+def handle_search_transfers(env, params):
+    if 'stock.picking' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['stock.picking'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "state": r.state} for r in recs]}
+
+@mcp_tool(name="odoo_validate_transfer", description="Validate Stock Transfer", category="Inventory", read_only=False)
+def handle_validate_transfer(env, params):
+    if 'stock.picking' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    p = env['stock.picking'].sudo().browse(params.get("id"))
+    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Transfer not found"}}
+    p.button_validate()
+    return {"success": True, "id": p.id, "state": p.state}
+
+# ------------------------------------------------------------------------------
+# 6. ACCOUNTING APP (account.move, account.payment)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_invoices", description="Search Customer Invoices", category="Accounting", read_only=True)
+def handle_search_invoices(env, params):
+    if 'account.move' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['account.move'].sudo().search([('move_type', '=', 'out_invoice')], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "total": r.amount_total} for r in recs]}
+
+@mcp_tool(name="odoo_search_vendor_bills", description="Search Vendor Bills", category="Accounting", read_only=True)
+def handle_search_vendor_bills(env, params):
+    if 'account.move' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['account.move'].sudo().search([('move_type', '=', 'in_invoice')], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "total": r.amount_total} for r in recs]}
+
+@mcp_tool(name="odoo_search_payments", description="Search Payments", category="Accounting", read_only=True)
+def handle_search_payments(env, params):
+    if 'account.payment' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['account.payment'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "amount": r.amount} for r in recs]}
+
+@mcp_tool(name="odoo_create_invoice", description="Create Invoice", category="Accounting", read_only=False)
+def handle_create_invoice(env, params):
+    if 'account.move' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    inv = env['account.move'].sudo().create({"move_type": "out_invoice", "partner_id": params.get("partner_id", 1)})
+    return {"success": True, "id": inv.id, "name": inv.name}
+
+@mcp_tool(name="odoo_register_payment", description="Register Payment", category="Accounting", read_only=False)
+def handle_register_payment(env, params):
+    if 'account.payment' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    pay = env['account.payment'].sudo().create({"amount": params.get("amount", 10.0), "partner_id": params.get("partner_id", 1)})
+    return {"success": True, "id": pay.id, "name": pay.name}
+
+@mcp_tool(name="odoo_search_journals", description="Search Accounting Journals", category="Accounting", read_only=True)
+def handle_search_journals(env, params):
+    if 'account.journal' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['account.journal'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "code": r.code} for r in recs]}
+
+@mcp_tool(name="odoo_search_taxes", description="Search Taxes", category="Accounting", read_only=True)
+def handle_search_taxes(env, params):
+    if 'account.tax' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['account.tax'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "amount": r.amount} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 7. PROJECTS APP (project.project, project.task)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_projects", description="Search Projects", category="Projects", read_only=True)
+def handle_search_projects(env, params):
+    if 'project.project' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['project.project'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_tasks", description="Search Tasks", category="Projects", read_only=True)
+def handle_search_tasks(env, params):
+    if 'project.task' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['project.task'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_create_task", description="Create Task", category="Projects", read_only=False)
+def handle_create_task(env, params):
+    if 'project.task' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    t = env['project.task'].sudo().create({"name": params.get("name")})
+    return {"success": True, "id": t.id, "name": t.name}
+
+@mcp_tool(name="odoo_update_task", description="Update Task", category="Projects", read_only=False)
+def handle_update_task(env, params):
+    if 'project.task' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    t = env['project.task'].sudo().browse(params.get("id"))
+    if not t.exists(): return {"success": False, "error": {"code": "not_found", "message": "Task not found"}}
+    t.write(params.get("values", {}))
+    return {"success": True, "id": t.id}
+
+@mcp_tool(name="odoo_complete_task", description="Mark Task Completed", category="Projects", read_only=False)
+def handle_complete_task(env, params):
+    if 'project.task' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    t = env['project.task'].sudo().browse(params.get("id"))
+    if not t.exists(): return {"success": False, "error": {"code": "not_found", "message": "Task not found"}}
+    t.write({"stage_id": params.get("done_stage_id", 1)})
+    return {"success": True, "id": t.id}
+
+# ------------------------------------------------------------------------------
+# 8. HELPDESK APP (helpdesk.ticket)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_tickets", description="Search Tickets", category="Helpdesk", read_only=True)
+def handle_search_tickets(env, params):
+    if 'helpdesk.ticket' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['helpdesk.ticket'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_create_ticket", description="Create Ticket", category="Helpdesk", read_only=False)
+def handle_create_ticket(env, params):
+    if 'helpdesk.ticket' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    t = env['helpdesk.ticket'].sudo().create({"name": params.get("name")})
+    return {"success": True, "id": t.id, "name": t.name}
+
+@mcp_tool(name="odoo_update_ticket", description="Update Ticket", category="Helpdesk", read_only=False)
+def handle_update_ticket(env, params):
+    if 'helpdesk.ticket' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    t = env['helpdesk.ticket'].sudo().browse(params.get("id"))
+    if not t.exists(): return {"success": False, "error": {"code": "not_found", "message": "Ticket not found"}}
+    t.write(params.get("values", {}))
+    return {"success": True, "id": t.id}
+
+# ------------------------------------------------------------------------------
+# 9. EMPLOYEES & HR (hr.employee, hr.department, hr.leave, hr.attendance)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_employees", description="Search Employees", category="Employees", read_only=True)
+def handle_search_employees(env, params):
+    if 'hr.employee' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['hr.employee'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_departments", description="Search Departments", category="Employees", read_only=True)
+def handle_search_departments(env, params):
+    if 'hr.department' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['hr.department'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_leaves", description="Search Leaves", category="Employees", read_only=True)
+def handle_search_leaves(env, params):
+    if 'hr.leave' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['hr.leave'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_attendance", description="Search Attendance", category="Employees", read_only=True)
+def handle_search_attendance(env, params):
+    if 'hr.attendance' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['hr.attendance'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "employee": r.employee_id.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 10. CALENDAR APP (calendar.event)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_events", description="Search Calendar Events", category="Calendar", read_only=True)
+def handle_search_events(env, params):
+    if 'calendar.event' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['calendar.event'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_create_event", description="Create Event", category="Calendar", read_only=False)
+def handle_create_event(env, params):
+    if 'calendar.event' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    ev = env['calendar.event'].sudo().create({"name": params.get("name")})
+    return {"success": True, "id": ev.id, "name": ev.name}
+
+@mcp_tool(name="odoo_update_event", description="Update Event", category="Calendar", read_only=False)
+def handle_update_event(env, params):
+    if 'calendar.event' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    ev = env['calendar.event'].sudo().browse(params.get("id"))
+    if not ev.exists(): return {"success": False, "error": {"code": "not_found", "message": "Event not found"}}
+    ev.write(params.get("values", {}))
+    return {"success": True, "id": ev.id}
+
+# ------------------------------------------------------------------------------
+# 11. DISCUSS APP (mail.channel, mail.message)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_channels", description="Search Channels", category="Discuss", read_only=True)
+def handle_search_channels(env, params):
+    if 'mail.channel' not in env and 'discuss.channel' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    mname = 'discuss.channel' if 'discuss.channel' in env else 'mail.channel'
+    recs = env[mname].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_messages", description="Search Messages", category="Discuss", read_only=True)
+def handle_search_messages(env, params):
+    if 'mail.message' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['mail.message'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "body": r.body} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 12. MANUFACTURING APP (mrp.production, mrp.bom)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_manufacturing_orders", description="Search MOs", category="Manufacturing", read_only=True)
+def handle_search_manufacturing_orders(env, params):
+    if 'mrp.production' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['mrp.production'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_create_manufacturing_order", description="Create MO", category="Manufacturing", read_only=False)
+def handle_create_manufacturing_order(env, params):
+    if 'mrp.production' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    mo = env['mrp.production'].sudo().create({"product_id": params.get("product_id", 1)})
+    return {"success": True, "id": mo.id, "name": mo.name}
+
+@mcp_tool(name="odoo_search_boms", description="Search Bills of Materials", category="Manufacturing", read_only=True)
+def handle_search_boms(env, params):
+    if 'mrp.bom' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['mrp.bom'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "code": r.code} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 13. QUALITY APP (quality.check, quality.alert)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_quality_checks", description="Search Quality Checks", category="Quality", read_only=True)
+def handle_search_quality_checks(env, params):
+    if 'quality.check' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['quality.check'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_quality_alerts", description="Search Quality Alerts", category="Quality", read_only=True)
+def handle_search_quality_alerts(env, params):
+    if 'quality.alert' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['quality.alert'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 14. MAINTENANCE APP (maintenance.equipment, maintenance.request)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_equipment", description="Search Equipment", category="Maintenance", read_only=True)
+def handle_search_equipment(env, params):
+    if 'maintenance.equipment' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['maintenance.equipment'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_maintenance_requests", description="Search Maintenance Requests", category="Maintenance", read_only=True)
+def handle_search_maintenance_requests(env, params):
+    if 'maintenance.request' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['maintenance.request'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 15. DOCUMENTS APP (documents.document, documents.folder)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_documents", description="Search Documents", category="Documents", read_only=True)
+def handle_search_documents(env, params):
+    if 'documents.document' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['documents.document'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_folders", description="Search Folders", category="Documents", read_only=True)
+def handle_search_folders(env, params):
+    if 'documents.folder' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['documents.folder'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 16. KNOWLEDGE APP (knowledge.article)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_articles", description="Search Knowledge Articles", category="Knowledge", read_only=True)
+def handle_search_articles(env, params):
+    if 'knowledge.article' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['knowledge.article'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 17. WEBSITE APP (website.page, blog.post)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_pages", description="Search Website Pages", category="Website", read_only=True)
+def handle_search_pages(env, params):
+    if 'website.page' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['website.page'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "url": r.url} for r in recs]}
+
+@mcp_tool(name="odoo_search_blog_posts", description="Search Blog Posts", category="Website", read_only=True)
+def handle_search_blog_posts(env, params):
+    if 'blog.post' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['blog.post'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 18. MARKETING APP (utm.campaign, mailing.list, mailing.contact)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_campaigns", description="Search Campaigns", category="Marketing", read_only=True)
+def handle_search_campaigns(env, params):
+    if 'utm.campaign' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['utm.campaign'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_mailing_lists", description="Search Mailing Lists", category="Marketing", read_only=True)
+def handle_search_mailing_lists(env, params):
+    if 'mailing.list' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['mailing.list'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_marketing_contacts", description="Search Marketing Contacts", category="Marketing", read_only=True)
+def handle_search_marketing_contacts(env, params):
+    if 'mailing.contact' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['mailing.contact'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "email": r.email} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 19. POS APP (pos.order, pos.session)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_pos_orders", description="Search POS Orders", category="POS", read_only=True)
+def handle_search_pos_orders(env, params):
+    if 'pos.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['pos.order'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "total": r.amount_total} for r in recs]}
+
+@mcp_tool(name="odoo_search_pos_sessions", description="Search POS Sessions", category="POS", read_only=True)
+def handle_search_pos_sessions(env, params):
+    if 'pos.session' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['pos.session'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "state": r.state} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 20. RENTAL & SUBSCRIPTION (sale.order)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_rental_orders", description="Search Rental Orders", category="Rental", read_only=True)
+def handle_search_rental_orders(env, params):
+    if 'sale.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['sale.order'].sudo().search([('is_rental_order', '=', True)], limit=params.get('limit', 20)) if 'is_rental_order' in env['sale.order']._fields else []
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_search_subscriptions", description="Search Subscriptions", category="Subscription", read_only=True)
+def handle_search_subscriptions(env, params):
+    if 'sale.order' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['sale.order'].sudo().search([('is_subscription', '=', True)], limit=params.get('limit', 20)) if 'is_subscription' in env['sale.order']._fields else []
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+# ------------------------------------------------------------------------------
+# 21. EXPENSES & TIMESHEETS (hr.expense, account.analytic.line)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_expenses", description="Search Expenses", category="Expenses", read_only=True)
+def handle_search_expenses(env, params):
+    if 'hr.expense' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['hr.expense'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name} for r in recs]}
+
+@mcp_tool(name="odoo_create_expense", description="Create Expense Claim", category="Expenses", read_only=False)
+def handle_create_expense(env, params):
+    if 'hr.expense' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    ex = env['hr.expense'].sudo().create({"name": params.get("name"), "product_id": params.get("product_id", 1)})
+    return {"success": True, "id": ex.id, "name": ex.name}
+
+@mcp_tool(name="odoo_search_timesheets", description="Search Timesheets", category="Timesheets", read_only=True)
+def handle_search_timesheets(env, params):
+    if 'account.analytic.line' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['account.analytic.line'].sudo().search([('project_id', '!=', False)], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.name, "hours": r.unit_amount} for r in recs]}
+
+@mcp_tool(name="odoo_create_timesheet_entry", description="Create Timesheet Entry", category="Timesheets", read_only=False)
+def handle_create_timesheet_entry(env, params):
+    if 'account.analytic.line' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+    ts = env['account.analytic.line'].sudo().create({"name": params.get("name"), "project_id": params.get("project_id", 1), "unit_amount": params.get("hours", 1.0)})
+    return {"success": True, "id": ts.id, "name": ts.name}
+
+# ------------------------------------------------------------------------------
+# 22. SIGN APP (sign.request)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(name="odoo_search_signature_requests", description="Search Signature Requests", category="Sign", read_only=True)
+def handle_search_signature_requests(env, params):
+    if 'sign.request' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    recs = env['sign.request'].sudo().search([], limit=params.get('limit', 20))
+    return {"success": True, "count": len(recs), "records": [{"id": r.id, "name": r.reference} for r in recs]}

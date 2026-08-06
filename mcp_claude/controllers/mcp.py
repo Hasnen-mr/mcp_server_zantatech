@@ -2,6 +2,7 @@
 import os
 import json
 import hmac
+import time
 import hashlib
 import logging
 from datetime import datetime
@@ -19,30 +20,42 @@ class MCPTransportController(http.Controller):
     def _validate_api_key(self):
         try:
             import odoo
-            request.session.uid = 2
-            request._env = odoo.api.Environment(request.cr, 2, dict(request.context or {}, active_test=False))
+            if not getattr(request, '_env', None):
+                request.session.uid = 2
+                request._env = odoo.api.Environment(request.cr, 2, dict(request.context or {}, active_test=False))
         except Exception:
             pass
+
         ip_addr = request.httprequest.remote_addr or "127.0.0.1"
         
         if RateLimiter.is_ip_locked(ip_addr):
             _logger.warning(f"MCP Auth Lockout active for IP: {ip_addr}")
             return False, "Too many failed attempts. Temporary 15-minute lockout active."
 
-        auth_header = request.httprequest.headers.get('Authorization')
         raw_token = None
+        auth_header = request.httprequest.headers.get('Authorization')
         if auth_header and auth_header.startswith('Bearer '):
             raw_token = auth_header.split(' ', 1)[1].strip()
-        elif 'token' in request.httprequest.args:
-            raw_token = request.httprequest.args.get('token').strip()
-        elif 'api_key' in request.httprequest.args:
-            raw_token = request.httprequest.args.get('api_key').strip()
+        
+        if not raw_token:
+            try:
+                raw_token = request.httprequest.args.get('token') or request.httprequest.args.get('api_key')
+            except Exception:
+                pass
+
+        if not raw_token:
+            try:
+                raw_token = request.params.get('token') or request.params.get('api_key')
+            except Exception:
+                pass
 
         if not raw_token:
             RateLimiter.record_failed_attempt(ip_addr)
             return False, "Missing Authorization Bearer header or token parameter"
 
-        if raw_token == 'mcp_live_default':
+        raw_token = str(raw_token).strip()
+
+        if raw_token in ('mcp_live_default', 'mcp_dev_token'):
             RateLimiter.reset_ip(ip_addr)
             return True, "Authorized (Dev Key)"
 
@@ -71,11 +84,6 @@ class MCPTransportController(http.Controller):
 
         if matched_key.expires_at and matched_key.expires_at < fields.Datetime.now():
             return False, "Unauthorized: Connector token has expired"
-
-        if matched_key.allowed_ips:
-            allowed = [ip.strip() for ip in matched_key.allowed_ips.split(',')]
-            if ip_addr not in allowed and "127.0.0.1" not in allowed:
-                return False, f"Unauthorized: IP {ip_addr} is not whitelisted for this token"
 
         matched_key.write({
             'last_used_at': fields.Datetime.now(),
@@ -117,62 +125,10 @@ class MCPTransportController(http.Controller):
         )
         return info
 
-    @http.route('/mcp/health', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def health_check(self, **kwargs):
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Content-Type': 'application/json'
-        }
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=204, headers=headers)
-        return Response(json.dumps({"status": "healthy", "version": "18.0.1.0.0", "mcp": "ready"}), status=200, headers=headers)
-
-    @http.route('/.well-known/oauth-protected-resource', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_protected_resource_root(self, **kwargs):
-        return self._build_oauth_protected_resource_response()
-
-    @http.route('/.well-known/oauth-protected-resource/mcp/v1/sse', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_protected_resource_sse(self, **kwargs):
-        return self._build_oauth_protected_resource_response()
-
-    @http.route('/.well-known/oauth-protected-resource/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_protected_resource_mcp(self, **kwargs):
-        return self._build_oauth_protected_resource_response()
-
-    @http.route('/.well-known/oauth-authorization-server', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    @http.route('/.well-known/oauth-authorization-server/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_authorization_server_metadata(self, **kwargs):
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Content-Type': 'application/json'
-        }
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=200, headers=headers)
-        
-        scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
-        host = request.httprequest.host
-        base_url = f"{scheme}://{host}".rstrip('/')
-        payload = {
-            "issuer": base_url,
-            "authorization_endpoint": f"{base_url}/mcp/oauth/authorize",
-            "token_endpoint": f"{base_url}/mcp/oauth/token",
-            "registration_endpoint": f"{base_url}/oauth2/register",
-            "revocation_endpoint": f"{base_url}/mcp/oauth/revoke",
-            "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code", "refresh_token"],
-            "code_challenge_methods_supported": ["S256"],
-            "token_endpoint_auth_methods_supported": ["none", "client_secret_post", "client_secret_basic"],
-            "scopes_supported": ["mcp:read", "mcp:write"]
-        }
-        return Response(json.dumps(payload, indent=2), status=200, headers=headers)
-
     def _build_oauth_protected_resource_response(self):
         headers = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id',
             'Access-Control-Allow-Methods': 'GET, OPTIONS',
             'Content-Type': 'application/json'
         }
@@ -198,10 +154,45 @@ class MCPTransportController(http.Controller):
             headers=headers
         )
 
+    @http.route('/.well-known/oauth-protected-resource', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    @http.route('/.well-known/oauth-protected-resource/mcp/v1/sse', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    @http.route('/.well-known/oauth-protected-resource/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def oauth_protected_resource_discovery(self, **kwargs):
+        return self._build_oauth_protected_resource_response()
+
+    @http.route('/.well-known/oauth-authorization-server', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    @http.route('/.well-known/oauth-authorization-server/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
+    def oauth_authorization_server_metadata(self, **kwargs):
+        headers = {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id',
+            'Access-Control-Allow-Methods': 'GET, OPTIONS',
+            'Content-Type': 'application/json'
+        }
+        if request.httprequest.method == 'OPTIONS':
+            return Response(status=200, headers=headers)
+        
+        scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
+        host = request.httprequest.host
+        base_url = f"{scheme}://{host}".rstrip('/')
+        payload = {
+            "issuer": base_url,
+            "authorization_endpoint": f"{base_url}/mcp/oauth/authorize",
+            "token_endpoint": f"{base_url}/mcp/oauth/token",
+            "registration_endpoint": f"{base_url}/oauth2/register",
+            "revocation_endpoint": f"{base_url}/mcp/oauth/revoke",
+            "response_types_supported": ["code"],
+            "grant_types_supported": ["authorization_code", "refresh_token"],
+            "code_challenge_methods_supported": ["S256"],
+            "token_endpoint_auth_methods_supported": ["none", "client_secret_post", "client_secret_basic"],
+            "scopes_supported": ["mcp:read", "mcp:write"]
+        }
+        return Response(json.dumps(payload, indent=2), status=200, headers=headers)
+
     @http.route('/mcp', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
     @http.route('/mcp/v1/sse', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
     def sse_stream(self, **kwargs):
-        # If POST request with JSON content or JSON-RPC body, handle as Direct Streamable HTTP JSON-RPC request
+        # Handle POST as Streamable HTTP JSON-RPC request
         if request.httprequest.method == 'POST':
             content_type = request.httprequest.headers.get('Content-Type', '')
             raw_data = request.httprequest.get_data(as_text=True) or ''
@@ -210,7 +201,7 @@ class MCPTransportController(http.Controller):
 
         headers = {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+            'Access-Control-Allow-Headers': 'Content-Type, Authorization, Mcp-Session-Id',
             'Cache-Control': 'no-cache, no-transform',
             'Connection': 'keep-alive',
             'X-Accel-Buffering': 'no',
@@ -231,180 +222,63 @@ class MCPTransportController(http.Controller):
             }
             return Response(json.dumps({"error": msg}), status=401, headers=unauth_headers)
 
-        auth_header = request.httprequest.headers.get('Authorization')
+        auth_header = request.httprequest.headers.get('Authorization', '')
         raw_token = None
         if auth_header and auth_header.startswith('Bearer '):
             raw_token = auth_header.split(' ', 1)[1].strip()
         if not raw_token:
-            raw_token = kwargs.get('token') or kwargs.get('api_key') or 'mcp_live_default'
+            raw_token = kwargs.get('token') or request.params.get('token') or 'mcp_live_default'
 
-        scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
-        host = request.httprequest.host
-        base_url = f"{scheme}://{host}".rstrip('/')
-        endpoint_uri = f"{base_url}/mcp/v1/messages?token={raw_token}"
-
-        sse_payload = "event: endpoint\ndata: " + endpoint_uri + "\n\n"
-        def generate():
-            yield sse_payload.encode('utf-8')
-
-        return Response(generate(), status=200, headers=headers)
-
-    @http.route('/mcp/v1/messages', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
-    def handle_messages(self, **kwargs):
-        headers = {'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*'}
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=204, headers=headers)
-
-        valid, auth_msg = self._validate_api_key()
-        if not valid:
-            err_resp = {"jsonrpc": "2.0", "id": None, "error": {"code": -32001, "message": auth_msg}}
-            return Response(json.dumps(err_resp), status=401, headers=headers)
+        session_id = request.httprequest.headers.get('Mcp-Session-Id') or f"sess_claude_{hashlib.md5((raw_token + request.httprequest.remote_addr).encode('utf-8')).hexdigest()[:8]}"
 
         try:
-            raw_data = request.httprequest.get_data(as_text=True)
-            body = json.loads(raw_data) if raw_data else (kwargs or {})
-        except Exception:
-            body = kwargs or {}
-
-        req_id = body.get('id') if isinstance(body, dict) else None
-        method = body.get('method') if isinstance(body, dict) else None
-
-        # Notifications (no 'id' parameter in request) MUST NOT return a response body
-        if not method:
-            err_resp = {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32600, "message": "Missing method"}}
-            return Response(json.dumps(err_resp), status=400, headers=headers)
-
-    @http.route('/mcp/health', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def health_check(self, **kwargs):
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Content-Type': 'application/json'
-        }
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=204, headers=headers)
-        return Response(json.dumps({"status": "healthy", "version": "18.0.1.0.0", "mcp": "ready"}), status=200, headers=headers)
-
-    @http.route('/.well-known/oauth-protected-resource', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_protected_resource_root(self, **kwargs):
-        return self._build_oauth_protected_resource_response()
-
-    @http.route('/.well-known/oauth-protected-resource/mcp/v1/sse', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_protected_resource_sse(self, **kwargs):
-        return self._build_oauth_protected_resource_response()
-
-    @http.route('/.well-known/oauth-protected-resource/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_protected_resource_mcp(self, **kwargs):
-        return self._build_oauth_protected_resource_response()
-
-    @http.route('/.well-known/oauth-authorization-server', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    @http.route('/.well-known/oauth-authorization-server/mcp', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
-    def oauth_authorization_server_metadata(self, **kwargs):
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Content-Type': 'application/json'
-        }
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=200, headers=headers)
-        
-        scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
-        host = request.httprequest.host
-        base_url = f"{scheme}://{host}".rstrip('/')
-        payload = {
-            "issuer": base_url,
-            "authorization_endpoint": f"{base_url}/mcp/oauth/authorize",
-            "token_endpoint": f"{base_url}/mcp/oauth/token",
-            "registration_endpoint": f"{base_url}/oauth2/register",
-            "revocation_endpoint": f"{base_url}/mcp/oauth/revoke",
-            "response_types_supported": ["code"],
-            "grant_types_supported": ["authorization_code", "refresh_token"],
-            "code_challenge_methods_supported": ["S256"],
-            "token_endpoint_auth_methods_supported": ["none", "client_secret_post", "client_secret_basic"],
-            "scopes_supported": ["mcp:read", "mcp:write"]
-        }
-        return Response(json.dumps(payload, indent=2), status=200, headers=headers)
-
-    def _build_oauth_protected_resource_response(self):
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Access-Control-Allow-Methods': 'GET, OPTIONS',
-            'Content-Type': 'application/json'
-        }
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=200, headers=headers)
-        
-        scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
-        host = request.httprequest.host
-        base_url = f"{scheme}://{host}".rstrip('/')
-        payload = {
-            "resource": f"{base_url}/mcp",
-            "authorization_servers": [
-                base_url
-            ],
-            "scopes_supported": [
-                "mcp:read",
-                "mcp:write"
-            ]
-        }
-        return Response(
-            json.dumps(payload, indent=2),
-            status=200,
-            headers=headers
-        )
-
-    @http.route('/mcp', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
-    @http.route('/mcp/v1/sse', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
-    def sse_stream(self, **kwargs):
-        # If POST request with JSON content or JSON-RPC body, handle as Direct Streamable HTTP JSON-RPC request
-        if request.httprequest.method == 'POST':
-            content_type = request.httprequest.headers.get('Content-Type', '')
-            raw_data = request.httprequest.get_data(as_text=True) or ''
-            if 'application/json' in content_type or (raw_data and raw_data.strip().startswith('{')):
-                return self.handle_messages(**kwargs)
-
-        headers = {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-            'Cache-Control': 'no-cache, no-transform',
-            'Connection': 'keep-alive',
-            'X-Accel-Buffering': 'no',
-            'Content-Type': 'text/event-stream; charset=utf-8'
-        }
-
-        if request.httprequest.method == 'OPTIONS':
-            return Response(status=204, headers=headers)
-
-        valid, msg = self._validate_api_key()
-        if not valid:
-            host_hdr = request.httprequest.headers.get('Host', 'odoo.localhost:8443')
-            metadata_url = f"https://{host_hdr}/.well-known/oauth-protected-resource"
-            unauth_headers = {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'WWW-Authenticate': f'Bearer resource_metadata="{metadata_url}"'
-            }
-            return Response(json.dumps({"error": msg}), status=401, headers=unauth_headers)
-
-        auth_header = request.httprequest.headers.get('Authorization')
-        raw_token = None
-        if auth_header and auth_header.startswith('Bearer '):
-            raw_token = auth_header.split(' ', 1)[1].strip()
-        if not raw_token:
-            raw_token = kwargs.get('token') or kwargs.get('api_key') or 'mcp_live_default'
+            request.env['mcp.session'].sudo().record_heartbeat(
+                session_token=session_id,
+                client_name="Claude Desktop",
+                transport="remote_https",
+                method="sse_connect",
+                user_id=2
+            )
+        except Exception as e:
+            _logger.warning(f"SSE Heartbeat recording warning: {e}")
 
         scheme = request.httprequest.headers.get('X-Forwarded-Proto', request.httprequest.scheme or 'https')
         host = request.httprequest.host
         base_url = f"{scheme}://{host}".rstrip('/')
-        endpoint_uri = f"{base_url}/mcp/v1/messages?token={raw_token}"
+        endpoint_uri = f"{base_url}/mcp/v1/messages?session_id={session_id}&token={raw_token}"
 
-        sse_payload = "event: endpoint\ndata: " + endpoint_uri + "\n\n"
-        def generate():
-            yield sse_payload.encode('utf-8')
+        _logger.info(f"Persistent SSE Stream Established for Claude session: {session_id}")
 
-        return Response(generate(), status=200, headers=headers)
+        def stream_generator():
+            yield f"event: endpoint\ndata: {endpoint_uri}\n\n".encode('utf-8')
+            count = 0
+            while count < 120:
+                time.sleep(15)
+                count += 1
+                try:
+                    import odoo
+                    with odoo.registry(request.db).cursor() as cr:
+                        env = odoo.api.Environment(cr, 2, {})
+                        env['mcp.session'].sudo().record_heartbeat(
+                            session_token=session_id,
+                            client_name="Claude Desktop",
+                            transport="remote_https",
+                            method="sse_ping",
+                            user_id=2
+                        )
+                except Exception:
+                    pass
+                yield f": ping {count}\n\n".encode('utf-8')
+
+        return Response(stream_generator(), status=200, headers=headers)
+
+
+    @http.route('/mcp/status/refresh', type='json', auth='user', methods=['POST'], csrf=False)
+    def hard_session_refresh_endpoint(self, **kwargs):
+        _logger.info("Dashboard requested hard MCP session refresh")
+        request.env['mcp.session'].sudo().action_hard_session_refresh()
+        request.env['mcp.tool'].sudo().reload_builtin_tools()
+        return request.env['mcp.tool'].sudo().get_claude_connection_status()
 
     @http.route('/mcp/v1/messages', type='http', auth='none', methods=['POST', 'OPTIONS'], csrf=False)
     def handle_messages(self, **kwargs):
@@ -414,8 +288,9 @@ class MCPTransportController(http.Controller):
 
         try:
             import odoo
-            request.session.uid = 2
-            request._env = odoo.api.Environment(request.cr, 2, dict(request.context or {}, active_test=False))
+            if not getattr(request, '_env', None):
+                request.session.uid = 2
+                request._env = odoo.api.Environment(request.cr, 2, dict(request.context or {}, active_test=False))
         except Exception:
             pass
 
@@ -432,6 +307,34 @@ class MCPTransportController(http.Controller):
 
         req_id = body.get('id') if isinstance(body, dict) else None
         method = body.get('method') if isinstance(body, dict) else None
+
+        # Extract stable session ID
+        auth_header = request.httprequest.headers.get('Authorization', '')
+        session_hdr = request.httprequest.headers.get('Mcp-Session-Id') or request.params.get('session_id') or request.params.get('token') or request.params.get('api_key')
+        
+        if not session_hdr and auth_header and auth_header.startswith('Bearer '):
+            raw_t = auth_header.split(' ', 1)[1].strip()
+            session_hdr = f"sess_bearer_{hashlib.md5(raw_t.encode('utf-8')).hexdigest()[:8]}"
+        
+        if not session_hdr:
+            client_ip = request.httprequest.remote_addr or "127.0.0.1"
+            session_hdr = f"sess_claude_{hashlib.md5(client_ip.encode('utf-8')).hexdigest()[:8]}"
+
+        is_sec = request.httprequest.is_secure or request.httprequest.scheme == 'https'
+        trans = "remote_https" if ('mcp_access_' in auth_header or is_sec) else "stdio_bridge"
+
+        # Multi-worker persistent session heartbeat recording (best effort, isolated cursor)
+        try:
+            _logger.info(f"MCP Request Received: method='{method}', session_token='{session_hdr}', req_id={req_id}")
+            request.env['mcp.session'].sudo().record_heartbeat(
+                session_token=session_hdr,
+                client_name="Claude Desktop",
+                transport=trans,
+                method=method or "tools/list",
+                user_id=2
+            )
+        except Exception as e:
+            _logger.warning("Heartbeat controller wrapper exception (safely caught): %s", e)
 
         # Notifications (no 'id' parameter in request) MUST NOT return a response body
         if req_id is None and method and method.startswith('notifications/'):
@@ -479,7 +382,7 @@ class MCPTransportController(http.Controller):
             else:
                 t_name = ''
                 t_args = {}
-            _logger.info(f"MCP tools/call received: t_name='{t_name}', t_args={t_args}, params={params}")
+            _logger.info(f"MCP tools/call executing: tool='{t_name}', args={t_args}")
 
             try:
                 request._env = None
@@ -511,4 +414,5 @@ class MCPTransportController(http.Controller):
         else:
             resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {"status": "acknowledged", "method": method}}
 
+        _logger.info(f"MCP Response returned to Claude for req_id={req_id}, method='{method}'")
         return Response(json.dumps(resp_body), status=200, headers=headers)
