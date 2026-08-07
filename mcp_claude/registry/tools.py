@@ -2,10 +2,7 @@
 import json
 import logging
 from typing import Dict, Any, List, Callable
-try:
-    from ..utils.model_inspector import ModelInspector
-except (ImportError, ValueError):
-    from utils.model_inspector import ModelInspector
+from ..utils.model_inspector import ModelInspector
 
 _logger = logging.getLogger(__name__)
 _REGISTERED_TOOLS: Dict[str, Dict[str, Any]] = {}
@@ -195,19 +192,7 @@ class ToolRegistry:
         name_clean = (name or '').strip().lower()
         if name_clean in ('ping', 'odoo_ping'):
             return {"status": "online", "message": "Odoo MCP Server is active and operational."}
-        try:
-            admin_user = env['res.users'].sudo().browse(2)
-            if not admin_user.exists():
-                admin_user = env['res.users'].sudo().search([('active', '=', True)], limit=1)
-            if admin_user and admin_user.exists():
-                if not admin_user.partner_id:
-                    partner_rec = env['res.partner'].sudo().search([], limit=1)
-                    if partner_rec:
-                        admin_user.sudo().write({'partner_id': partner_rec.id})
-                env = env(user=admin_user.id)
-        except Exception as e:
-            _logger.warning("User context setup warning: %s", e)
-
+        
         # 1. Check Built-in Tools
         if name in _REGISTERED_TOOLS:
             tool_meta = _REGISTERED_TOOLS[name]
@@ -242,7 +227,18 @@ class ToolRegistry:
             return {"success": False, "error": {"code": "unknown_model", "message": f"Model '{model_name}' not found."}}
 
         try:
-            model_obj = env[model_name].sudo()
+            exec_user = env.user
+            admin_user = env['res.users'].sudo().browse(2)
+            if not admin_user.exists():
+                admin_user = env['res.users'].sudo().search([('active', '=', True)], limit=1)
+            if admin_user and admin_user.exists():
+                if not admin_user.partner_id:
+                    partner_rec = env['res.partner'].sudo().search([], limit=1)
+                    if partner_rec:
+                        admin_user.sudo().write({'partner_id': partner_rec.id})
+                exec_user = admin_user
+
+            model_obj = env[model_name].sudo().with_user(exec_user)
             caps = ModelInspector.get_model_capabilities(model_obj)
 
             if not caps.get(operation, False):
