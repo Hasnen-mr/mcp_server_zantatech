@@ -19,10 +19,10 @@ and a control center.
     'currency': 'USD',
 
     'category': 'Productivity',
-    'version': '18.0.1.0.3',
+    'version': '18.0.1.0.9',
     'license': 'LGPL-3',
 
-    'depends': ['base', 'web'],
+    'depends': ['base', 'web', 'bus'],
 
     'external_dependencies': {
         'python': [
@@ -67,6 +67,19 @@ and a control center.
             'mcp_claude/static/src/scss/control_center.scss',
             'mcp_claude/static/src/js/control_center.js',
             'mcp_claude/static/src/xml/control_center.xml',
+
+            'mcp_claude/static/src/scss/ai_bubble.scss',
+            'mcp_claude/static/src/js/registries/ai_context_provider_registry.js',
+            'mcp_claude/static/src/js/registries/ai_renderer_registry.js',
+            'mcp_claude/static/src/js/providers/core_context_providers.js',
+            'mcp_claude/static/src/js/ai_chat_service.js',
+            'mcp_claude/static/src/js/components/ai_bubble_trigger.js',
+            'mcp_claude/static/src/js/components/ai_chat_skeleton.js',
+            'mcp_claude/static/src/js/components/ai_chat_window.js',
+            'mcp_claude/static/src/js/components/ai_bubble_container.js',
+            'mcp_claude/static/src/xml/ai_bubble_container.xml',
+            'mcp_claude/static/src/xml/ai_chat_skeleton.xml',
+            'mcp_claude/static/src/xml/ai_chat_window.xml',
         ],
     },
 }

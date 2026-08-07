@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="mcp_claude.AIBubbleContainer">
+        <div class="o_mcp_ai_bubble_wrapper">
+            <t t-if="state.isOpen">
+                <AIChatWindow onClose.bind="closeWindow"/>
+            </t>
+            <AIBubbleTrigger isOpen="state.isOpen" onClick.bind="toggleWindow"/>
+        </div>
+    </t>
+
+    <t t-name="mcp_claude.AIBubbleTrigger">
+        <button class="o_mcp_ai_bubble_trigger btn btn-primary border-0 shadow-lg" t-on-click="props.onClick" title="MCP Claude AI Bubble">
+            <t t-if="props.isOpen">
+                <i class="fa fa-times text-white fs-4"/>
+            </t>
+            <t t-else="">
+                <i class="fa fa-comments text-white fs-4"/>
+            </t>
+        </button>
+    </t>
+
+</templates>

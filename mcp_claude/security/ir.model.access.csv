@@ -18,3 +18,6 @@ access_mcp_analytics_dashboard_user,mcp.analytics.dashboard.user,model_mcp_analy
 access_mcp_analytics_dashboard_admin,mcp.analytics.dashboard.admin,model_mcp_analytics_dashboard,group_mcp_admin,1,1,1,1
 access_mcp_dashboard_widget_user,mcp.dashboard.widget.user,model_mcp_dashboard_widget,group_mcp_user,1,1,1,1
 access_mcp_dashboard_widget_admin,mcp.dashboard.widget.admin,model_mcp_dashboard_widget,group_mcp_admin,1,1,1,1
+access_mcp_ai_session_user,mcp.ai.session.user,model_mcp_ai_session,base.group_user,1,1,1,1
+access_mcp_ai_conversation_user,mcp.ai.conversation.user,model_mcp_ai_conversation,base.group_user,1,1,1,1
+access_mcp_ai_message_user,mcp.ai.message.user,model_mcp_ai_message,base.group_user,1,1,1,1
