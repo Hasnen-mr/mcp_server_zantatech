@@ -2,6 +2,10 @@
 import json
 import logging
 from typing import Dict, Any, List, Callable
+try:
+    from ..utils.model_inspector import ModelInspector
+except (ImportError, ValueError):
+    from utils.model_inspector import ModelInspector
 
 _logger = logging.getLogger(__name__)
 _REGISTERED_TOOLS: Dict[str, Dict[str, Any]] = {}
@@ -200,7 +204,7 @@ class ToolRegistry:
                     partner_rec = env['res.partner'].sudo().search([], limit=1)
                     if partner_rec:
                         admin_user.sudo().write({'partner_id': partner_rec.id})
-                env = env.with_user(admin_user)
+                env = env(user=admin_user.id)
         except Exception as e:
             _logger.warning("User context setup warning: %s", e)
 
@@ -239,13 +243,15 @@ class ToolRegistry:
 
         try:
             model_obj = env[model_name].sudo()
+            caps = ModelInspector.get_model_capabilities(model_obj)
 
-            if getattr(model_obj, '_abstract', False):
+            if not caps.get(operation, False):
+                m_type = ModelInspector.detect_model_type(model_obj)
                 return {
                     "success": False,
                     "error": {
-                        "code": "abstract_model",
-                        "message": f"Model '{model_name}' is an AbstractModel service without database storage. ORM search/read queries are not supported on AbstractModels."
+                        "code": "unsupported_model_operation",
+                        "message": f"Operation '{operation}' is not supported on {m_type.capitalize()} model '{model_name}'."
                     }
                 }
 
@@ -261,16 +267,7 @@ class ToolRegistry:
                 limit = min(max(int(params.get('limit', 20) if params else 20), 1), 100)
                 offset = max(int(params.get('offset', 0) if params else 0), 0)
 
-                read_f = [f for f in result_fields if not f.startswith('message_') and not f.startswith('activity_')] if result_fields else None
-                if not read_f:
-                    finfo = model_obj.fields_get()
-                    read_f = [
-                        fn for fn, fm in finfo.items()
-                        if fm.get('store', True) 
-                        and fm.get('type') not in ('binary', 'html')
-                        and not fn.startswith('message_') 
-                        and not fn.startswith('activity_')
-                    ]
+                read_f = ModelInspector.get_safe_fields(model_obj, requested_fields=result_fields if result_fields else None)
                 records = model_obj.search_read(domain, fields=read_f, limit=limit, offset=offset)
                 return {"success": True, "count": len(records), "records": records}
 
@@ -284,16 +281,8 @@ class ToolRegistry:
                 if not rec.exists():
                     return {"success": False, "error": {"code": "record_not_found", "message": f"Record #{rec_id} not found."}}
                 
-                read_f = result_fields if result_fields else (params.get('fields') if params else None)
-                if not read_f:
-                    finfo = model_obj.fields_get()
-                    read_f = [
-                        fn for fn, fm in finfo.items()
-                        if fm.get('store', True) 
-                        and fm.get('type') not in ('binary', 'html')
-                        and not fn.startswith('message_') 
-                        and not fn.startswith('activity_')
-                    ]
+                req_fields = result_fields if result_fields else (params.get('fields') if params else None)
+                read_f = ModelInspector.get_safe_fields(model_obj, requested_fields=req_fields)
                 
                 try:
                     data = rec.read(read_f)[0]
