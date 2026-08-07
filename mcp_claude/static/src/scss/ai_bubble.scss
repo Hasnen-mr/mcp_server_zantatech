@@ -1,130 +1,94 @@
-/* MCP Claude AI Bubble Styling & Skeleton Shimmer Tokens */
+/* ==========================================================================
+   MCP CLAUDE AI BUBBLE & CHAT WINDOW STYLES
+   ========================================================================== */
 
-:root {
-  --mcp-skeleton-fade-duration: 180ms;
-  --mcp-skeleton-translate-y: 3px;
-  --mcp-skeleton-bg-start: #eef2f6;
-  --mcp-skeleton-bg-end: #e2e8f0;
-  --mcp-skeleton-shimmer-color: linear-gradient(
-    90deg, 
-    rgba(255, 255, 255, 0) 0%, 
-    rgba(255, 255, 255, 0.7) 50%, 
-    rgba(255, 255, 255, 0) 100%
-  );
-}
-
-/* Floating Root Wrapper: Anchored to Bottom Right Corner */
 .o_mcp_ai_bubble_wrapper {
-  position: fixed !important;
-  bottom: 24px !important;
-  right: 24px !important;
-  z-index: 1050 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  align-items: flex-end !important;
-  gap: 12px !important;
-  pointer-events: none !important;
+    position: fixed !important;
+    bottom: 24px !important;
+    right: 24px !important;
+    z-index: 1050 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    pointer-events: none !important;
 }
 
-/* Permanent Floating Circular FAB Trigger Button */
-.o_mcp_ai_bubble_trigger {
-  width: 54px !important;
-  height: 54px !important;
-  min-width: 54px !important;
-  min-height: 54px !important;
-  max-width: 54px !important;
-  max-height: 54px !important;
-  border-radius: 50% !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22) !important;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s ease !important;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 0 !important;
-  margin: 0 !important;
-
-  &:hover {
-    transform: scale(1.08) !important;
-    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.28) !important;
-  }
-
-  &:active {
-    transform: scale(0.95) !important;
-  }
-}
-
-/* Stable Floating Chat Window Popup */
-.o_mcp_ai_chat_window {
-  width: 420px !important;
-  height: 600px !important;
-  max-width: calc(100vw - 48px) !important;
-  max-height: calc(100vh - 120px) !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.24) !important;
-  transition: opacity var(--mcp-skeleton-fade-duration) ease, transform var(--mcp-skeleton-fade-duration) ease !important;
-  pointer-events: auto !important;
-  z-index: 1051 !important;
-  position: relative !important;
-  overflow: hidden !important;
-  display: flex !important;
-  flex-direction: column !important;
-}
-
-/* Inset Skeleton Overlay for Context Switch (>100ms) */
-.o_mcp_skeleton_overlay {
-  position: absolute !important;
-  inset: 0 !important;
-  background: rgba(255, 255, 255, 0.85) !important;
-  backdrop-filter: blur(2px) !important;
-  z-index: 20 !important;
-  opacity: 0 !important;
-  transform: translateY(var(--mcp-skeleton-translate-y)) !important;
-  transition: opacity var(--mcp-skeleton-fade-duration) ease-in-out, transform var(--mcp-skeleton-fade-duration) ease-in-out !important;
-  pointer-events: none !important;
-
-  &.o_mcp_active {
-    opacity: 1 !important;
-    transform: translateY(0) !important;
+.o_mcp_ai_bubble_wrapper > * {
     pointer-events: auto !important;
-  }
 }
 
-.o_mcp_fade_transition {
-  opacity: 1;
-  transform: translateY(0);
-  transition: opacity var(--mcp-skeleton-fade-duration) ease-in-out, transform var(--mcp-skeleton-fade-duration) ease-in-out;
+/* --- Floating Circular FAB Trigger Button --- */
+button.o_mcp_ai_bubble_trigger,
+.o_mcp_ai_bubble_trigger {
+    width: 54px !important;
+    height: 54px !important;
+    min-width: 54px !important;
+    min-height: 54px !important;
+    max-width: 54px !important;
+    max-height: 54px !important;
+    border-radius: 50% !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+    background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
+    border: none !important;
+    outline: none !important;
+    cursor: pointer !important;
+    position: relative !important;
+    pointer-events: auto !important;
+    appearance: none !important;
+    -webkit-appearance: none !important;
 
-  &.o_mcp_fading {
-    opacity: 0.3;
-    transform: translateY(var(--mcp-skeleton-translate-y));
-  }
+    &:hover {
+        transform: scale(1.08) !important;
+        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4) !important;
+    }
 }
 
-/* Shimmer CSS Animation */
-@keyframes mcp-skeleton-shimmer {
-  0% {
-    background-position: -200px 0;
-  }
-  100% {
-    background-position: calc(200px + 100%) 0;
-  }
+/* --- Chat Window Container --- */
+.o_mcp_ai_chat_window {
+    width: 420px !important;
+    height: 600px !important;
+    max-width: calc(100vw - 32px) !important;
+    max-height: calc(100vh - 100px) !important;
+    margin-bottom: 12px !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    border-radius: 16px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    pointer-events: auto !important;
+    overflow: hidden !important;
 }
 
-.o_mcp_skeleton_avatar {
-  width: 24px;
-  height: 24px;
-  background: var(--mcp-skeleton-bg-start);
-  background-image: var(--mcp-skeleton-shimmer-color);
-  background-repeat: no-repeat;
-  background-size: 200px 100%;
-  animation: mcp-skeleton-shimmer 1.5s infinite linear;
+/* --- Skeleton Overlay inside Message Body --- */
+.o_mcp_skeleton_overlay {
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    pointer-events: auto !important;
 }
 
+/* --- Skeleton Pulse Animation --- */
+@keyframes mcpSkeletonPulse {
+    0% {
+        opacity: 0.6;
+    }
+    50% {
+        opacity: 1;
+    }
+    100% {
+        opacity: 0.6;
+    }
+}
+
+.o_mcp_skeleton_avatar,
 .o_mcp_skeleton_line {
-  background: var(--mcp-skeleton-bg-start);
-  background-image: var(--mcp-skeleton-shimmer-color);
-  background-repeat: no-repeat;
-  background-size: 200px 100%;
-  animation: mcp-skeleton-shimmer 1.5s infinite linear;
+    animation: mcpSkeletonPulse 1.5s infinite ease-in-out !important;
 }
