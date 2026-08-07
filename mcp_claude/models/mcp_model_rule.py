@@ -105,27 +105,24 @@ class MCPModelRule(models.Model):
         if not model_name:
             return True
         try:
-            import odoo
-            with self.env.registry.cursor() as cr:
-                super_env = odoo.api.Environment(cr, odoo.SUPERUSER_ID, {})
-                model_rec = super_env['ir.model'].search([('model', '=', model_name)], limit=1)
-                if not model_rec:
-                    return True
-                rule = super_env['mcp.model.rule'].search([('model_id', '=', model_rec.id)], limit=1)
-                if not rule:
-                    if operation in ['read', 'search', 'aggregate', 'explain']:
-                        return True
-                    return False
-
-                if operation == 'create':
-                    return rule.allow_create
-                elif operation in ['write', 'update']:
-                    return rule.allow_write
-                elif operation in ['delete', 'unlink']:
-                    return rule.allow_unlink
-                elif operation in ['read', 'search', 'aggregate', 'explain']:
-                    return rule.allow_read
+            model_rec = self.env['ir.model'].sudo().search([('model', '=', model_name)], limit=1)
+            if not model_rec:
                 return True
+            rule = self.sudo().search([('model_id', '=', model_rec.id), ('active', '=', True)], limit=1)
+            if not rule:
+                if operation in ['read', 'search', 'aggregate', 'explain']:
+                    return True
+                return False
+
+            if operation == 'create':
+                return rule.allow_create
+            elif operation in ['write', 'update']:
+                return rule.allow_write
+            elif operation in ['delete', 'unlink']:
+                return rule.allow_unlink
+            elif operation in ['read', 'search', 'aggregate', 'explain']:
+                return rule.allow_read
+            return True
         except Exception as e:
             _logger.error(f"Error checking permission for {model_name}: {e}")
             return True
