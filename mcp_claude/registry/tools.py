@@ -194,11 +194,16 @@ class ToolRegistry:
         try:
             admin_user = env['res.users'].sudo().browse(2)
             if not admin_user.exists():
-                admin_user = env['res.users'].sudo().search([], limit=1)
+                admin_user = env['res.users'].sudo().search([('active', '=', True)], limit=1)
             if admin_user and admin_user.exists():
-                env = env.with_user(admin_user.id)
-        except Exception:
-            pass
+                if not admin_user.partner_id:
+                    partner_rec = env['res.partner'].sudo().search([], limit=1)
+                    if partner_rec:
+                        admin_user.sudo().write({'partner_id': partner_rec.id})
+                env = env.with_user(admin_user)
+        except Exception as e:
+            _logger.warning("User context setup warning: %s", e)
+
         # 1. Check Built-in Tools
         if name in _REGISTERED_TOOLS:
             tool_meta = _REGISTERED_TOOLS[name]
@@ -235,6 +240,15 @@ class ToolRegistry:
         try:
             model_obj = env[model_name].sudo()
 
+            if getattr(model_obj, '_abstract', False):
+                return {
+                    "success": False,
+                    "error": {
+                        "code": "abstract_model",
+                        "message": f"Model '{model_name}' is an AbstractModel service without database storage. ORM search/read queries are not supported on AbstractModels."
+                    }
+                }
+
             if operation == "search":
                 if not env['mcp.model.rule'].check_permission(model_name, 'search'):
                     return {"success": False, "error": {"code": "access_denied", "message": f"Read permission is disabled for model '{model_name}'."}}
@@ -247,7 +261,16 @@ class ToolRegistry:
                 limit = min(max(int(params.get('limit', 20) if params else 20), 1), 100)
                 offset = max(int(params.get('offset', 0) if params else 0), 0)
 
-                read_f = result_fields if result_fields else None
+                read_f = [f for f in result_fields if not f.startswith('message_') and not f.startswith('activity_')] if result_fields else None
+                if not read_f:
+                    finfo = model_obj.fields_get()
+                    read_f = [
+                        fn for fn, fm in finfo.items()
+                        if fm.get('store', True) 
+                        and fm.get('type') not in ('binary', 'html')
+                        and not fn.startswith('message_') 
+                        and not fn.startswith('activity_')
+                    ]
                 records = model_obj.search_read(domain, fields=read_f, limit=limit, offset=offset)
                 return {"success": True, "count": len(records), "records": records}
 

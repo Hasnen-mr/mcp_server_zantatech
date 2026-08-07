@@ -26,71 +26,8 @@ class MCPTransportController(http.Controller):
         except Exception:
             pass
 
-        ip_addr = request.httprequest.remote_addr or "127.0.0.1"
-        
-        if RateLimiter.is_ip_locked(ip_addr):
-            _logger.warning(f"MCP Auth Lockout active for IP: {ip_addr}")
-            return False, "Too many failed attempts. Temporary 15-minute lockout active."
-
-        raw_token = None
-        auth_header = request.httprequest.headers.get('Authorization')
-        if auth_header and auth_header.startswith('Bearer '):
-            raw_token = auth_header.split(' ', 1)[1].strip()
-        
-        if not raw_token:
-            try:
-                raw_token = request.httprequest.args.get('token') or request.httprequest.args.get('api_key')
-            except Exception:
-                pass
-
-        if not raw_token:
-            try:
-                raw_token = request.params.get('token') or request.params.get('api_key')
-            except Exception:
-                pass
-
-        if not raw_token:
-            RateLimiter.record_failed_attempt(ip_addr)
-            return False, "Missing Authorization Bearer header or token parameter"
-
-        raw_token = str(raw_token).strip()
-
-        if raw_token in ('mcp_live_default', 'mcp_dev_token'):
-            RateLimiter.reset_ip(ip_addr)
-            return True, "Authorized (Dev Key)"
-
-        if raw_token.startswith('mcp_access_'):
-            oauth_token_rec = request.env['mcp.oauth.token'].sudo().with_user(2).search([('access_token', '=', raw_token), ('revoked', '=', False)], limit=1)
-            if oauth_token_rec:
-                if oauth_token_rec.expires_at and oauth_token_rec.expires_at < fields.Datetime.now():
-                    return False, "Unauthorized: OAuth access token has expired"
-                RateLimiter.reset_ip(ip_addr)
-                return True, f"Authorized (OAuth User: {oauth_token_rec.user_id.name})"
-
-        incoming_hash = hmac.new(SERVER_HMAC_SECRET, raw_token.encode('utf-8'), hashlib.sha256).hexdigest()
-
-        api_key_model = request.env['mcp.api.key'].sudo().with_user(2)
-        key_recs = api_key_model.search([('active', '=', True)])
-        
-        matched_key = None
-        for key_rec in key_recs:
-            if hmac.compare_digest(key_rec.key_hash, incoming_hash):
-                matched_key = key_rec
-                break
-
-        if not matched_key:
-            RateLimiter.record_failed_attempt(ip_addr)
-            return False, "Unauthorized: Invalid or revoked connector token"
-
-        if matched_key.expires_at and matched_key.expires_at < fields.Datetime.now():
-            return False, "Unauthorized: Connector token has expired"
-
-        matched_key.write({
-            'last_used_at': fields.Datetime.now(),
-            'last_used_ip': ip_addr
-        })
-        RateLimiter.reset_ip(ip_addr)
-        return True, "Authorized"
+        valid, msg, uid = request.env['mcp.security'].validate_api_key(req=request)
+        return valid, msg
 
     @http.route('/mcp/status/https', type='http', auth='none', methods=['GET', 'OPTIONS'], csrf=False)
     def https_status_check(self, **kwargs):
@@ -189,8 +126,7 @@ class MCPTransportController(http.Controller):
         }
         return Response(json.dumps(payload, indent=2), status=200, headers=headers)
 
-    @http.route('/mcp', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
-    @http.route('/mcp/v1/sse', type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
+    @http.route(['/mcp', '/mcp/v1/sse'], type='http', auth='none', methods=['GET', 'POST', 'OPTIONS'], csrf=False)
     def sse_stream(self, **kwargs):
         # Handle POST as Streamable HTTP JSON-RPC request
         if request.httprequest.method == 'POST':
@@ -336,88 +272,11 @@ class MCPTransportController(http.Controller):
         except Exception as e:
             _logger.warning("Heartbeat controller wrapper exception (safely caught): %s", e)
 
-        # Notifications (no 'id' parameter in request) MUST NOT return a response body
         if req_id is None and method and method.startswith('notifications/'):
             return Response("", status=204, headers=headers)
 
-        if not method:
-            err_resp = {"jsonrpc": "2.0", "id": req_id, "error": {"code": -32600, "message": "Missing method"}}
-            return Response(json.dumps(err_resp), status=400, headers=headers)
+        response_dict = request.env['mcp.dispatcher'].dispatch(body)
+        if response_dict is None:
+            return Response("", status=204, headers=headers)
 
-        if method == "ping":
-            resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {}}
-
-        elif method == "initialize":
-            resp_body = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "protocolVersion": "2024-11-05",
-                    "capabilities": {
-                        "tools": {"listChanged": True},
-                        "resources": {"subscribe": True, "listChanged": True},
-                        "prompts": {"listChanged": True}
-                    },
-                    "serverInfo": {"name": "Odoo MCP Claude", "version": "18.0.1.0.0"}
-                }
-            }
-
-        elif method == "tools/list":
-            request.env.invalidate_all()
-            registered_tools = ToolRegistry.get_all_tools(request.env)
-            tools_list = []
-            for t in registered_tools:
-                tools_list.append({
-                    "name": t["name"],
-                    "description": t.get("description", "Odoo Tool"),
-                    "inputSchema": t.get("inputSchema", {"type": "object", "properties": {}})
-                })
-            resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {"tools": tools_list}}
-
-        elif method == "tools/call":
-            params = body.get('params', {}) if isinstance(body, dict) else {}
-            if isinstance(params, dict):
-                t_name = params.get('name', '')
-                t_args = params.get('arguments', {}) or params.get('kwargs', {}) or {}
-            else:
-                t_name = ''
-                t_args = {}
-            t_start = time.time()
-            _logger.info(f"[MCP STAGE 1 - REQUEST RECEIVED] tool='{t_name}', args={t_args}")
-
-            try:
-                request._env = None
-                request.session.uid = 2
-            except Exception:
-                pass
-
-            mcp_env = request.env
-            mcp_env.invalidate_all()
-            
-            t_exec_start = time.time()
-            tool_res = ToolRegistry.execute_tool(mcp_env, t_name, t_args)
-            t_exec_end = time.time()
-            _logger.info(f"[MCP STAGE 2 - TOOL EXECUTED] tool='{t_name}' in {round((t_exec_end - t_exec_start)*1000, 2)} ms")
-
-            resp_body = {
-                "jsonrpc": "2.0",
-                "id": req_id,
-                "result": {
-                    "content": [
-                        {"type": "text", "text": json.dumps(tool_res, indent=2, default=str)}
-                    ],
-                    "isError": not tool_res.get("success", True) if isinstance(tool_res, dict) else False
-                }
-            }
-
-        elif method == "resources/list":
-            resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {"resources": []}}
-
-        elif method == "prompts/list":
-            resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {"prompts": []}}
-
-        else:
-            resp_body = {"jsonrpc": "2.0", "id": req_id, "result": {"status": "acknowledged", "method": method}}
-
-        _logger.info(f"MCP Response returned to Claude for req_id={req_id}, method='{method}'")
-        return Response(json.dumps(resp_body), status=200, headers=headers)
+        return Response(json.dumps(response_dict), status=200, headers=headers)

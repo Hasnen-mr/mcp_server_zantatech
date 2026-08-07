@@ -60,6 +60,23 @@ class MCPTool(models.Model):
                 vals['display_name'] = vals['name'].replace('_', ' ').title()
         return super().create(vals_list)
 
+    @api.model
+    def get_claude_tools(self):
+        """Fetch active registered tools in MCP standard format."""
+        tools = self.sudo().search([('active', '=', True)])
+        result = []
+        for t in tools:
+            try:
+                schema = json.loads(t.search_fields) if (t.search_fields and t.search_fields.startswith('{')) else {"type": "object", "properties": {}}
+            except Exception:
+                schema = {"type": "object", "properties": {}}
+            result.append({
+                "name": t.name,
+                "description": t.description or t.display_name or "Odoo MCP Tool",
+                "inputSchema": schema
+            })
+        return result
+
     @api.constrains('name', 'operation', 'model_name')
     def _check_tool_validity(self):
         for tool in self:
@@ -71,9 +88,13 @@ class MCPTool(models.Model):
             if tool.operation not in ALLOWED_OPERATIONS:
                 raise ValidationError(_("Operation '%s' is not allowed.") % tool.operation)
 
-            # 3. Model Existence Check — only for custom tools with a model_name set
-            if not tool.is_builtin and tool.model_name and tool.model_name not in self.env:
-                raise ValidationError(_("Model '%s' does not exist in this Odoo instance.") % tool.model_name)
+            # 3. Model Existence & AbstractModel Check
+            if not tool.is_builtin and tool.model_name:
+                if tool.model_name not in self.env:
+                    raise ValidationError(_("Model '%s' does not exist in this Odoo instance.") % tool.model_name)
+                m_obj = self.env[tool.model_name]
+                if getattr(m_obj, '_abstract', False):
+                    raise ValidationError(_("Model '%s' is an AbstractModel service without database storage. Please select a persistent database model.") % tool.model_name)
 
     @api.model
     def get_available_models(self):
@@ -82,10 +103,12 @@ class MCPTool(models.Model):
         result = []
         for m in models_recs:
             if m.model in self.env:
-                result.append({
-                    'model': m.model,
-                    'name': m.name or m.model
-                })
+                m_obj = self.env[m.model]
+                if not getattr(m_obj, '_abstract', False):
+                    result.append({
+                        'model': m.model,
+                        'name': m.name or m.model
+                    })
         return result
 
     @api.model
@@ -250,13 +273,9 @@ class MCPTool(models.Model):
     def get_environment_info(self, override_url=None):
         """
         Dynamically inspect deployment environment based on current request URL or web.base.url.
-        Classifies as Local Development, Production Server (HTTPS), or Remote HTTP.
-        Supports Nginx / Apache / Cloudflare reverse proxies with forwarded header awareness.
+        Delegates to mcp.environment AbstractModel service for zero-duplication environment classification.
         """
-        import urllib.parse
-        import ipaddress
-
-        req = self.env.get('request') if hasattr(self.env, 'get') else None
+        return self.env['mcp.environment'].get_info(override_url=override_url)
         
         # 1. Determine Base URL & Scheme with Request Priority and Reverse Proxy Awareness
         base_url = None

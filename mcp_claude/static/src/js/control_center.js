@@ -57,53 +57,31 @@ export class MCPControlCenter extends Component {
             connectOption: "json",
             loadingData: true,
             isSyncing: false,
+            envLoading: true,
             
-            isHttp: window.location.protocol === "http:",
-            httpsEnabled: window.location.protocol === "https:",
+            isHttp: false,
+            httpsEnabled: false,
             serverUrl: defaultOrigin,
             connectorUrl: defaultOrigin + "/mcp",
-            stdioJsonConfig: JSON.stringify({
-                "mcpServers": {
-                    "odoo": {
-                        "command": "python",
-                        "args": [
-                            "mcp_bridge.py",
-                            "--server",
-                            defaultOrigin
-                        ]
-                    }
-                }
-            }, null, 2),
+            stdioJsonConfig: "",
 
             envInfo: {
-                environment: "local",
-                environment_title: "Local Development",
+                environment: null,
+                environment_title: "Loading...",
                 base_url: defaultOrigin,
                 hostname: window.location.hostname,
                 scheme: window.location.protocol.replace(':', ''),
                 port: window.location.port,
-                is_https: window.location.protocol === "https:",
-                is_localhost: true,
+                is_https: false,
+                is_localhost: null,
                 recommended_connection: "json",
                 supports_direct_url: false,
-                badge_label: "🔵 Local Development",
-                badge_class: "bg-info",
-                status_text: "🔵 Local Development",
-                reason: "This server is only accessible locally.",
+                badge_label: "⌛ Loading...",
+                badge_class: "bg-secondary",
+                status_text: "⌛ Loading Environment...",
+                reason: "Detecting deployment capabilities...",
                 warning_message: null,
-                direct_url: defaultOrigin + "/mcp",
-                config_json: JSON.stringify({
-                    "mcpServers": {
-                        "odoo": {
-                            "command": "python",
-                            "args": [
-                                "mcp_bridge.py",
-                                "--server",
-                                defaultOrigin
-                            ]
-                        }
-                    }
-                }, null, 2),
+                config_json: "",
                 connection_status: {
                     server_reachability: { label: "Server Reachability", status: "Online", ok: true, badge: "🟢 Online" },
                     mcp_endpoint: { label: "MCP Endpoint", status: "Reachable", ok: true, badge: "🟢 Reachable" },
@@ -408,6 +386,7 @@ export class MCPControlCenter extends Component {
                 this.state.serverUrl = envInfo.base_url || this.state.serverUrl;
                 this.state.isHttp = !envInfo.is_https;
                 this.state.httpsEnabled = !!envInfo.is_https;
+                this.state.envLoading = false;
                 if (envInfo.wizard_params) {
                     this.state.wizardForm = {
                         python_path: envInfo.wizard_params.python_path || "python",
