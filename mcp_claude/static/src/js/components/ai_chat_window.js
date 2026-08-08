@@ -102,26 +102,13 @@ export class AIChatWindow extends Component {
         }
 
         try {
-            const context = this.aiService.collectActiveContext();
-            this.state.activeModel = context.resModel || null;
-            this.state.activeResId = context.resId || null;
-
-            let scope = forcedScope;
-            if (!scope) {
-                if (this.state.activeModel && this.state.activeResId) {
-                    scope = "record";
-                } else if (this.state.activeModel) {
-                    scope = "module";
-                } else {
-                    scope = "global";
-                }
-            }
+            const scope = "global";
 
             // Fetch thread data with AbortSignal
             const res = await this.aiService.initChat(
-                scope,
-                this.state.activeModel,
-                this.state.activeResId,
+                "global",
+                null,
+                null,
                 null,
                 abortController.signal
             );
@@ -133,7 +120,7 @@ export class AIChatWindow extends Component {
 
             // Atomic Synchronous State Mutation (Single OWL Render Cycle)
             if (res && res.success) {
-                this.state.activeScope = scope;
+                this.state.activeScope = "global";
                 this.state.activeConvId = res.conversation_id;
                 this.state.history = res.history || [];
                 this.state.title = res.title || "MCP Claude AI Bubble";
@@ -158,18 +145,7 @@ export class AIChatWindow extends Component {
     }
 
     async setScope(scope) {
-        if (this.state.activeScope === scope) return;
-
-        if (scope === "record" && (!this.state.activeModel || !this.state.activeResId)) {
-            this.notification.add("Please navigate to a specific record to use Record Scope.", { type: "warning" });
-            return;
-        }
-        if (scope === "module" && !this.state.activeModel) {
-            this.notification.add("Please open an Odoo module or record to use Module Scope.", { type: "warning" });
-            return;
-        }
-
-        await this.loadChat(scope, false);
+        return;
     }
 
     onScroll(ev) {

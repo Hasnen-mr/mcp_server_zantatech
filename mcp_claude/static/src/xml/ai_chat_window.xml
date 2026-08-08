@@ -17,24 +17,7 @@
                 </button>
             </div>
 
-            <!-- Scope Tabs Navigation Bar (Always 100% Interactive) -->
-            <div class="d-flex align-items-center justify-content-around bg-light border-bottom p-1" style="font-size: 12px; pointer-events: auto;">
-                <button t-attf-class="btn btn-xs #{state.activeScope === 'record' ? 'btn-primary fw-bold' : 'btn-outline-secondary'} py-1 px-3 rounded-pill cursor-pointer" 
-                        t-on-click="() => this.setScope('record')"
-                        title="Switch to Record Scope">
-                    <i class="fa fa-file-text-o me-1"/>Record
-                </button>
-                <button t-attf-class="btn btn-xs #{state.activeScope === 'module' ? 'btn-primary fw-bold' : 'btn-outline-secondary'} py-1 px-3 rounded-pill cursor-pointer" 
-                        t-on-click="() => this.setScope('module')"
-                        title="Switch to Module Scope">
-                    <i class="fa fa-cubes me-1"/>Module
-                </button>
-                <button t-attf-class="btn btn-xs #{state.activeScope === 'global' ? 'btn-primary fw-bold' : 'btn-outline-secondary'} py-1 px-3 rounded-pill cursor-pointer" 
-                        t-on-click="() => this.setScope('global')"
-                        title="Switch to Global Assistant Scope">
-                    <i class="fa fa-globe me-1"/>Global
-                </button>
-            </div>
+
 
             <!-- Main Message Container with Position Relative for Inset Overlay -->
             <div class="o_mcp_ai_chat_body flex-grow-1 p-3 overflow-auto d-flex flex-column gap-3 position-relative" t-ref="chatBody" t-on-scroll="onScroll">

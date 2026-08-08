@@ -42,15 +42,15 @@ export const aiChatService = {
                 }
                 return contextPayload;
             },
-            async initChat(scope = null, modelName = null, resId = null, workspaceApp = null, signal = null) {
+            async initChat(scope = "global", modelName = null, resId = null, workspaceApp = null, signal = null) {
                 try {
                     const validSessionId = parseValidId(activeSessionId);
                     const res = await rpc("/mcp/ai/v1/chat/init", {
                         session_id: validSessionId,
-                        scope: scope,
-                        model_name: modelName,
-                        res_id: resId,
-                        workspace_app: workspaceApp,
+                        scope: "global",
+                        model_name: null,
+                        res_id: null,
+                        workspace_app: null,
                     }, { signal });
 
                     if (res && res.success) {
