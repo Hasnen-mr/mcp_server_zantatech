@@ -13,10 +13,10 @@
     <t t-name="mcp_claude.AIBubbleTrigger">
         <button class="o_mcp_ai_bubble_trigger" t-on-click="props.onClick" title="MCP Claude AI Bubble" type="button">
             <t t-if="props.isOpen">
-                <i class="fa fa-times text-white fs-4"/>
+                <i class="fa fa-times"/>
             </t>
             <t t-else="">
-                <i class="fa fa-comments text-white fs-4"/>
+                <i class="fa fa-comments"/>
             </t>
         </button>
     </t>

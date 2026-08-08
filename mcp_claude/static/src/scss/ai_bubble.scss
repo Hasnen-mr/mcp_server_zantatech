@@ -29,23 +29,44 @@ button.o_mcp_ai_bubble_trigger,
     border-radius: 50% !important;
     padding: 0 !important;
     margin: 0 !important;
-    display: inline-flex !important;
+    display: flex !important;
     align-items: center !important;
     justify-content: center !important;
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
     transition: transform 0.2s ease, box-shadow 0.2s ease !important;
     background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
-    border: none !important;
+    color: #ffffff !important;
+    border: 0 !important;
     outline: none !important;
     cursor: pointer !important;
     position: relative !important;
     pointer-events: auto !important;
     appearance: none !important;
     -webkit-appearance: none !important;
+    box-sizing: border-box !important;
+    line-height: 1 !important;
+    overflow: hidden !important;
 
     &:hover {
         transform: scale(1.08) !important;
         box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4) !important;
+        background: linear-gradient(135deg, #6d28d9, #4338ca) !important;
+        color: #ffffff !important;
+    }
+
+    &:focus,
+    &:active {
+        outline: none !important;
+        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.5) !important;
+        color: #ffffff !important;
+    }
+
+    i {
+        font-size: 22px !important;
+        color: #ffffff !important;
+        line-height: 1 !important;
+        display: inline-block !important;
+        pointer-events: none !important;
     }
 }
 

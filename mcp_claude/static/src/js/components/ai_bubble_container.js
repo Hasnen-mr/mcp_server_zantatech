@@ -1,4 +1,7 @@
+/** @odoo-module **/
+
 import { Component, useState } from "@odoo/owl";
+import { registry } from "@web/core/registry";
 import { AIBubbleTrigger } from "./ai_bubble_trigger";
 import { AIChatWindow } from "./ai_chat_window";
 
@@ -20,3 +23,7 @@ export class AIBubbleContainer extends Component {
         this.state.isOpen = false;
     }
 }
+
+registry.category("main_components").add("AIBubbleContainer", {
+    Component: AIBubbleContainer,
+});
