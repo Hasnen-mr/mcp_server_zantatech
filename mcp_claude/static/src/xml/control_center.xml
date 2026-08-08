@@ -982,6 +982,42 @@
                             </div>
                         </div>
 
+                        <!-- Quick Access to Odoo Native Configuration Views -->
+                        <div class="row g-3 mb-4">
+                            <div class="col-md-6">
+                                <div class="p-3 bg-white border rounded-3 shadow-sm d-flex align-items-center justify-content-between cursor-pointer hover-lift" t-on-click="openServerConfiguration">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="p-2.5 bg-primary-subtle text-primary rounded-3 fs-4">
+                                            <i class="fa fa-server"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Server Configuration</h6>
+                                            <span class="extra-small text-muted">Anthropic API Key, rates, profiles, &amp; feature toggles</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-primary fw-semibold">
+                                        Open <i class="fa fa-external-link ms-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="p-3 bg-white border rounded-3 shadow-sm d-flex align-items-center justify-content-between cursor-pointer hover-lift" t-on-click="openModelPermissionRules">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="p-2.5 bg-success-subtle text-success rounded-3 fs-4">
+                                            <i class="fa fa-shield"></i>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Model Permission Rules</h6>
+                                            <span class="extra-small text-muted">Model allowlists, CRUD controls, &amp; method security</span>
+                                        </div>
+                                    </div>
+                                    <button class="btn btn-sm btn-outline-success fw-semibold">
+                                        Open <i class="fa fa-external-link ms-1"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
                         <!-- Configurations Sub-Tabs Navigation -->
                         <div class="mcp-settings-subnav mb-4">
                             <button class="mcp-settings-tab-btn" t-att-class="state.settingsTab === 'permissions' ? 'active' : ''" t-on-click="setSubTabPermissions">
@@ -2353,13 +2389,13 @@
             <!-- Bottom Navigation -->
             <nav class="mcp-bottom-nav">
                 <div class="mcp-nav-pills">
-                    <button class="mcp-nav-btn" t-att-class="state.activeTab === 'dashboards' ? 'active' : ''" t-on-click="setTabDashboards">
-                        <i class="fa fa-bar-chart"></i>
-                        <span>Dashboards</span>
-                    </button>
                     <button class="mcp-nav-btn" t-att-class="state.activeTab === 'home' ? 'active' : ''" t-on-click="setTabHome">
                         <i class="fa fa-home"></i>
                         <span>Home</span>
+                    </button>
+                    <button class="mcp-nav-btn" t-att-class="state.activeTab === 'dashboards' ? 'active' : ''" t-on-click="setTabDashboards">
+                        <i class="fa fa-bar-chart"></i>
+                        <span>Dashboards</span>
                     </button>
                     <button class="mcp-nav-btn" t-att-class="state.activeTab === 'tools' ? 'active' : ''" t-on-click="setTabTools">
                         <i class="fa fa-wrench"></i>

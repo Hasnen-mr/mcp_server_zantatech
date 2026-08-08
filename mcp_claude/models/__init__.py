@@ -21,5 +21,6 @@ from . import mcp_ai_conversation
 from . import mcp_ai_message
 from . import mcp_ai_conversation_service
 from . import mcp_ai_prompt_builder
+from . import mcp_tool_selector
 from . import mcp_ai_response_pipeline
 from . import providers

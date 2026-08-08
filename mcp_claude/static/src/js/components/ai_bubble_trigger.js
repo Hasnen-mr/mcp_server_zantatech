@@ -1,3 +1,5 @@
+/** @odoo-module **/
+
 import { Component } from "@odoo/owl";
 
 export class AIBubbleTrigger extends Component {

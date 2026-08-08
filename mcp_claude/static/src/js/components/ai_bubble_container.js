@@ -2,8 +2,8 @@
 
 import { Component, useState } from "@odoo/owl";
 import { registry } from "@web/core/registry";
-import { AIBubbleTrigger } from "./ai_bubble_trigger";
-import { AIChatWindow } from "./ai_chat_window";
+import { AIBubbleTrigger } from "@mcp_claude/js/components/ai_bubble_trigger";
+import { AIChatWindow } from "@mcp_claude/js/components/ai_chat_window";
 
 export class AIBubbleContainer extends Component {
     static template = "mcp_claude.AIBubbleContainer";

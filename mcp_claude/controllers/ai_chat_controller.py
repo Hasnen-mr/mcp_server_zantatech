@@ -33,39 +33,20 @@ class MCPAIChatController(http.Controller):
 
     @http.route('/mcp/ai/v1/chat/message', type='json', auth='user', methods=['POST'], csrf=False)
     def chat_message(self, conversation_id, prompt, context_snapshot=None, **kw):
-        """Processes user prompt and streams LLM response."""
+        """Phase 2 Endpoint: Processes user prompt and executes MCP tool decisions."""
         service = request.env['mcp.ai.conversation.service']
-        prompt_builder = request.env['mcp.ai.prompt.builder']
-        claude_provider = request.env['mcp.ai.provider.claude']
-        pipeline = request.env['mcp.ai.response.pipeline']
-
         conv = request.env['mcp.ai.conversation'].sudo().browse(conversation_id)
         if not conv.exists():
             return {'success': False, 'error': 'Conversation thread not found'}
 
-        # 1. Persist User Message
-        user_msg = service.add_message(conv.id, 'user', prompt, context_snapshot=context_snapshot)
-
-        # 2. Build Payload
-        payload = prompt_builder.build_payload(conv, prompt, active_context=context_snapshot)
-
-        # 3. Generate Stream via Bus Channel
-        channel_name = f"mcp_ai_user_{request.env.user.id}_{conv.id}"
-        conv.write({'state': 'streaming'})
-        
+        conv.write({'state': 'thinking'})
         try:
-            raw_response = claude_provider.generate_stream(payload, channel_name, conversation_id=conv.id)
+            res = service.process_user_prompt(conversation_id, prompt, context_snapshot=context_snapshot)
             conv.write({'state': 'completed'})
-            norm_block = pipeline.normalize_response(raw_response)
-            return {
-                'success': True,
-                'user_message': user_msg,
-                'response_block': norm_block,
-                'channel_name': channel_name,
-            }
+            return res
         except Exception as e:
             conv.write({'state': 'failed'})
-            _logger.error(f"Error in chat_message streaming: {e}")
+            _logger.error(f"Error in chat_message processing: {e}", exc_info=True)
             return {'success': False, 'error': str(e)}
 
     @http.route('/mcp/ai/v1/chat/history', type='json', auth='user', methods=['POST'], csrf=False)

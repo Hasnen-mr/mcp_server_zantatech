@@ -562,35 +562,113 @@ def handle_delete_record(env, params):
 # 1. CONTACTS APP (res.partner)
 # ------------------------------------------------------------------------------
 
-@mcp_tool(name="odoo_search_partners", description="Search Contacts & Customers", category="Contacts", read_only=True)
+@mcp_tool(
+    name="odoo_search_partners",
+    description="Search Contacts & Customers by name, email, phone, or general search query.",
+    category="Contacts",
+    read_only=True,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Filter by contact name or search term"},
+            "query": {"type": "string", "description": "General search query for name, email, or phone"},
+            "email": {"type": "string", "description": "Filter by email address"},
+            "phone": {"type": "string", "description": "Filter by phone number"},
+            "limit": {"type": "integer", "default": 20, "description": "Max records to return"}
+        }
+    }
+)
 def handle_search_partners(env, params):
-    if 'res.partner' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+    if 'res.partner' not in env:
+        return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
+
+    search_term = (params.get('name') or params.get('query') or params.get('search') or "").strip()
     domain = []
-    if params.get('name'): domain.append(('name', 'ilike', params['name']))
-    if params.get('email'): domain.append(('email', 'ilike', params['email']))
-    records = env['res.partner'].sudo().search(domain, limit=params.get('limit', 20))
-    return {"success": True, "count": len(records), "records": [{"id": r.id, "name": r.name, "email": r.email or ""} for r in records]}
+    if search_term:
+        domain = ['|', '|', ('name', 'ilike', search_term), ('email', 'ilike', search_term), ('phone', 'ilike', search_term)]
+    elif params.get('email'):
+        domain = [('email', 'ilike', params['email'])]
+    elif params.get('phone'):
+        domain = [('phone', 'ilike', params['phone'])]
+
+    records = env['res.partner'].search(domain, limit=params.get('limit', 20))
+    return {
+        "success": True,
+        "count": len(records),
+        "records": [
+            {
+                "id": r.id,
+                "name": r.name,
+                "email": r.email or "",
+                "phone": r.phone or r.mobile or ""
+            } for r in records
+        ]
+    }
 
 @mcp_tool(name="odoo_get_contact", description="Get Contact details by ID", category="Contacts", read_only=True)
 def handle_get_contact(env, params):
     if 'res.partner' not in env: return {"success": True, "count": 0, "records": [], "note": "Module not installed"}
-    p = env['res.partner'].sudo().browse(params.get('id'))
+    p = env['res.partner'].browse(params.get('id'))
     if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Contact not found"}}
-    return {"success": True, "id": p.id, "name": p.name, "email": p.email or "", "phone": p.phone or ""}
+    return {"success": True, "id": p.id, "name": p.name, "email": p.email or "", "phone": p.phone or p.mobile or ""}
 
 @mcp_tool(name="odoo_create_contact", description="Create Contact or Company", category="Contacts", read_only=False)
 def handle_create_contact(env, params):
     if 'res.partner' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
-    p = env['res.partner'].sudo().create({"name": params.get("name"), "email": params.get("email", ""), "phone": params.get("phone", "")})
+    p = env['res.partner'].create({"name": params.get("name"), "email": params.get("email", ""), "phone": params.get("phone", "")})
     return {"success": True, "id": p.id, "name": p.name}
 
-@mcp_tool(name="odoo_update_contact", description="Update Contact details", category="Contacts", read_only=False)
+@mcp_tool(
+    name="odoo_update_contact",
+    description="Update Contact details (email, phone, mobile, name, street, etc.) by contact ID.",
+    category="Contacts",
+    read_only=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "id": {"type": "integer", "description": "Target Odoo contact ID (res.partner)"},
+            "email": {"type": "string", "description": "New email address"},
+            "phone": {"type": "string", "description": "New phone number"},
+            "mobile": {"type": "string", "description": "New mobile number"},
+            "name": {"type": "string", "description": "New contact name"},
+            "values": {"type": "object", "description": "Optional dictionary of field values to update"}
+        },
+        "required": ["id"]
+    }
+)
 def handle_update_contact(env, params):
-    if 'res.partner' not in env: return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
-    p = env['res.partner'].sudo().browse(params.get("id"))
-    if not p.exists(): return {"success": False, "error": {"code": "not_found", "message": "Contact not found"}}
-    p.write(params.get("values", {}))
-    return {"success": True, "id": p.id, "name": p.name}
+    if 'res.partner' not in env:
+        return {"success": False, "error": {"code": "module_not_installed", "message": "Module not installed"}}
+
+    contact_id = params.get("id")
+    if not contact_id:
+        return {"success": False, "error": {"code": "missing_id", "message": "Contact ID is required."}}
+
+    p = env['res.partner'].browse(contact_id)
+    if not p.exists():
+        return {"success": False, "error": {"code": "not_found", "message": f"Contact #{contact_id} not found."}}
+
+    vals = {}
+    if isinstance(params.get("values"), dict):
+        vals.update(params["values"])
+
+    for field in ['name', 'email', 'phone', 'mobile', 'street', 'city', 'zip', 'comment', 'function', 'title']:
+        if field in params and params[field] is not None:
+            vals[field] = params[field]
+
+    if not vals:
+        return {"success": False, "error": {"code": "missing_values", "message": "No valid fields to update provided."}}
+
+    p.write(vals)
+    return {
+        "success": True,
+        "id": p.id,
+        "name": p.name,
+        "email": p.email or "",
+        "phone": p.phone or p.mobile or "",
+        "updated_fields": list(vals.keys()),
+        "message": f"Successfully updated contact '{p.name}' (ID #{p.id})."
+    }
 
 @mcp_tool(name="odoo_delete_contact", description="Delete Contact", category="Contacts", read_only=False)
 def handle_delete_contact(env, params):
@@ -1392,3 +1470,261 @@ def handle_list_analytics_dashboards(env, params):
             'create_date': str(r.create_date) if r.create_date else ''
         })
     return {"success": True, "count": len(result), "dashboards": result}
+
+
+# ------------------------------------------------------------------------------
+# THIRD-PARTY INTEGRATIONS (Twilio Power Dialer)
+# ------------------------------------------------------------------------------
+
+@mcp_tool(
+    name="twilio_dial_contact",
+    description="Initiate a voice call to an Odoo contact (res.partner) by partner_id or phone number via Twilio Power Dialer. When calling the active contact or a contact ID, pass partner_id (e.g. partner_id: 134). The system automatically resolves the contact's name and phone number from Odoo ORM.",
+    category="Third Party",
+    read_only=False,
+    requires_approval=True,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "partner_id": {"type": "integer", "description": "Target Odoo contact ID (res.partner)"},
+            "phone": {"type": "string", "description": "Optional phone number to call in E.164 format"}
+        }
+    }
+)
+def handle_twilio_dial_contact(env, params):
+    phone = (params.get("phone") or "").strip()
+    partner_id = params.get("partner_id")
+
+    target_name = "Contact"
+    if partner_id:
+        try:
+            # NO sudo(): Strictly respect current user's Odoo ACLs and record rules
+            partner = env['res.partner'].browse(partner_id)
+            if partner.exists():
+                target_name = partner.name or "Contact"
+                if not phone:
+                    phone = partner.phone or partner.mobile or ""
+            else:
+                return {
+                    "success": False,
+                    "error": {
+                        "code": "record_not_found",
+                        "message": f"Contact #{partner_id} not found."
+                    }
+                }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": {
+                    "code": "access_denied",
+                    "message": f"Access Denied: Unable to access contact #{partner_id} under current user permissions ({str(e)})."
+                }
+            }
+
+    if not phone:
+        return {
+            "success": False,
+            "error": {
+                "code": "missing_phone",
+                "message": "A valid phone number or partner_id with a phone number is required to place a call."
+            }
+        }
+
+    # Fetch configured caller number securely from mcp.server.config or twilio.service
+    config = env['mcp.server.config'].sudo().search([], limit=1)
+    from_number = config.get_twilio_caller_number() if config else ""
+    if not from_number and 'twilio.service' in env:
+        from_number = env['twilio.service'].get_twilio_phone_number()
+
+    # Create explicit pending approval request record in Odoo ORM
+    approval_rec = None
+    if 'mcp.approval.request' in env:
+        try:
+            import json
+            approval_rec = env['mcp.approval.request'].sudo().create({
+                'name': f"Twilio Call to {target_name} ({phone})",
+                'tool_name': 'twilio_dial_contact',
+                'arguments': json.dumps({'phone': phone, 'partner_id': partner_id, 'from_number': from_number}),
+                'state': 'pending'
+            })
+        except Exception as e:
+            _logger.warning(f"Failed to create mcp.approval.request: {e}")
+
+    approval_id = approval_rec.id if approval_rec else None
+
+    # PHASE 2 / 3 SAFETY REQUIREMENT: External Call Confirmation Protection
+    # Tool invocation registers the request but DEFERS actual Twilio API call until explicit user confirmation.
+    return {
+        "success": True,
+        "requires_user_confirmation": True,
+        "status": "pending_approval",
+        "approval_id": approval_id,
+        "message": f"Twilio dial request for {target_name} ({phone}) registered and pending user approval (Approval ID #{approval_id}). Actual call execution is deferred.",
+        "call_details": {
+            "approval_id": approval_id,
+            "partner_id": partner_id,
+            "phone": phone,
+            "from_number": from_number,
+            "execution_status": "deferred_until_user_approval"
+        }
+    }
+
+
+@mcp_tool(
+    name="twilio_create_dialer_queue",
+    description="Create an Auto Dialer Queue in Twilio Power Dialer for specified Odoo contact IDs (res.partner).",
+    category="Third Party",
+    read_only=False,
+    requires_approval=False,
+    input_schema={
+        "type": "object",
+        "properties": {
+            "name": {"type": "string", "description": "Optional name for the Auto Dialer Campaign Queue"},
+            "partner_ids": {
+                "type": "array",
+                "items": {"type": "integer"},
+                "description": "List of Odoo contact IDs (res.partner) to add to the queue"
+            },
+            "contacts": {
+                "type": "array",
+                "description": "Alternative array of contact objects containing partner_id",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "partner_id": {"type": "integer"}
+                    }
+                }
+            },
+            "require_approval": {"type": "boolean", "default": False, "description": "Set True to create a pending approval request instead of persisting queue immediately"}
+        }
+    }
+)
+def handle_twilio_create_dialer_queue(env, params):
+    raw_name = (params.get("name") or "").strip()
+    raw_ids = params.get("partner_ids") or []
+    if not raw_ids and params.get("contacts"):
+        raw_ids = [c.get("partner_id") for c in params.get("contacts") if isinstance(c, dict) and c.get("partner_id")]
+
+    # Sanitize partner_ids to clean integers
+    requested_ids = []
+    for pid in raw_ids:
+        try:
+            val = int(pid)
+            if val > 0:
+                requested_ids.append(val)
+        except (ValueError, TypeError):
+            continue
+
+    requested_count = len(requested_ids)
+
+    if not requested_count:
+        return {
+            "success": False,
+            "error": {
+                "code": "missing_partner_ids",
+                "message": "At least one valid res.partner ID is required to create an Auto Dialer Queue."
+            }
+        }
+
+    # 1. Non-sudo Permission Check: Respect current user ACLs and Record Rules strictly
+    accessible_partners = env['res.partner']
+    inaccessible_ids = []
+    for pid in requested_ids:
+        try:
+            partner = env['res.partner'].browse(pid)
+            if partner.exists():
+                # Force read access check under current user
+                _ = partner.name
+                accessible_partners |= partner
+            else:
+                inaccessible_ids.append(pid)
+        except Exception:
+            inaccessible_ids.append(pid)
+
+    accessible_count = len(accessible_partners)
+
+    if not accessible_count:
+        return {
+            "success": False,
+            "error": {
+                "code": "access_denied",
+                "message": f"Access Denied or Records Not Found: None of the requested partner IDs {requested_ids} could be accessed under current user permissions."
+            }
+        }
+
+    # 2. Phase 3 Approval Mechanism Check
+    if params.get("require_approval", False):
+        approval_rec = None
+        if 'mcp.approval.request' in env:
+            try:
+                import json
+                approval_rec = env['mcp.approval.request'].sudo().create({
+                    'name': f"Twilio Dialer Queue ({accessible_count} Contacts)",
+                    'tool_name': 'twilio_create_dialer_queue',
+                    'arguments': json.dumps({'name': raw_name, 'partner_ids': accessible_partners.ids}),
+                    'state': 'pending'
+                })
+            except Exception as e:
+                _logger.warning(f"Failed to create mcp.approval.request for queue: {e}")
+
+        app_id = approval_rec.id if approval_rec else None
+        return {
+            "success": True,
+            "requires_user_confirmation": True,
+            "status": "pending_approval",
+            "approval_id": app_id,
+            "requested_contacts": requested_count,
+            "accessible_contacts": accessible_count,
+            "skipped_inaccessible": len(inaccessible_ids),
+            "message": f"Auto Dialer Queue creation for {accessible_count} contacts registered and pending user approval (Approval ID #{app_id}). Queue persistence is deferred until approval.",
+        }
+
+    # 3. Create Queue in Odoo Model 'twilio.auto.dialer'
+    if 'twilio.auto.dialer' not in env:
+        return {
+            "success": False,
+            "error": {
+                "code": "module_not_installed",
+                "message": "Twilio Power Dialer module (twilio_dialer) is not installed in Odoo."
+            }
+        }
+
+    queue_name = raw_name or f"Auto Dialer Queue ({accessible_count} Contacts)"
+
+    try:
+        dialer_model = env['twilio.auto.dialer']
+        queue = dialer_model.create({
+            'name': queue_name,
+            'partner_ids': [(6, 0, accessible_partners.ids)]
+        })
+
+        # 4. Post-verify actual queue line records created by ORM
+        lines = env['twilio.auto.dialer.line'].search([('dialer_id', '=', queue.id)])
+        queued_members_count = len(lines)
+        queued_partner_ids = lines.mapped('partner_id.id')
+        no_phone_partners = accessible_partners.filtered(lambda p: p.id not in queued_partner_ids)
+        skipped_no_phone_count = len(no_phone_partners)
+        skipped_inaccessible_count = len(inaccessible_ids)
+
+        return {
+            "success": True,
+            "queue_id": queue.id,
+            "queue_name": queue.name,
+            "requested_contacts": requested_count,
+            "accessible_contacts": accessible_count,
+            "queued_members": queued_members_count,
+            "skipped_inaccessible": skipped_inaccessible_count,
+            "skipped_no_phone": skipped_no_phone_count,
+            "partner_ids": queued_partner_ids,
+            "message": f"Successfully created Auto Dialer Queue '{queue.name}' (ID #{queue.id}) with {queued_members_count} verified queued members ({skipped_no_phone_count} skipped due to missing phone numbers, {skipped_inaccessible_count} skipped due to access restrictions)."
+        }
+    except Exception as e:
+        _logger.error(f"Error creating twilio.auto.dialer queue: {e}")
+        return {
+            "success": False,
+            "error": {
+                "code": "orm_creation_error",
+                "message": f"Failed to create Auto Dialer Queue: {str(e)}"
+            }
+        }
+
+

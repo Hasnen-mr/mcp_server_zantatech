@@ -74,7 +74,7 @@ export const aiChatService = {
                 if (!validConvId) {
                     await this.initChat();
                 }
-                const contextSnapshot = this.collectActiveContext();
+                const contextSnapshot = {};
                 try {
                     const res = await rpc("/mcp/ai/v1/chat/message", {
                         conversation_id: parseValidId(activeConversationId),

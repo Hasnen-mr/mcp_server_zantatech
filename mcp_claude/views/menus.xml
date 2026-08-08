@@ -7,23 +7,10 @@
         <field name="target">main</field>
     </record>
 
-    <!-- Root Menu Entry -->
+    <!-- Root Menu Entry (Single primary entry in top header) -->
     <menuitem id="menu_mcp_claude_root"
               name="MCP Claude"
               web_icon="mcp_claude,static/description/icon.png"
+              action="action_mcp_claude_control_center"
               sequence="10"/>
-
-    <!-- FIRST SUBMENU: AI Dashboards (Sequence 1) -->
-    <menuitem id="menu_mcp_analytics_dashboard_root"
-              name="Dashboards"
-              parent="menu_mcp_claude_root"
-              action="action_mcp_claude_control_center"
-              sequence="1"/>
-
-    <!-- SECOND SUBMENU: Control Center / Home (Sequence 2) -->
-    <menuitem id="menu_mcp_claude_control_center"
-              name="Control Center"
-              parent="menu_mcp_claude_root"
-              action="action_mcp_claude_control_center"
-              sequence="2"/>
 </odoo>

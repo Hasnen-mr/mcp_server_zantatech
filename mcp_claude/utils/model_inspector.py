@@ -51,7 +51,7 @@ class ModelInspector:
     def check_model_access(cls, model_obj: Any, operation: str) -> bool:
         """
         Check if current user context has ORM access rights for the given operation.
-        Uses native Odoo 18 check_access() API.
+        Uses native Odoo 18 check_access API.
         """
         mode_map = {
             'search': 'read',
@@ -67,9 +67,8 @@ class ModelInspector:
         mode = mode_map.get(operation, 'read')
         try:
             if hasattr(model_obj, 'check_access'):
-                return model_obj.check_access(mode, raise_exception=False)
-            elif hasattr(model_obj, 'check_access_rights'):
-                return model_obj.check_access_rights(mode, raise_exception=False)
+                model_obj.check_access(mode)
+                return True
             return True
         except Exception:
             return False

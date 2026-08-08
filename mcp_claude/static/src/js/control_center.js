@@ -258,7 +258,11 @@ export class MCPControlCenter extends Component {
         localStorage.setItem("mcp_active_tab", tabName);
     }
     setTabDashboards() {
-        this.setTab("dashboards");
+        this.state.activeTab = "dashboards";
+        this.state.activeDashboardId = null;
+        this.state.activeDashboardData = null;
+        localStorage.setItem("mcp_active_tab", "dashboards");
+        this.loadDashboards();
     }
     setTabHome() {
         this.state.activeTab = "home";
@@ -271,6 +275,12 @@ export class MCPControlCenter extends Component {
     setTabConfigurations() {
         this.state.activeTab = "configurations";
         localStorage.setItem("mcp_active_tab", "configurations");
+    }
+    openServerConfiguration() {
+        this.action.doAction("mcp_claude.action_mcp_server_config");
+    }
+    openModelPermissionRules() {
+        this.action.doAction("mcp_claude.action_mcp_model_rule");
     }
     setSubTabPermissions() {
         this.state.settingsTab = "permissions";
@@ -436,19 +446,6 @@ export class MCPControlCenter extends Component {
             }
         }
     }
-
-    setTabHome() { this.state.activeTab = "home"; }
-    setTabTools() { this.state.activeTab = "tools"; }
-    setTabConfigurations() { 
-        this.state.activeTab = "configurations"; 
-        this.state.settingsTab = "permissions";
-    }
-
-    setSubTabConnection() { this.state.settingsTab = "connection"; }
-    setSubTabAuth() { this.state.settingsTab = "authentication"; }
-    setSubTabPermissions() { this.state.settingsTab = "permissions"; }
-    setSubTabGeneral() { this.state.settingsTab = "general"; }
-    setSubTabAudit() { this.state.settingsTab = "advanced"; }
 
     setConnectOption(mode) { this.state.connectOption = mode; }
 

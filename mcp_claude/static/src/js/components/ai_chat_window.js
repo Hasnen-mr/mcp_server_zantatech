@@ -69,13 +69,8 @@ export class AIChatWindow extends Component {
     }
 
     async onNavigationChange(triggerEvent, newModel, newResId) {
-        if (newModel !== this.state.activeModel || newResId !== this.state.activeResId) {
-            this.state.activeModel = newModel;
-            this.state.activeResId = newResId;
-
-            // Automatically switch thread seamlessly
-            await this.loadChat(null, false);
-        }
+        // Enforce Global Scope Baseline: Do not switch AI conversation threads on view navigation
+        return;
     }
 
     async loadChat(forcedScope = null, isInitial = false) {

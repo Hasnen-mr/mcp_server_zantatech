@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+import os
 import json
 import logging
 import requests
@@ -17,23 +18,25 @@ class MCPProviderClaude(models.AbstractModel):
         caps.update({
             "provider_name": "Anthropic Claude 3.5 Sonnet",
             "supports_reasoning": True,
+            "supports_tool_calls": True,
         })
         return caps
 
     @api.model
     def generate_completion(self, payload):
-        """Minimal Phase 1 Claude API completion provider."""
-        config = self.env["mcp.server.config"].sudo().search([], limit=1)
-        api_key = getattr(config, "claude_api_key", None) if config else None
-        if not api_key:
-            api_key = self.env['ir.config_parameter'].sudo().get_param('mcp_claude.claude_api_key', None)
-        
-        # If no API key configured, return intelligent default response
+        """Phase 2 Claude API completion provider using mcp.server.config single source of truth."""
+        api_key = self.env['mcp.server.config'].get_claude_api_key()
+
+        # If no API key configured, return explicit user-safe configuration message
         if not api_key or api_key == "mcp_live_default":
-            user_txt = payload.get("messages", [{}])[-1].get("content", "")
-            return f"Hello! I am your Odoo AI Assistant. I received your prompt: '{user_txt}'. Active system and view context is configured and ready."
+            _logger.info("Claude API call skipped: No valid API key configured in system configuration.")
+            return {
+                "type": "text",
+                "content": "Claude API is not configured.\nAn administrator can add the Anthropic API key from MCP Claude -> Configuration -> Server Configuration."
+            }
 
         url = "https://api.anthropic.com/v1/messages"
+        # Secure headers - API key is never logged or returned to client
         headers = {
             "x-api-key": api_key,
             "anthropic-version": "2023-06-01",
@@ -46,23 +49,70 @@ class MCPProviderClaude(models.AbstractModel):
             "messages": payload.get("messages", [])
         }
 
+        if payload.get("tools"):
+            body["tools"] = payload.get("tools")
+
         try:
-            resp = requests.post(url, headers=headers, json=body, timeout=30)
+            _logger.info(f"Sending Anthropic API request ({len(body.get('messages', []))} messages, {len(body.get('tools', []))} tools)")
+            resp = requests.post(url, headers=headers, json=body, timeout=35)
+            
             if resp.status_code == 200:
                 data = resp.json()
+                stop_reason = data.get("stop_reason")
                 content_blocks = data.get("content", [])
-                if content_blocks:
-                    return content_blocks[0].get("text", "")
-            _logger.error(f"Claude API returned status {resp.status_code}: {resp.text}")
-            return f"API Response Error ({resp.status_code}): Unable to complete request."
+
+                tool_calls = []
+                text_response = ""
+
+                for block in content_blocks:
+                    if block.get("type") == "text":
+                        text_response += block.get("text", "")
+                    elif block.get("type") == "tool_use":
+                        tool_calls.append({
+                            "id": block.get("id"),
+                            "name": block.get("name"),
+                            "input": block.get("input", {})
+                        })
+
+                if stop_reason == "tool_use" and tool_calls:
+                    return {
+                        "type": "tool_use",
+                        "tool_calls": tool_calls,
+                        "text": text_response,
+                        "raw_response": data
+                    }
+
+                return {
+                    "type": "text",
+                    "content": text_response or "Response complete."
+                }
+
+            err_msg = ""
+            try:
+                err_data = resp.json()
+                if isinstance(err_data, dict) and "error" in err_data:
+                    err_msg = err_data["error"].get("message", "")
+            except Exception:
+                err_msg = resp.text[:200]
+
+            _logger.error(f"Claude API error status {resp.status_code}: {resp.text}")
+            display_err = f"API Response Error ({resp.status_code}): {err_msg}" if err_msg else f"API Response Error ({resp.status_code}): Unable to complete request."
+            return {
+                "type": "text",
+                "content": display_err
+            }
         except Exception as e:
             _logger.error(f"Failed to communicate with Anthropic API: {e}")
-            return f"Communication Error: {str(e)}"
+            return {
+                "type": "text",
+                "content": f"Communication Error: {str(e)}"
+            }
 
     @api.model
     def generate_stream(self, payload, channel_name, conversation_id=None):
         """Streams completion chunks via bus.bus."""
-        text = self.generate_completion(payload)
+        res = self.generate_completion(payload)
+        text = res.get("content", "") if isinstance(res, dict) else str(res)
         conv_service = self.env["mcp.ai.conversation.service"]
         
         # Stream chunks to bus
