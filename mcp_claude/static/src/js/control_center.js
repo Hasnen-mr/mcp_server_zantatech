@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart, onMounted, onWillUnmount } from "@odoo/owl";
+import { Component, useState, useRef, onWillStart, onMounted, onWillUnmount } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
@@ -25,8 +25,10 @@ export class MCPControlCenter extends Component {
 
     setup() {
         this.orm = useService("orm");
+        this.aiService = useService("ai_chat_service");
         this.notification = useService("notification");
         this.action = useService("action");
+        this.claudeMessagesRef = useRef("claudeMessagesBody");
         this._reqId = 0;
 
         const defaultOrigin = window.location.origin;
@@ -208,8 +210,41 @@ export class MCPControlCenter extends Component {
                 scopes: "full",
                 expiration_policy: "never",
                 allowed_ips: "",
-            }
+            },
+
+            // Configurations UI & Form State
+            selectedToolCategory: "all",
+            configForm: {
+                ai_provider: "claude",
+                claude_api_key: "",
+                claude_model: "claude-3-5-sonnet-20241022",
+                openai_api_key: "",
+                openai_model: "gpt-4o",
+                enable_twilio_dialer: false,
+                twilio_caller_number: "",
+                twilio_caller_valid: true,
+            },
+            testingProvider: null,
+            claudeSidebarSearch: "",
+            claudeConversations: [],
+            claudeActiveConvId: null,
+            claudeMessages: [],
+            claudePromptText: "",
+            claudeSending: false,
+            expandedTools: {},
+            savingConfig: false,
         });
+
+        // Computed Tool Filter Getter
+        this.getFilteredTools = () => {
+            const q = (this.state.toolsSearchQuery || "").toLowerCase().trim();
+            const cat = (this.state.selectedToolCategory || "all").toLowerCase();
+            return (this.state.tools || []).filter(t => {
+                const matchQ = !q || (t.name || "").toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q) || (t.model_name || "").toLowerCase().includes(q);
+                const matchCat = cat === "all" || (t.category || "Technical").toLowerCase() === cat;
+                return matchQ && matchCat;
+            });
+        };
 
         // Keybindings Handler
         this._onKeyDown = (e) => {
@@ -253,28 +288,30 @@ export class MCPControlCenter extends Component {
     }
 
     // Persist Tab Choices to localStorage
+    // Persist Tab Choices to localStorage & Notify Components
     setTab(tabName) {
         this.state.activeTab = tabName;
         localStorage.setItem("mcp_active_tab", tabName);
-    }
-    setTabDashboards() {
-        this.state.activeTab = "dashboards";
-        this.state.activeDashboardId = null;
-        this.state.activeDashboardData = null;
-        localStorage.setItem("mcp_active_tab", "dashboards");
-        this.loadDashboards();
+        window.dispatchEvent(new CustomEvent("mcp_tab_changed", { detail: { tab: tabName } }));
     }
     setTabHome() {
-        this.state.activeTab = "home";
-        localStorage.setItem("mcp_active_tab", "home");
+        this.setTab("home");
+    }
+    setTabClaude() {
+        this.setTab("claude");
+        this.loadClaudeConversations();
+    }
+    setTabDashboards() {
+        this.state.activeDashboardId = null;
+        this.state.activeDashboardData = null;
+        this.setTab("dashboard");
+        this.loadDashboards();
     }
     setTabTools() {
-        this.state.activeTab = "tools";
-        localStorage.setItem("mcp_active_tab", "tools");
+        this.setTab("tools");
     }
     setTabConfigurations() {
-        this.state.activeTab = "configurations";
-        localStorage.setItem("mcp_active_tab", "configurations");
+        this.setTab("configurations");
     }
     openServerConfiguration() {
         this.action.doAction("mcp_claude.action_mcp_server_config");
@@ -437,6 +474,8 @@ export class MCPControlCenter extends Component {
             this.state.stats.totalTools = this.state.tools.length;
             this.state.stats.activeKeys = this.state.apiKeys.filter(k => k && k.active).length;
             this.state.stats.activeSessions = this.state.sessions.filter(s => s && s.active).length;
+
+            await this.loadServerConfig();
         } catch (e) {
             console.error("Failed loading MCP data:", e);
         } finally {
@@ -444,6 +483,247 @@ export class MCPControlCenter extends Component {
                 this.state.loadingData = false;
                 this.state.isSyncing = false;
             }
+        }
+    }
+
+    
+    async loadClaudeConversations() {
+        try {
+            const convs = await this.orm.searchRead("mcp.ai.conversation", [], ["id", "name", "create_date", "write_date"], { order: "id desc", limit: 35 });
+            if (!Array.isArray(convs)) {
+                this.state.claudeConversations = [];
+                return;
+            }
+
+            const convIds = convs.map(c => c.id);
+            if (convIds.length > 0) {
+                // Fetch first user message per conversation to generate smart frontend display titles
+                const userMsgs = await this.orm.searchRead(
+                    "mcp.ai.message",
+                    [["conversation_id", "in", convIds], ["role", "=", "user"]],
+                    ["conversation_id", "content"],
+                    { order: "id asc", limit: 100 }
+                );
+
+                const firstMsgMap = {};
+                if (Array.isArray(userMsgs)) {
+                    for (const m of userMsgs) {
+                        const cid = Array.isArray(m.conversation_id) ? m.conversation_id[0] : m.conversation_id;
+                        if (!firstMsgMap[cid] && m.content) {
+                            firstMsgMap[cid] = m.content;
+                        }
+                    }
+                }
+
+                for (const c of convs) {
+                    const prompt = firstMsgMap[c.id];
+                    if (prompt && (c.name === "Global AI Assistant" || c.name === "Global AI Conversation" || !c.name)) {
+                        const text = prompt.trim();
+                        let title = text.charAt(0).toUpperCase() + text.slice(1);
+                        if (title.length > 28) {
+                            title = title.substring(0, 26) + "...";
+                        }
+                        c.display_name = title;
+                    } else {
+                        c.display_name = c.name || `Chat #${c.id}`;
+                    }
+                }
+            }
+
+            this.state.claudeConversations = convs;
+            const activeId = this.aiService.getActiveConversationId();
+            if (activeId) {
+                this.state.claudeActiveConvId = activeId;
+                await this.loadClaudeMessages(activeId);
+            } else if (this.state.claudeConversations.length > 0) {
+                this.state.claudeActiveConvId = this.state.claudeConversations[0].id;
+                await this.loadClaudeMessages(this.state.claudeConversations[0].id);
+            }
+        } catch (e) {
+            console.warn("Failed to load Claude conversations:", e);
+        }
+    }
+
+    scrollToClaudeBottom() {
+        if (this.claudeMessagesRef && this.claudeMessagesRef.el) {
+            setTimeout(() => {
+                if (this.claudeMessagesRef.el) {
+                    this.claudeMessagesRef.el.scrollTop = this.claudeMessagesRef.el.scrollHeight;
+                }
+            }, 60);
+        }
+    }
+
+    async loadClaudeMessages(convId) {
+        if (!convId) return;
+        this.state.claudeActiveConvId = convId;
+        try {
+            const msgs = await this.orm.searchRead("mcp.ai.message", [["conversation_id", "=", convId]], ["id", "role", "content", "create_date", "block_type"], { order: "id asc" });
+            this.state.claudeMessages = Array.isArray(msgs) ? msgs : [];
+            this.scrollToClaudeBottom();
+        } catch (e) {
+            console.warn("Failed to load messages for conversation #" + convId, e);
+        }
+    }
+
+    async createNewClaudeChat() {
+        this.state.claudeSending = true;
+        try {
+            const res = await this.aiService.initChat("global");
+            if (res && res.conversation_id) {
+                this.state.claudeActiveConvId = res.conversation_id;
+                this.state.claudeMessages = [];
+                await this.loadClaudeConversations();
+            }
+        } catch (e) {
+            this.notification.add("Failed to start new chat: " + (e.message || e), { type: "danger" });
+        } finally {
+            this.state.claudeSending = false;
+        }
+    }
+
+    async sendClaudePrompt(promptOverride = null) {
+        const text = (promptOverride || this.state.claudePromptText || "").trim();
+        if (!text || this.state.claudeSending) return;
+
+        this.state.claudePromptText = "";
+        this.state.claudeSending = true;
+
+        // Optimistically add user message
+        const tempMsgId = Date.now();
+        this.state.claudeMessages.push({ id: tempMsgId, role: "user", content: text, create_date: new Date().toISOString() });
+        this.scrollToClaudeBottom();
+
+        try {
+            const res = await this.aiService.sendMessage(text);
+            if (res && res.success) {
+                if (res.message) {
+                    this.state.claudeMessages.push({ id: Date.now(), role: "assistant", content: res.message, create_date: new Date().toISOString() });
+                } else {
+                    await this.loadClaudeMessages(this.state.claudeActiveConvId);
+                this.scrollToClaudeBottom();
+                }
+                await this.loadClaudeConversations();
+            } else if (res && res.error) {
+                this.notification.add(`AI Error: ${res.error}`, { type: "danger" });
+            }
+        } catch (e) {
+            this.notification.add(`Failed to send message: ${e.message || e}`, { type: "danger" });
+        } finally {
+            this.state.claudeSending = false;
+        }
+    }
+
+    onClaudeComposerKeyDown(ev) {
+        if (ev.key === "Enter" && !ev.shiftKey) {
+            ev.preventDefault();
+            this.sendClaudePrompt();
+        }
+    }
+
+    toggleToolExpand(msgId) {
+        this.state.expandedTools[msgId] = !this.state.expandedTools[msgId];
+    }
+
+    getGroupedClaudeConversations() {
+        const q = (this.state.claudeSidebarSearch || "").toLowerCase().trim();
+        const convs = (this.state.claudeConversations || []).filter(c => !q || (c.name || "").toLowerCase().includes(q));
+        
+        const today = [];
+        const yesterday = [];
+        const prev7Days = [];
+
+        const now = new Date();
+        const todayStr = now.toISOString().split('T')[0];
+        
+        const yest = new Date(now);
+        yest.setDate(yest.getDate() - 1);
+        const yestStr = yest.toISOString().split('T')[0];
+
+        for (const c of convs) {
+            const dateStr = (c.create_date || "").split(' ')[0] || todayStr;
+            if (dateStr === todayStr) {
+                today.push(c);
+            } else if (dateStr === yestStr) {
+                yesterday.push(c);
+            } else {
+                prev7Days.push(c);
+            }
+        }
+
+        return { today, yesterday, prev7Days };
+    }
+
+    async loadServerConfig() {
+        try {
+            const configData = await this.orm.call("mcp.server.config", "get_config_data", []);
+            if (configData) {
+                this.state.configForm.ai_provider = configData.ai_provider || "claude";
+                this.state.configForm.claude_api_key = configData.claude_api_key_masked || "";
+                this.state.configForm.claude_model = configData.claude_model || "claude-3-5-sonnet-20241022";
+                this.state.configForm.openai_api_key = configData.openai_api_key_masked || "";
+                this.state.configForm.openai_model = configData.openai_model || "gpt-4o";
+                this.state.configForm.enable_twilio_dialer = !!configData.enable_twilio_dialer;
+                this.state.configForm.twilio_caller_number = configData.twilio_caller_number || "";
+                this.validateTwilioNumber();
+            }
+        } catch (e) {
+            console.warn("Failed to load server config:", e);
+        }
+    }
+
+    validateTwilioNumber() {
+        const num = (this.state.configForm.twilio_caller_number || "").trim();
+        if (!num) {
+            this.state.configForm.twilio_caller_valid = true;
+            return true;
+        }
+        const e164Regex = /^\+[1-9]\d{1,14}$/;
+        this.state.configForm.twilio_caller_valid = e164Regex.test(num);
+        return this.state.configForm.twilio_caller_valid;
+    }
+
+    async saveServerConfig() {
+        if (!this.validateTwilioNumber()) {
+            this.notification.add("Invalid Outgoing Caller ID format. Must be E.164 (e.g. +14155552671 or +919876543210).", { type: "danger" });
+            return;
+        }
+        this.state.savingConfig = true;
+        try {
+            const res = await this.orm.call("mcp.server.config", "save_config_data", [{
+                ai_provider: this.state.configForm.ai_provider,
+                claude_api_key: this.state.configForm.claude_api_key,
+                openai_api_key: this.state.configForm.openai_api_key,
+                openai_model: this.state.configForm.openai_model,
+                enable_twilio_dialer: this.state.configForm.enable_twilio_dialer,
+                twilio_caller_number: this.state.configForm.twilio_caller_number,
+            }]);
+
+            if (res && res.success) {
+                this.notification.add("Configuration Settings Saved Successfully!", { type: "success" });
+                await this.loadServerConfig();
+            }
+        } catch (e) {
+            this.notification.add(`Failed to save configuration: ${e.message || e}`, { type: "danger" });
+        } finally {
+            this.state.savingConfig = false;
+        }
+    }
+
+    async testProviderConnection(providerType) {
+        this.state.testingProvider = providerType;
+        try {
+            const res = await this.orm.call("mcp.server.config", "test_provider_connection", [providerType]);
+            if (res) {
+                this.notification.add(res.message, {
+                    type: res.type === "success" ? "success" : (res.type === "warning" ? "warning" : "danger"),
+                    title: res.title
+                });
+            }
+        } catch (e) {
+            this.notification.add(`Test Connection Failed: ${e.message || e}`, { type: "danger" });
+        } finally {
+            this.state.testingProvider = null;
         }
     }
 

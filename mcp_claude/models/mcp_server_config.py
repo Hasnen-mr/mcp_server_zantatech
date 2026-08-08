@@ -349,3 +349,77 @@ class MCPServerConfig(models.Model):
                     'sticky': False,
                 }
             }
+
+    @api.model
+    def get_config_data(self):
+        """Returns sanitized server configuration object for UI frontend."""
+        config = self.sudo().search([], limit=1)
+        if not config:
+            config = self.sudo().create({'name': 'Default MCP Settings'})
+        
+        c_key = config.claude_api_key or ""
+        o_key = config.openai_api_key or ""
+
+        return {
+            'id': config.id,
+            'ai_provider': config.ai_provider or 'claude',
+            'claude_api_key_masked': ("••••••••" + c_key[-4:]) if len(c_key) >= 4 else ("••••••••" if c_key else ""),
+            'has_claude_key': bool(c_key),
+            'claude_model': 'claude-3-5-sonnet-20241022',
+            'openai_api_key_masked': ("••••••••" + o_key[-4:]) if len(o_key) >= 4 else ("••••••••" if o_key else ""),
+            'has_openai_key': bool(o_key),
+            'openai_model': config.openai_model or 'gpt-4o',
+            'enable_twilio_dialer': bool(config.enable_twilio_dialer),
+            'twilio_caller_number': config.twilio_caller_number or '',
+        }
+
+    @api.model
+    def save_config_data(self, vals):
+        """Saves configuration updates cleanly from frontend UI."""
+        config = self.sudo().search([], limit=1)
+        if not config:
+            config = self.sudo().create({'name': 'Default MCP Settings'})
+
+        update_vals = {}
+        if 'ai_provider' in vals:
+            update_vals['ai_provider'] = vals['ai_provider']
+        if 'openai_model' in vals:
+            update_vals['openai_model'] = vals['openai_model']
+        if 'enable_twilio_dialer' in vals:
+            update_vals['enable_twilio_dialer'] = bool(vals['enable_twilio_dialer'])
+        if 'twilio_caller_number' in vals:
+            update_vals['twilio_caller_number'] = (vals['twilio_caller_number'] or "").strip()
+
+        # Update API keys if non-masked new value provided
+        if vals.get('claude_api_key') and not vals['claude_api_key'].startswith('••••'):
+            update_vals['claude_api_key'] = vals['claude_api_key'].strip()
+        if vals.get('openai_api_key') and not vals['openai_api_key'].startswith('••••'):
+            update_vals['openai_api_key'] = vals['openai_api_key'].strip()
+
+        config.sudo().write(update_vals)
+        return {'success': True, 'config': self.get_config_data()}
+
+    @api.model
+    def test_provider_connection(self, provider_type):
+        """Triggers manual connection verification test for specified provider ('claude', 'openai', 'twilio')."""
+        config = self.sudo().search([], limit=1)
+        if not config:
+            config = self.sudo().create({'name': 'Default MCP Settings'})
+
+        if provider_type == 'claude':
+            res = config.action_test_claude_connection()
+        elif provider_type == 'openai':
+            res = config.action_test_openai_connection()
+        elif provider_type == 'twilio':
+            res = config.action_test_twilio_connection()
+        else:
+            return {'success': False, 'error': f'Unknown provider type {provider_type}'}
+
+        params = res.get('params', {}) if isinstance(res, dict) else {}
+        return {
+            'success': params.get('type') == 'success',
+            'title': params.get('title', 'Connection Test'),
+            'message': params.get('message', ''),
+            'type': params.get('type', 'info')
+        }
+

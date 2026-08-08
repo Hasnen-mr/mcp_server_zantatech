@@ -4,15 +4,16 @@
     <t t-name="mcp_claude.AIChatWindow">
         <div class="o_mcp_ai_chat_window shadow-lg border rounded-4 d-flex flex-column bg-white">
             <!-- Header (Always 100% Mounted & Interactive) -->
-            <div class="o_mcp_ai_chat_header d-flex align-items-center justify-content-between p-3 border-bottom bg-primary text-white rounded-top-4">
+            <div class="o_mcp_ai_chat_header d-flex align-items-center justify-content-between p-3 border-bottom bg-dark text-white rounded-top-4" title="Claude">
                 <div class="d-flex align-items-center gap-2">
-                    <i class="fa fa-magic fs-5"/>
+                    <svg class="claude-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <path d="M12 2L14.4 8.3L21 9.3L16.2 14L17.3 20.5L12 17.4L6.7 20.5L7.8 14L3 9.3L9.6 8.3L12 2Z" fill="#D97757"/>
+                    </svg>
                     <div>
-                        <div class="fw-bold fs-6" title="MCP Claude AI Bubble">MCP Claude AI Bubble</div>
-                        <small class="text-white-50" style="font-size: 11px;" t-esc="state.title"/>
+                        <div class="fw-bold fs-6" title="Claude">Claude</div>
                     </div>
                 </div>
-                <button class="btn btn-sm text-white p-0 border-0" t-on-click="props.onClose" title="MCP Claude AI Bubble - Close">
+                <button class="btn btn-sm text-white p-0 border-0" t-on-click="props.onClose" title="Close Claude Chat">
                     <i class="fa fa-times fs-5"/>
                 </button>
             </div>
@@ -39,10 +40,22 @@
                     </t>
                     <t t-else="">
                         <t t-foreach="state.history" t-as="msg" t-key="msg.id">
-                            <div t-attf-class="d-flex flex-column max-w-85 #{msg.role === 'user' ? 'align-self-end text-end' : 'align-self-start text-start'}">
-                                <div t-attf-class="p-3 rounded-4 #{msg.role === 'user' ? 'bg-primary text-white' : (msg.block_type === 'error' ? 'bg-danger-subtle text-danger border border-danger' : 'bg-light text-dark border')}">
-                                    <div class="text-break" style="white-space: pre-wrap;" t-esc="msg.content"/>
-                                </div>
+                            <div t-attf-class="d-flex flex-column max-w-85 #{msg.role === 'user' ? 'align-self-end text-end' : 'align-self-start text-start'} mb-2">
+                                <t t-if="msg.role === 'assistant' &amp;&amp; msg.content &amp;&amp; (msg.content.includes('Approval request') || msg.content.includes('pending user approval'))">
+                                    <div class="p-3 bg-warning-subtle text-dark border border-warning rounded-4 shadow-sm my-1 text-start w-100">
+                                        <div class="fw-bold mb-1"><i class="fa fa-exclamation-triangle me-1 text-warning"/> Action Approval Required</div>
+                                        <div class="small mb-2 text-break" style="white-space: pre-wrap;" t-esc="msg.content"/>
+                                        <div class="d-flex align-items-center justify-content-between pt-2 border-top border-warning-subtle">
+                                            <span class="badge bg-warning text-dark"><i class="fa fa-clock-o me-1"/> Pending User Approval</span>
+                                            <span class="small text-muted font-monospace">Requires Approval</span>
+                                        </div>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <div t-attf-class="p-3 rounded-4 #{msg.role === 'user' ? 'bg-primary text-white' : (msg.block_type === 'error' ? 'bg-danger-subtle text-danger border border-danger' : 'bg-light text-dark border')}">
+                                        <div class="text-break" style="white-space: pre-wrap;" t-esc="msg.content"/>
+                                    </div>
+                                </t>
                             </div>
                         </t>
                     </t>
