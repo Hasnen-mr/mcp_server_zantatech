@@ -4,7 +4,7 @@
         <field name="name">mcp.server.config.list</field>
         <field name="model">mcp.server.config</field>
         <field name="arch" type="xml">
-            <list string="Server Configurations">
+            <tree string="Server Configurations">
                 <field name="name"/>
                 <field name="profile"/>
                 <field name="enable_tools"/>
@@ -12,7 +12,7 @@
                 <field name="enable_oauth"/>
                 <field name="enable_api_keys"/>
                 <field name="rate_limit_rpm"/>
-            </list>
+            </tree>
         </field>
     </record>
 
