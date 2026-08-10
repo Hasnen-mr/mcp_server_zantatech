@@ -1065,11 +1065,43 @@
                             </div>
                         </t>
 
-                        <!-- SUB-TAB 5: ACTIVITY (Recent Operations & Audit Trail) -->
+                        <!-- SUB-TAB 5: ACTIVITY (Recent Operations & Audit Trail + Analytics) -->
                         <t t-if="state.settingsTab === 'activity'">
-                            <div class="mb-4">
-                                <h4 class="fw-bold text-dark mb-1"><i class="fa fa-history text-info me-2"/>Recent Operations &amp; Audit Trail</h4>
-                                <p class="text-muted small mb-0">Track real-time tools executed by Claude, model access, and operational system audit logs.</p>
+                            <div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                <div>
+                                    <h4 class="fw-bold text-dark mb-1"><i class="fa fa-history text-info me-2"/>Recent Operations &amp; Activity Audit Logs</h4>
+                                    <p class="text-muted small mb-0">Track real-time tool executions, model access statistics, and system audit logs.</p>
+                                </div>
+                                <span class="badge bg-success-subtle text-success border border-success px-3 py-2 rounded-pill fw-bold">
+                                    <i class="fa fa-circle text-success me-1"/>Live Audit Logging
+                                </span>
+                            </div>
+
+                            <!-- Activity Summary Analytics Cards -->
+                            <div class="row g-3 mb-4">
+                                <div class="col-md-4">
+                                    <div class="mcp-card bg-white border rounded-4 p-3 shadow-sm text-center">
+                                        <div class="text-muted small mb-1">Total Operations Executed</div>
+                                        <h5 class="fw-bold text-primary mb-0" t-esc="state.auditLogs ? state.auditLogs.length : 0"/>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mcp-card bg-white border rounded-4 p-3 shadow-sm text-center">
+                                        <div class="text-muted small mb-1">Successful Executions</div>
+                                        <h5 class="fw-bold text-success mb-0">
+                                            <i class="fa fa-check-circle me-1"/>
+                                            <t t-esc="this.getAuditSuccessCount()"/>
+                                        </h5>
+                                    </div>
+                                </div>
+                                <div class="col-md-4">
+                                    <div class="mcp-card bg-white border rounded-4 p-3 shadow-sm text-center">
+                                        <div class="text-muted small mb-1">Unique Models Audited</div>
+                                        <h5 class="fw-bold text-dark mb-0">
+                                            <t t-esc="this.getAuditUniqueModelsCount()"/> Target Models
+                                        </h5>
+                                    </div>
+                                </div>
                             </div>
 
                             <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">

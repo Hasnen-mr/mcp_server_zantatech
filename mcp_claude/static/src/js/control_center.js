@@ -425,6 +425,17 @@ export class MCPControlCenter extends Component {
         this.setSubTabActivity();
     }
 
+    getAuditSuccessCount() {
+        if (!Array.isArray(this.state.auditLogs)) return 0;
+        return this.state.auditLogs.filter(l => l.status === 'success' || !l.status).length;
+    }
+
+    getAuditUniqueModelsCount() {
+        if (!Array.isArray(this.state.auditLogs)) return 0;
+        const models = new Set(this.state.auditLogs.map(l => l.model_name).filter(Boolean));
+        return models.size;
+    }
+
     toggleThemeMode() {
         const nextTheme = this.state.themeMode === "dark" ? "light" : "dark";
         this.state.themeMode = nextTheme;
