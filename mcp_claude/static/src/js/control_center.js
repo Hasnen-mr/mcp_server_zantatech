@@ -34,13 +34,25 @@ export class MCPControlCenter extends Component {
         const defaultOrigin = window.location.origin;
 
         // Restore persisted user preferences from localStorage
-        const savedTab = localStorage.getItem("mcp_active_tab") || "dashboards";
-        const savedSubTab = localStorage.getItem("mcp_settings_tab") || "permissions";
+        const savedTab = localStorage.getItem("mcp_active_tab") || "configurations";
+        let savedSubTab = localStorage.getItem("mcp_settings_tab") || "general";
+        if (savedSubTab === "provider" || savedSubTab === "connection") {
+            savedSubTab = "general";
+        } else if (savedSubTab === "tools") {
+            savedSubTab = "permissions";
+        } else if (savedSubTab === "authentication") {
+            savedSubTab = "security";
+        } else if (savedSubTab === "advanced") {
+            savedSubTab = "activity";
+        }
         const savedTheme = localStorage.getItem("mcp_theme_mode") || "light";
         const savedFilter = localStorage.getItem("mcp_tools_op_filter") || "all";
 
         const actionParams = (this.props && this.props.action && this.props.action.params) || {};
-        const targetTab = actionParams.tab || savedTab;
+        let targetTab = actionParams.tab || savedTab;
+        if (targetTab === "home" || targetTab === "tools" || !targetTab) {
+            targetTab = "configurations";
+        }
         const targetDashboardId = actionParams.dashboard_id || null;
 
         this.state = useState({
@@ -65,7 +77,7 @@ export class MCPControlCenter extends Component {
             httpsEnabled: false,
             serverUrl: defaultOrigin,
             connectorUrl: defaultOrigin + "/mcp",
-            stdioJsonConfig: "",
+            stdioJsonConfig: '{\n  "mcpServers": {\n    "odoo-mcp": {\n      "command": "python",\n      "args": ["mcp_bridge.py"]\n    }\n  }\n}',
 
             envInfo: {
                 environment: null,
@@ -166,14 +178,15 @@ export class MCPControlCenter extends Component {
 
             // Permissions UI State for Odoo Apps
             odooAppsPermissions: [
-                { id: "sale", name: "Sales (sale.order)", icon: "fa-shopping-cart", read: true, create: false, write: false, delete: false, active: true },
-                { id: "account", name: "Invoicing & Accounting (account.move)", icon: "fa-calculator", read: true, create: false, write: false, delete: false, active: true },
-                { id: "stock", name: "Inventory & Warehouses (stock.picking)", icon: "fa-cubes", read: true, create: false, write: false, delete: false, active: true },
-                { id: "crm", name: "CRM & Opportunities (crm.lead)", icon: "fa-handshake-o", read: true, create: false, write: false, delete: false, active: true },
-                { id: "partner", name: "Contacts & Customers (res.partner)", icon: "fa-address-book", read: true, create: false, write: false, delete: false, active: true },
-                { id: "hr", name: "Employees & HR (hr.employee)", icon: "fa-users", read: true, create: false, write: false, delete: false, active: false },
-                { id: "purchase", name: "Purchase Orders (purchase.order)", icon: "fa-truck", read: true, create: false, write: false, delete: false, active: true },
-                { id: "project", name: "Projects & Tasks (project.task)", icon: "fa-tasks", read: true, create: false, write: false, delete: false, active: true },
+                { id: "sale", name: "Sales", model: "sale.order", icon: "fa-shopping-cart", read: true, create: false, write: false, delete: false, active: true },
+                { id: "account", name: "Invoicing", model: "account.move", icon: "fa-calculator", read: true, create: false, write: false, delete: false, active: true },
+                { id: "stock", name: "Inventory", model: "stock.picking", icon: "fa-cubes", read: true, create: false, write: false, delete: false, active: true },
+                { id: "crm", name: "CRM", model: "crm.lead", icon: "fa-handshake-o", read: true, create: false, write: false, delete: false, active: true },
+                { id: "partner", name: "Contacts", model: "res.partner", icon: "fa-address-book", read: true, create: false, write: false, delete: false, active: true },
+                { id: "hr", name: "Employees", model: "hr.employee", icon: "fa-users", read: true, create: false, write: false, delete: false, active: false },
+                { id: "purchase", name: "Purchase", model: "purchase.order", icon: "fa-truck", read: true, create: false, write: false, delete: false, active: true },
+                { id: "project", name: "Project", model: "project.task", icon: "fa-tasks", read: true, create: false, write: false, delete: false, active: true },
+                { id: "twilio", name: "Twilio", model: "twilio.call.log", icon: "fa-phone", read: true, create: true, write: true, delete: false, active: true },
             ],
 
             stats: {
@@ -243,6 +256,63 @@ export class MCPControlCenter extends Component {
                 const matchQ = !q || (t.name || "").toLowerCase().includes(q) || (t.description || "").toLowerCase().includes(q) || (t.model_name || "").toLowerCase().includes(q);
                 const matchCat = cat === "all" || (t.category || "Technical").toLowerCase() === cat;
                 return matchQ && matchCat;
+            });
+        };
+
+        this.getToolsForApp = (appId) => {
+            const q = (this.state.toolsSearchQuery || "").toLowerCase().trim();
+            const tools = this.state.tools || [];
+            
+            const appKeywordMap = {
+                'sale': ['sale', 'order', 'orders', 'sale.order'],
+                'account': ['account', 'invoice', 'invoices', 'account.move'],
+                'stock': ['stock', 'picking', 'product', 'products', 'stock.picking', 'product.product'],
+                'crm': ['crm', 'lead', 'leads', 'opportunity', 'crm.lead'],
+                'partner': ['partner', 'partners', 'customer', 'customers', 'res.partner', 'contact', 'contacts', 'vip'],
+                'hr': ['hr', 'employee', 'employees', 'hr.employee'],
+                'purchase': ['purchase', 'purchase.order'],
+                'project': ['project', 'task', 'tasks', 'project.task'],
+                'twilio': ['twilio', 'dialer', 'call', 'twilio.call.log', 'twilio.ai.service']
+            };
+
+            const keywords = appKeywordMap[appId] || [appId];
+
+            return tools.filter(t => {
+                const name = (t.name || "").toLowerCase();
+                const model = (t.model_name || "").toLowerCase();
+                const cat = (t.category || "").toLowerCase();
+                
+                const matchApp = keywords.some(k => name.includes(k) || model.includes(k) || cat.includes(k));
+                const matchQ = !q || name.includes(q) || (t.description || "").toLowerCase().includes(q) || model.includes(q);
+
+                return matchApp && matchQ;
+            });
+        };
+
+        this.getThirdPartyTools = () => {
+            const q = (this.state.toolsSearchQuery || "").toLowerCase().trim();
+            const thirdPartyKeywords = ['twilio', 'openai', 'claude', 'anthropic', 'external', 'ai', 'dialer'];
+            return (this.state.tools || []).filter(t => {
+                const name = (t.name || "").toLowerCase();
+                const model = (t.model_name || "").toLowerCase();
+                const cat = (t.category || "").toLowerCase();
+                const isThirdParty = thirdPartyKeywords.some(k => name.includes(k) || model.includes(k) || cat.includes(k));
+                const matchQ = !q || name.includes(q) || (t.description || "").toLowerCase().includes(q) || model.includes(q);
+                return isThirdParty && matchQ;
+            });
+        };
+
+        this.getUncategorizedTools = () => {
+            const q = (this.state.toolsSearchQuery || "").toLowerCase().trim();
+            const knownKeywords = ['sale', 'order', 'account', 'invoice', 'stock', 'product', 'crm', 'lead', 'partner', 'customer', 'hr', 'employee', 'purchase', 'project', 'task', 'twilio', 'openai', 'claude', 'dialer', 'vip'];
+            
+            return (this.state.tools || []).filter(t => {
+                const name = (t.name || "").toLowerCase();
+                const model = (t.model_name || "").toLowerCase();
+                const cat = (t.category || "").toLowerCase();
+                const isMapped = knownKeywords.some(k => name.includes(k) || model.includes(k) || cat.includes(k));
+                const matchQ = !q || name.includes(q) || (t.description || "").toLowerCase().includes(q);
+                return !isMapped && matchQ;
             });
         };
 
@@ -319,25 +389,40 @@ export class MCPControlCenter extends Component {
     openModelPermissionRules() {
         this.action.doAction("mcp_claude.action_mcp_model_rule");
     }
-    setSubTabPermissions() {
-        this.state.settingsTab = "permissions";
-        localStorage.setItem("mcp_settings_tab", "permissions");
-    }
-    setSubTabConnection() {
-        this.state.settingsTab = "connection";
-        localStorage.setItem("mcp_settings_tab", "connection");
-    }
-    setSubTabAuth() {
-        this.state.settingsTab = "authentication";
-        localStorage.setItem("mcp_settings_tab", "authentication");
-    }
     setSubTabGeneral() {
         this.state.settingsTab = "general";
         localStorage.setItem("mcp_settings_tab", "general");
     }
+    setSubTabPermissions() {
+        this.state.settingsTab = "permissions";
+        localStorage.setItem("mcp_settings_tab", "permissions");
+    }
+    setSubTabIntegrations() {
+        this.state.settingsTab = "integrations";
+        localStorage.setItem("mcp_settings_tab", "integrations");
+    }
+    setSubTabSecurity() {
+        this.state.settingsTab = "security";
+        localStorage.setItem("mcp_settings_tab", "security");
+    }
+    setSubTabActivity() {
+        this.state.settingsTab = "activity";
+        localStorage.setItem("mcp_settings_tab", "activity");
+    }
+    setSubTabProvider() {
+        this.setSubTabIntegrations();
+    }
+    setSubTabConnection() {
+        this.setSubTabGeneral();
+    }
+    setSubTabTools() {
+        this.setSubTabPermissions();
+    }
+    setSubTabAuth() {
+        this.setSubTabSecurity();
+    }
     setSubTabAudit() {
-        this.state.settingsTab = "advanced";
-        localStorage.setItem("mcp_settings_tab", "advanced");
+        this.setSubTabActivity();
     }
 
     toggleThemeMode() {
@@ -545,13 +630,14 @@ export class MCPControlCenter extends Component {
     }
 
     scrollToClaudeBottom() {
-        if (this.claudeMessagesRef && this.claudeMessagesRef.el) {
-            setTimeout(() => {
-                if (this.claudeMessagesRef.el) {
-                    this.claudeMessagesRef.el.scrollTop = this.claudeMessagesRef.el.scrollHeight;
-                }
-            }, 60);
-        }
+        const scroll = () => {
+            if (this.claudeMessagesRef && this.claudeMessagesRef.el) {
+                this.claudeMessagesRef.el.scrollTop = this.claudeMessagesRef.el.scrollHeight;
+            }
+        };
+        scroll();
+        setTimeout(scroll, 50);
+        setTimeout(scroll, 200);
     }
 
     async loadClaudeMessages(convId) {
@@ -1201,6 +1287,61 @@ export class MCPControlCenter extends Component {
                 "arguments": args
             }
         }, null, 2);
+    }
+
+    async bulkSetReadOnlyPermissions() {
+        for (const app of this.state.odooAppsPermissions) {
+            app.read = true;
+            app.create = false;
+            app.write = false;
+            app.delete = false;
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'read', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'create', false]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'write', false]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'delete', false]).catch(() => {});
+        }
+        this.state.activePermissionPreset = 'read_only';
+        this.notification.add("Read-Only Preset Applied: Read & Search access granted across all apps", { type: "info" });
+    }
+
+    async bulkSetStandardPermissions() {
+        for (const app of this.state.odooAppsPermissions) {
+            app.read = true;
+            app.create = true;
+            app.write = true;
+            app.delete = false;
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'read', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'create', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'write', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'delete', false]).catch(() => {});
+        }
+        this.state.activePermissionPreset = 'standard';
+        this.notification.add("Standard Preset Applied: Read, Create & Edit access granted across all apps", { type: "success" });
+    }
+
+    async bulkSetFullAccessPermissions() {
+        for (const app of this.state.odooAppsPermissions) {
+            app.read = true;
+            app.create = true;
+            app.write = true;
+            app.delete = true;
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'read', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'create', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'write', true]).catch(() => {});
+            await this.orm.call("mcp.model.rule", "update_app_permission", [app.id, 'delete', true]).catch(() => {});
+        }
+        this.state.activePermissionPreset = 'full_access';
+        this.notification.add("Full Access Preset Applied: Full CRUD access granted across all apps", { type: "warning" });
+    }
+
+    async toggleAppPermission(appId, permType) {
+        const app = this.state.odooAppsPermissions.find(a => a.id === appId);
+        if (app) {
+            app[permType] = !app[permType];
+            await this.orm.call("mcp.model.rule", "update_app_permission", [appId, permType, app[permType]]).catch(() => {});
+            this.state.activePermissionPreset = 'custom';
+            this.notification.add(`${app.name} ${permType.toUpperCase()} permission ${app[permType] ? 'Enabled' : 'Disabled'}`, { type: app[permType] ? "success" : "info" });
+        }
     }
 
     async saveTool() {

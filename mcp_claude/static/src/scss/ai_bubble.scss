@@ -70,15 +70,45 @@ button.o_mcp_ai_bubble_trigger,
     }
 }
 
+/* --- Floating Chat Header Styling --- */
+.o_mcp_ai_chat_header {
+    background-color: #E8DFD2 !important;
+    border-bottom: 1px solid #C8B59B !important;
+    color: #292624 !important;
+
+    span, div, i {
+        color: #292624 !important;
+    }
+
+    button {
+        color: #706A62 !important;
+
+        &:hover {
+            color: #292624 !important;
+        }
+    }
+}
+
 /* --- Systray Item Styling --- */
 .o_mcp_ai_systray_item {
     .o_mcp_ai_systray_btn {
-        background: rgba(255, 255, 255, 0.08);
-        border-radius: 20px;
-        padding: 4px 10px !important;
-        transition: background 0.2s ease;
+        background: linear-gradient(135deg, #FAF4EB 0%, #F5ECE0 100%) !important;
+        border: 1px solid #E8D8C8 !important;
+        border-radius: 20px !important;
+        padding: 4px 12px !important;
+        color: #1F1E1B !important;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08) !important;
+        transition: transform 0.15s ease, background 0.2s ease, box-shadow 0.2s ease !important;
+
         &:hover {
-            background: rgba(255, 255, 255, 0.18);
+            background: linear-gradient(135deg, #FFF9F2 0%, #F8EFE3 100%) !important;
+            border-color: #D97757 !important;
+            box-shadow: 0 4px 12px rgba(217, 119, 87, 0.25) !important;
+            transform: scale(1.03) !important;
+        }
+
+        span {
+            color: #1F1E1B !important;
         }
     }
 }

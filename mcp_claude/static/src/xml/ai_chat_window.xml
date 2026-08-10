@@ -4,26 +4,25 @@
     <t t-name="mcp_claude.AIChatWindow">
         <div t-attf-class="o_mcp_ai_chat_window shadow-lg border rounded-4 d-flex flex-column bg-white #{state.isExpanded ? 'o_expanded' : ''}">
             <!-- Header (Always 100% Mounted & Interactive) -->
-            <div class="o_mcp_ai_chat_header d-flex align-items-center justify-content-between p-3 border-bottom bg-dark text-white rounded-top-4" title="Claude AI Copilot">
+            <div class="o_mcp_ai_chat_header d-flex align-items-center justify-content-between p-3 border-bottom text-dark rounded-top-4" title="Claude AI Copilot">
                 <div class="d-flex align-items-center gap-2">
                     <svg class="claude-icon-svg" width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M12 2L14.4 8.3L21 9.3L16.2 14L17.3 20.5L12 17.4L6.7 20.5L7.8 14L3 9.3L9.6 8.3L12 2Z" fill="#D97757"/>
                     </svg>
                     <div>
-                        <div class="fw-bold fs-6 d-flex align-items-center gap-2">
+                        <div class="fw-bold fs-6 d-flex align-items-center gap-2 text-dark">
                             <span>Claude AI Copilot</span>
-                            <span class="badge bg-warning text-dark rounded-pill px-2 py-0 fw-bold" style="font-size: 10px;">GLOBAL</span>
                         </div>
                     </div>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-sm text-white-50 hover-text-white p-1 border-0" t-on-click="onNewChat" title="Start New Conversation">
+                    <button class="btn btn-sm text-secondary p-1 border-0" t-on-click="onNewChat" title="Start New Conversation">
                         <i class="fa fa-refresh fs-6"/>
                     </button>
-                    <button class="btn btn-sm text-white-50 hover-text-white p-1 border-0" t-on-click="toggleExpand" t-att-title="state.isExpanded ? 'Compact Window' : 'Expand Window'">
+                    <button class="btn btn-sm text-secondary p-1 border-0" t-on-click="toggleExpand" t-att-title="state.isExpanded ? 'Compact Window' : 'Expand Window'">
                         <i t-attf-class="fa #{state.isExpanded ? 'fa-compress' : 'fa-expand'} fs-6"/>
                     </button>
-                    <button class="btn btn-sm text-white-50 hover-text-white p-1 border-0 ms-1" t-on-click="props.onClose" title="Close Claude Chat">
+                    <button class="btn btn-sm text-secondary p-1 border-0 ms-1" t-on-click="props.onClose" title="Close Claude Chat">
                         <i class="fa fa-times fs-5"/>
                     </button>
                 </div>
