@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useState, onWillStart, onMounted, useRef } from "@odoo/owl";
+import { Component, useState, onWillStart, onMounted, useRef, markup } from "@odoo/owl";
 import { useService, useBus } from "@web/core/utils/hooks";
 import { routerBus } from "@web/core/browser/router";
 import { AIChatSkeleton } from "@mcp_claude/js/components/ai_chat_skeleton";
@@ -36,8 +36,9 @@ export class AIChatWindow extends Component {
             activeResId: null,
             activeScope: "global",
             activeConvId: null,
-            title: "MCP Claude AI Bubble",
+            title: "Claude AI Copilot",
             capabilities: null,
+            isExpanded: false,           // Compact default (false) vs Expanded (true)
         });
 
         // Single-tick debounced event listeners for Odoo Action Manager and URL Router
@@ -59,7 +60,6 @@ export class AIChatWindow extends Component {
         const newModel = context.resModel || null;
         const newResId = context.resId || null;
 
-        // Single-tick debounce (120ms) to coalesce rapid navigation clicks
         if (this.navDebounceTimer) {
             clearTimeout(this.navDebounceTimer);
         }
@@ -73,18 +73,26 @@ export class AIChatWindow extends Component {
         return;
     }
 
+    toggleExpand() {
+        this.state.isExpanded = !this.state.isExpanded;
+    }
+
+    async onNewChat() {
+        this.state.history = [];
+        this.state.promptText = "";
+        await this.loadChat(null, true);
+        this.notification.add("New Global Conversation started.", { type: "info", title: "Claude AI" });
+    }
+
     async loadChat(forcedScope = null, isInitial = false) {
-        // 1. Abort any active in-flight HTTP RPC request to prevent backend load & race conditions
         if (this.activeAbortController) {
             this.activeAbortController.abort();
             this.activeAbortController = null;
         }
 
-        // Create new AbortController for this request
         const abortController = new AbortController();
         this.activeAbortController = abortController;
 
-        // 2. Preserve draft input for previous conversation ID
         if (this.state.activeConvId && this.state.promptText) {
             this.draftPrompts[this.state.activeConvId] = this.state.promptText;
         }
@@ -92,11 +100,10 @@ export class AIChatWindow extends Component {
         if (isInitial) {
             this.state.initialLoading = true;
         } else {
-            // <100ms Fast Load Bypassing: Start 100ms timer before showing skeleton overlay
             if (this.fastLoadTimer) clearTimeout(this.fastLoadTimer);
             this.fastLoadTimer = setTimeout(() => {
                 if (this.activeAbortController === abortController) {
-                    this.state.isSwitchingThread = true; // Show semi-transparent skeleton overlay
+                    this.state.isSwitchingThread = true;
                 }
             }, 100);
         }
@@ -104,7 +111,6 @@ export class AIChatWindow extends Component {
         try {
             const scope = "global";
 
-            // Fetch thread data with AbortSignal
             const res = await this.aiService.initChat(
                 "global",
                 null,
@@ -113,20 +119,17 @@ export class AIChatWindow extends Component {
                 abortController.signal
             );
 
-            // If request was aborted by newer navigation, exit without mutating UI state
             if (res && res.aborted) {
                 return;
             }
 
-            // Atomic Synchronous State Mutation (Single OWL Render Cycle)
             if (res && res.success) {
                 this.state.activeScope = "global";
                 this.state.activeConvId = res.conversation_id;
                 this.state.history = res.history || [];
-                this.state.title = res.title || "MCP Claude AI Bubble";
+                this.state.title = res.title || "Claude AI Copilot";
                 this.state.capabilities = res.capabilities || null;
 
-                // Restore preserved draft prompt for new conversation
                 this.state.promptText = this.draftPrompts[res.conversation_id] || "";
             } else if (!res) {
                 this.notification.add("Failed to initialize AI Chat session. Please try again.", { type: "warning" });
@@ -176,7 +179,6 @@ export class AIChatWindow extends Component {
 
         this.isUserScrolledUp = false;
         
-        // Optimistic User Message
         this.state.history.push({
             id: Date.now(),
             role: "user",
@@ -206,6 +208,71 @@ export class AIChatWindow extends Component {
         }
         this.state.sending = false;
         this.scrollToBottom();
+    }
+
+    renderFormattedContent(content) {
+        if (!content) return markup("");
+        let text = String(content);
+
+        const codeBlocks = [];
+        text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            const placeholder = `___CODEBLOCK_${codeBlocks.length}___`;
+            const langLabel = lang ? `<div class="claude-code-header text-muted border-bottom px-3 py-1 bg-light d-flex justify-content-between align-items-center" style="font-size:11px;"><span class="fw-bold text-uppercase">${lang}</span></div>` : '';
+            const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            codeBlocks.push(`${langLabel}<pre class="m-0 p-3"><code>${escapedCode.trim()}</code></pre>`);
+            return placeholder;
+        });
+
+        const hasHtmlTags = /<[a-z/][\s\S]*>/i.test(text);
+
+        let formatted = text;
+        if (!hasHtmlTags) {
+            formatted = formatted
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            formatted = formatted.replace(/(?:^|\n)((?:\|[^\n]+\|\r?\n)+)/g, (match, tableStr) => {
+                const lines = tableStr.trim().split('\n').map(l => l.trim()).filter(l => l);
+                if (lines.length < 2) return match;
+                
+                let html = '<div class="table-responsive my-2"><table class="table table-sm table-bordered table-hover border rounded-3 overflow-hidden mb-0 align-middle"><thead class="table-light">';
+                let isHeader = true;
+
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i];
+                    if (/^\|(?:\s*:?-+:?\s*\|)+$/.test(line)) {
+                        isHeader = false;
+                        continue;
+                    }
+                    const cells = line.split('|').slice(1, -1).map(c => c.trim());
+                    if (isHeader) {
+                        html += '<tr>' + cells.map(c => `<th class="fw-semibold px-3 py-2 bg-light text-dark">${c}</th>`).join('') + '</tr></thead><tbody>';
+                        isHeader = false;
+                    } else {
+                        html += '<tr>' + cells.map(c => `<td class="px-3 py-2">${c}</td>`).join('') + '</tr>';
+                    }
+                }
+                html += '</tbody></table></div>';
+                return html;
+            });
+
+            formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+            formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            formatted = formatted.replace(/(?:^|\n)[*|-]\s+(.*)/g, '<li class="ms-3">$1</li>');
+            formatted = formatted.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>');
+        }
+
+        codeBlocks.forEach((block, idx) => {
+            formatted = formatted.replace(`___CODEBLOCK_${idx}___`, `<div class="claude-code-container my-2 border rounded-3 overflow-hidden bg-dark text-light">${block}</div>`);
+        });
+
+        return markup(formatted);
+    }
+
+    sendQuickAction(text) {
+        this.state.promptText = text;
+        this.onSendMessage();
     }
 
     onKeyDown(ev) {

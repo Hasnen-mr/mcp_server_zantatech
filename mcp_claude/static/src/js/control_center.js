@@ -1,6 +1,6 @@
 /** @odoo-module **/
 
-import { Component, useState, useRef, onWillStart, onMounted, onWillUnmount } from "@odoo/owl";
+import { Component, useState, useRef, onWillStart, onMounted, onWillUnmount, markup } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 
@@ -618,6 +618,109 @@ export class MCPControlCenter extends Component {
         if (ev.key === "Enter" && !ev.shiftKey) {
             ev.preventDefault();
             this.sendClaudePrompt();
+        }
+    }
+
+    onClaudeComposerInput(ev) {
+        const el = ev.target;
+        if (!el) return;
+        el.style.height = "auto";
+        el.style.height = Math.min(el.scrollHeight, 160) + "px";
+    }
+
+    renderFormattedContent(content) {
+        if (!content) return markup("");
+        let text = String(content);
+
+        // Code blocks: ```lang ... ```
+        const codeBlocks = [];
+        text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
+            const placeholder = `___CODEBLOCK_${codeBlocks.length}___`;
+            const langLabel = lang ? `<div class="claude-code-header text-muted border-bottom px-3 py-1 bg-light d-flex justify-content-between align-items-center" style="font-size:11px;"><span class="fw-bold text-uppercase">${lang}</span></div>` : '';
+            const escapedCode = code.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            codeBlocks.push(`${langLabel}<pre class="m-0 p-3"><code>${escapedCode.trim()}</code></pre>`);
+            return placeholder;
+        });
+
+        let formatted = text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;");
+
+        // Markdown Tables: | col | col | ...
+        formatted = formatted.replace(/(?:^|\n)((?:\|[^\n]+\|\r?\n)+)/g, (match, tableStr) => {
+            const lines = tableStr.trim().split('\n').map(l => l.trim()).filter(l => l);
+            if (lines.length < 2) return match;
+            
+            let html = '<div class="table-responsive my-2"><table class="table table-sm table-bordered table-hover border rounded-3 overflow-hidden mb-0 align-middle"><thead class="table-light">';
+            let isHeader = true;
+
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                // Skip delimiter lines like |---|---|
+                if (/^\|(?:\s*:?-+:?\s*\|)+$/.test(line)) {
+                    isHeader = false;
+                    continue;
+                }
+                const cells = line.split('|').slice(1, -1).map(c => c.trim());
+                if (isHeader) {
+                    html += '<tr>' + cells.map(c => `<th class="fw-semibold px-3 py-2 bg-light text-dark">${c}</th>`).join('') + '</tr></thead><tbody>';
+                    isHeader = false;
+                } else {
+                    html += '<tr>' + cells.map(c => `<td class="px-3 py-2">${c}</td>`).join('') + '</tr>';
+                }
+            }
+            html += '</tbody></table></div>';
+            return html;
+        });
+
+        // Inline code: `code`
+        formatted = formatted.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+        // Bold text: **text**
+        formatted = formatted.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+        // Bulleted lists
+        formatted = formatted.replace(/(?:^|\n)[*|-]\s+(.*)/g, '<li class="ms-3">$1</li>');
+
+        // Restore code blocks
+        codeBlocks.forEach((block, idx) => {
+            formatted = formatted.replace(`___CODEBLOCK_${idx}___`, `<div class="claude-code-container my-2 border rounded-3 overflow-hidden bg-dark text-light">${block}</div>`);
+        });
+
+        formatted = formatted.replace(/\n\n/g, '<br/><br/>').replace(/\n/g, '<br/>');
+
+        return markup(formatted);
+    }
+
+    async renameClaudeConversation(convId, ev) {
+        if (ev) ev.stopPropagation();
+        const conv = (this.state.claudeConversations || []).find(c => c.id === convId);
+        const currentName = conv ? (conv.display_name || conv.name || "") : "";
+        const newName = prompt("Enter a new title for this chat:", currentName);
+        if (!newName || !newName.trim() || newName.trim() === currentName) return;
+        try {
+            await this.orm.write("mcp.ai.conversation", [convId], { name: newName.trim() });
+            this.notification.add("Conversation renamed.", { type: "success" });
+            await this.loadClaudeConversations();
+        } catch (e) {
+            this.notification.add("Failed to rename: " + (e.message || e), { type: "danger" });
+        }
+    }
+
+    async deleteClaudeConversation(convId, ev) {
+        if (ev) ev.stopPropagation();
+        if (!confirm("Delete this conversation thread?")) return;
+        try {
+            await this.orm.unlink("mcp.ai.conversation", [convId]);
+            this.notification.add("Conversation thread deleted.", { type: "info" });
+            if (this.state.claudeActiveConvId === convId) {
+                this.state.claudeActiveConvId = null;
+                this.state.claudeMessages = [];
+            }
+            await this.loadClaudeConversations();
+        } catch (e) {
+            this.notification.add("Failed to delete: " + (e.message || e), { type: "danger" });
         }
     }
 

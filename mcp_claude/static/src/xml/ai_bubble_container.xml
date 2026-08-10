@@ -15,10 +15,10 @@
     <t t-name="mcp_claude.AIBubbleTrigger">
         <button class="o_mcp_ai_bubble_trigger" t-on-click="props.onClick" title="Claude" type="button">
             <t t-if="props.isOpen">
-                <i class="fa fa-times"/>
+                <i class="fa fa-times" style="color: #D97757; font-size: 20px;"/>
             </t>
             <t t-else="">
-                <svg class="claude-icon-svg" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <svg class="claude-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                     <path d="M12 2L14.4 8.3L21 9.3L16.2 14L17.3 20.5L12 17.4L6.7 20.5L7.8 14L3 9.3L9.6 8.3L12 2Z" fill="#D97757"/>
                 </svg>
             </t>

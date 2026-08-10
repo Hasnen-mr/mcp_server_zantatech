@@ -27,46 +27,21 @@ button.o_mcp_ai_bubble_trigger,
     max-width: 54px !important;
     max-height: 54px !important;
     border-radius: 50% !important;
-    padding: 0 !important;
-    margin: 0 !important;
+    background: linear-gradient(135deg, #FAF4EB 0%, #F5ECE0 100%) !important;
+    color: #D97757 !important;
+    border: 2px solid #E8D8C8 !important;
+    box-shadow: 0 8px 24px rgba(217, 119, 87, 0.25), 0 2px 8px rgba(0, 0, 0, 0.08) !important;
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25) !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-    background: linear-gradient(135deg, #7c3aed, #4f46e5) !important;
-    color: #ffffff !important;
-    border: 0 !important;
-    outline: none !important;
     cursor: pointer !important;
-    position: relative !important;
-    pointer-events: auto !important;
-    appearance: none !important;
-    -webkit-appearance: none !important;
-    box-sizing: border-box !important;
-    line-height: 1 !important;
-    overflow: hidden !important;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
 
     &:hover {
-        transform: scale(1.08) !important;
-        box-shadow: 0 6px 20px rgba(124, 58, 237, 0.4) !important;
-        background: linear-gradient(135deg, #6d28d9, #4338ca) !important;
-        color: #ffffff !important;
-    }
-
-    &:focus,
-    &:active {
-        outline: none !important;
-        box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.5) !important;
-        color: #ffffff !important;
-    }
-
-    i {
-        font-size: 22px !important;
-        color: #ffffff !important;
-        line-height: 1 !important;
-        display: inline-block !important;
-        pointer-events: none !important;
+        transform: scale(1.06) !important;
+        background: linear-gradient(135deg, #FFF9F2 0%, #F8EFE3 100%) !important;
+        border-color: #D97757 !important;
+        box-shadow: 0 10px 28px rgba(217, 119, 87, 0.35) !important;
     }
 }
 
@@ -78,13 +53,34 @@ button.o_mcp_ai_bubble_trigger,
     max-height: calc(100vh - 100px) !important;
     margin-bottom: 12px !important;
     background: #ffffff !important;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15) !important;
-    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    box-shadow: 0 12px 36px rgba(0, 0, 0, 0.2) !important;
+    border: 1px solid rgba(0, 0, 0, 0.1) !important;
     border-radius: 16px !important;
     display: flex !important;
     flex-direction: column !important;
     pointer-events: auto !important;
     overflow: hidden !important;
+    transition: width 0.25s ease, height 0.25s ease !important;
+
+    &.o_expanded {
+        width: 720px !important;
+        height: 750px !important;
+        max-width: calc(100vw - 48px) !important;
+        max-height: calc(100vh - 80px) !important;
+    }
+}
+
+/* --- Systray Item Styling --- */
+.o_mcp_ai_systray_item {
+    .o_mcp_ai_systray_btn {
+        background: rgba(255, 255, 255, 0.08);
+        border-radius: 20px;
+        padding: 4px 10px !important;
+        transition: background 0.2s ease;
+        &:hover {
+            background: rgba(255, 255, 255, 0.18);
+        }
+    }
 }
 
 /* --- Skeleton Overlay inside Message Body --- */

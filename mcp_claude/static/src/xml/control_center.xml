@@ -131,9 +131,9 @@
                             <aside class="claude-sidebar p-3">
                                 <div class="claude-sidebar-header d-flex flex-column gap-3 mb-3">
                                     <button class="btn claude-new-chat-btn w-100 py-2 d-flex align-items-center justify-content-center gap-2" t-on-click="createNewClaudeChat" t-att-disabled="state.claudeSending">
-                                    <i class="fa fa-plus text-danger" style="color: var(--claude-accent) !important;"/>
-                                    <span>+ New chat</span>
-                                </button>
+                                        <i class="fa fa-plus me-1" style="color: var(--claude-accent);"/>
+                                        <span>New chat</span>
+                                    </button>
 
                                     <!-- Search conversations -->
                                     <div class="input-group input-group-sm">
@@ -156,6 +156,10 @@
                                                         <i class="fa fa-comment-o me-2 text-muted"/>
                                                         <span t-esc="c.display_name || c.name || ('Chat #' + c.id)"/>
                                                     </div>
+                                                    <div class="claude-chat-item-actions opacity-0 d-flex align-items-center gap-1">
+                                                        <i class="fa fa-pencil text-muted px-1" t-on-click="(ev) => this.renameClaudeConversation(c.id, ev)" title="Rename chat"/>
+                                                        <i class="fa fa-trash-o text-muted px-1" t-on-click="(ev) => this.deleteClaudeConversation(c.id, ev)" title="Delete chat"/>
+                                                    </div>
                                                 </div>
                                             </t>
                                         </div>
@@ -171,6 +175,10 @@
                                                         <i class="fa fa-comment-o me-2 text-muted"/>
                                                         <span t-esc="c.display_name || c.name || ('Chat #' + c.id)"/>
                                                     </div>
+                                                    <div class="claude-chat-item-actions opacity-0 d-flex align-items-center gap-1">
+                                                        <i class="fa fa-pencil text-muted px-1" t-on-click="(ev) => this.renameClaudeConversation(c.id, ev)" title="Rename chat"/>
+                                                        <i class="fa fa-trash-o text-muted px-1" t-on-click="(ev) => this.deleteClaudeConversation(c.id, ev)" title="Delete chat"/>
+                                                    </div>
                                                 </div>
                                             </t>
                                         </div>
@@ -185,6 +193,10 @@
                                                     <div class="text-truncate me-2">
                                                         <i class="fa fa-comment-o me-2 text-muted"/>
                                                         <span t-esc="c.display_name || c.name || ('Chat #' + c.id)"/>
+                                                    </div>
+                                                    <div class="claude-chat-item-actions opacity-0 d-flex align-items-center gap-1">
+                                                        <i class="fa fa-pencil text-muted px-1" t-on-click="(ev) => this.renameClaudeConversation(c.id, ev)" title="Rename chat"/>
+                                                        <i class="fa fa-trash-o text-muted px-1" t-on-click="(ev) => this.deleteClaudeConversation(c.id, ev)" title="Delete chat"/>
                                                     </div>
                                                 </div>
                                             </t>
@@ -285,7 +297,7 @@
                                                             </t>
                                                             <t t-else="">
                                                                 <div class="p-3 rounded-4 bg-white border text-dark shadow-sm">
-                                                                    <div style="white-space: pre-wrap; line-height: 1.6;" t-esc="msg.content"/>
+                                                                    <div class="claude-formatted-content" t-out="this.renderFormattedContent(msg.content)"/>
                                                                 </div>
                                                             </t>
                                                         </div>
@@ -301,10 +313,12 @@
                                     <textarea class="form-control border-0 shadow-none bg-transparent" 
                                               rows="1" 
                                               placeholder="Ask Claude anything..." 
+                                              t-ref="claudeComposerTextarea"
                                               t-model="state.claudePromptText" 
                                               t-on-keydown="onClaudeComposerKeyDown" 
+                                              t-on-input="onClaudeComposerInput"
                                               t-att-disabled="state.claudeSending"
-                                              style="resize: none; font-size: 15px;"></textarea>
+                                              style="resize: none; font-size: 15px; max-height: 160px; overflow-y: auto;"></textarea>
                                     <button class="claude-send-btn flex-shrink-0 me-1" 
                                             t-on-click="() => this.sendClaudePrompt()" 
                                             t-att-disabled="state.claudeSending || !state.claudePromptText.trim()"
@@ -352,6 +366,175 @@
                                 </div>
                             </div>
                         </div>
+
+                        <!-- Custom AI Analytics Dashboards Hub (When no single dashboard is selected) -->
+                        <t t-if="!state.activeDashboardId">
+                            <div class="mcp-card bg-white border rounded-4 p-4 shadow-sm mb-4">
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="p-2 bg-success-subtle text-success rounded-circle">
+                                            <i class="fa fa-line-chart fs-5"/>
+                                        </div>
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">Custom AI Analytics Dashboards</h6>
+                                            <small class="text-muted">Interactive BI views generated dynamically by Claude AI or created manually</small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button class="btn btn-sm" t-att-class="state.dashboardFavoriteFilter ? 'btn-warning text-dark' : 'btn-outline-secondary'" t-on-click="() => this.toggleFilterFavorite()" title="Filter Favorites">
+                                            <i class="fa fa-star me-1"/>Favorites
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" t-on-click="() => this.loadDashboards()" title="Refresh Dashboards">
+                                            <i class="fa fa-refresh me-1"/>Refresh
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Search & Category Filters Bar -->
+                                <div class="row g-3 align-items-center mb-3">
+                                    <div class="col-md-5">
+                                        <div class="input-group input-group-sm">
+                                            <span class="input-group-text bg-light border-end-0"><i class="fa fa-search text-muted"></i></span>
+                                            <input type="text" class="form-control border-start-0 bg-light" placeholder="Search custom dashboards..." t-model="state.dashboardSearchQuery"/>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <div class="d-flex flex-wrap gap-1 justify-content-md-end">
+                                            <button class="btn btn-xs" t-att-class="state.dashboardCategoryFilter === 'all' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('all')">All</button>
+                                            <button class="btn btn-xs" t-att-class="state.dashboardCategoryFilter === 'sales' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('sales')">Sales</button>
+                                            <button class="btn btn-xs" t-att-class="state.dashboardCategoryFilter === 'crm' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('crm')">CRM</button>
+                                            <button class="btn btn-xs" t-att-class="state.dashboardCategoryFilter === 'accounting' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('accounting')">Accounting</button>
+                                            <button class="btn btn-xs" t-att-class="state.dashboardCategoryFilter === 'inventory' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('inventory')">Inventory</button>
+                                            <button class="btn btn-xs" t-att-class="state.dashboardCategoryFilter === 'custom' ? 'btn-primary' : 'btn-outline-secondary'" t-on-click="() => this.setFilterCategory('custom')">Custom</button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Custom Dashboards Grid -->
+                                <t t-if="state.loadingDashboards">
+                                    <div class="text-center py-4">
+                                        <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"></i>
+                                        <p class="text-muted small">Loading Custom Dashboards...</p>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <t t-if="this.filteredDashboards.length === 0">
+                                        <div class="p-4 text-center bg-light rounded-3 border">
+                                            <i class="fa fa-dashboard fa-2x text-muted mb-2"></i>
+                                            <h6 class="fw-bold text-dark mb-1">No Custom Dashboards Found</h6>
+                                            <p class="text-muted small mb-0">Ask Claude AI in your chat to "Create a Sales Performance Dashboard" or "Show Customer Analytics" to automatically build dynamic BI views.</p>
+                                        </div>
+                                    </t>
+                                    <t t-else="">
+                                        <div class="row g-3">
+                                            <t t-foreach="this.filteredDashboards" t-as="d" t-key="d.id">
+                                                <div class="col-md-6 col-lg-4">
+                                                    <div class="mcp-card bg-white border rounded-3 p-3 shadow-sm h-100 d-flex flex-column justify-content-between cursor-pointer hover-shadow" t-on-click="() => this.openDashboard(d.id)">
+                                                        <div>
+                                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                                <span class="badge bg-primary-subtle text-primary border border-primary px-2 py-1 rounded-pill small text-uppercase" t-esc="d.category || 'General'"/>
+                                                                <button class="btn btn-link p-0 text-decoration-none" t-on-click="(ev) => this.toggleFavoriteDashboard(d.id, ev)">
+                                                                    <i t-att-class="'fa ' + (d.is_favorite ? 'fa-star text-warning' : 'fa-star-o text-muted')"/>
+                                                                </button>
+                                                            </div>
+                                                            <h6 class="fw-bold text-dark mb-1" t-esc="d.name"/>
+                                                            <p class="text-muted small mb-2" t-esc="d.description || 'AI Analytics Dashboard generated from live Odoo ORM dataset.'"/>
+                                                        </div>
+                                                        <div class="pt-2 border-top d-flex align-items-center justify-content-between text-muted small">
+                                                            <span class="badge bg-light text-dark border">
+                                                                <i class="fa fa-pie-chart me-1 text-primary"/> <t t-esc="d.widget_count || 0"/> Widgets
+                                                            </span>
+                                                            <div class="d-flex gap-1">
+                                                                <button class="btn btn-xs btn-outline-secondary" t-on-click="(ev) => this.duplicateDashboard(d.id, ev)" title="Duplicate">
+                                                                    <i class="fa fa-copy"/>
+                                                                </button>
+                                                                <button class="btn btn-xs btn-outline-danger" t-on-click="(ev) => this.deleteDashboard(d.id, ev)" title="Delete">
+                                                                    <i class="fa fa-trash-o"/>
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </t>
+                                </t>
+                            </div>
+                        </t>
+
+                        <!-- Single Active Dashboard Live Detailed View -->
+                        <t t-if="state.activeDashboardId">
+                            <div class="mcp-card bg-white border rounded-4 p-4 shadow-sm mb-4 animate-fade-in">
+                                <div class="d-flex justify-content-between align-items-center pb-3 border-bottom mb-3 flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <button class="btn btn-sm btn-outline-secondary rounded-circle" t-on-click="() => this.backToDashboardsHub()" title="Back to All Dashboards">
+                                            <i class="fa fa-arrow-left"/>
+                                        </button>
+                                        <div>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <h5 class="fw-bold text-dark mb-0" t-esc="state.activeDashboardData ? state.activeDashboardData.name : 'Loading Dashboard...'"/>
+                                                <t t-if="state.activeDashboardData">
+                                                    <span class="badge bg-primary-subtle text-primary border border-primary px-2 py-1 rounded-pill small text-uppercase" t-esc="state.activeDashboardData.category"/>
+                                                    <button class="btn btn-link p-0 text-decoration-none" t-on-click="() => this.toggleFavoriteDashboard(state.activeDashboardId)">
+                                                        <i t-att-class="'fa ' + (state.activeDashboardData.is_favorite ? 'fa-star text-warning' : 'fa-star-o text-muted')"/>
+                                                    </button>
+                                                </t>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <select class="form-select form-select-sm bg-light" style="width: 130px;" t-model="state.dateRangeFilter" t-on-change="(ev) => this.setDateRangeFilter(ev.target.value)">
+                                            <option value="all_time">All Time</option>
+                                            <option value="today">Today</option>
+                                            <option value="this_week">This Week</option>
+                                            <option value="this_month">This Month</option>
+                                            <option value="this_year">This Year</option>
+                                        </select>
+                                        <button class="btn btn-sm btn-outline-secondary" t-on-click="() => this.refreshActiveDashboard()" title="Refresh Live Data">
+                                            <i class="fa fa-refresh me-1"/>Refresh
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" t-on-click="() => this.exportDashboardData('json')" title="Export JSON">
+                                            <i class="fa fa-download me-1"/>Export
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <t t-if="state.loadingActiveDashboard">
+                                    <div class="text-center py-5">
+                                        <i class="fa fa-spinner fa-spin fa-2x text-primary mb-2"/>
+                                        <p class="text-muted small">Loading live Odoo ORM dataset...</p>
+                                    </div>
+                                </t>
+                                <t t-else="">
+                                    <t t-if="state.activeDashboardData &amp;&amp; state.activeDashboardData.widgets_data">
+                                        <!-- AI Insight Summary Banner -->
+                                        <t t-if="state.activeDashboardData.ai_insights">
+                                            <div class="alert alert-info border-0 bg-info-subtle text-info-emphasis rounded-3 p-3 mb-4 d-flex align-items-center justify-content-between">
+                                                <div class="d-flex align-items-center gap-2">
+                                                    <i class="fa fa-magic text-info fs-5"/>
+                                                    <span><strong>AI Insight:</strong> <t t-esc="state.activeDashboardData.ai_insights.summary"/></span>
+                                                </div>
+                                                <span class="small opacity-75">Live ORM Analysis</span>
+                                            </div>
+                                        </t>
+
+                                        <!-- Widget Metrics Cards -->
+                                        <div class="row g-3 mb-4">
+                                            <t t-foreach="Object.values(state.activeDashboardData.widgets_data)" t-as="w" t-key="w.id">
+                                                <div class="col-md-6 col-lg-3">
+                                                    <div class="p-3 bg-light rounded-3 border">
+                                                        <div class="text-muted small mb-1" t-esc="w.name"/>
+                                                        <h4 class="fw-bold text-dark mb-0">
+                                                            <t t-esc="w.display_value || w.formatted_amount || w.total_count || 0"/>
+                                                        </h4>
+                                                    </div>
+                                                </div>
+                                            </t>
+                                        </div>
+                                    </t>
+                                </t>
+                            </div>
+                        </t>
 
                         <!-- Recent Activity & System Logs -->
                         <div class="mcp-card bg-white border rounded-4 p-4 shadow-sm mb-4">
