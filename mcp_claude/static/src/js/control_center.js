@@ -1652,6 +1652,53 @@ export class MCPControlCenter extends Component {
         return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
     }
 
+    getLocalhostClaudeJson() {
+        const localUrl = (this.state.serverUrl || "http://localhost:8069") + "/mcp";
+        return JSON.stringify({
+            mcpServers: {
+                "odoo": {
+                    "command": "npx",
+                    "args": [
+                        "-y",
+                        "mcp-remote",
+                        localUrl
+                    ]
+                }
+            }
+        }, null, 2);
+    }
+
+    getLiveBaseUrl() {
+        if (this.state.envInfo && this.state.envInfo.base_url && !this.state.envInfo.is_localhost) {
+            return this.state.envInfo.base_url;
+        }
+        const origin = window.location.origin;
+        if (origin.startsWith("https://") && !origin.includes("localhost") && !origin.includes("127.0.0.1")) {
+            return origin;
+        }
+        return "https://your-domain.example";
+    }
+
+    getLiveMcpEndpoint() {
+        return this.getLiveBaseUrl() + "/mcp";
+    }
+
+    getLiveClaudeJson() {
+        const liveUrl = this.getLiveMcpEndpoint();
+        return JSON.stringify({
+            mcpServers: {
+                "odoo": {
+                    "command": "npx",
+                    "args": [
+                        "-y",
+                        "mcp-remote",
+                        liveUrl
+                    ]
+                }
+            }
+        }, null, 2);
+    }
+
     setToolsOperationFilter(op) {
         this.state.toolsOperationFilter = op || "all";
         localStorage.setItem("mcp_tools_op_filter", this.state.toolsOperationFilter);
