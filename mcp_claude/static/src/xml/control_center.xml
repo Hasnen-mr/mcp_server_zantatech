@@ -622,34 +622,34 @@
                                 <div class="row g-3 align-items-center">
                                     <div class="col-md-4 border-end-md">
                                         <div class="d-flex align-items-center gap-3">
-                                            <div class="p-2 bg-success-subtle text-success rounded-circle">
+                                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-success-subtle text-success shadow-sm" style="width: 40px; height: 40px; min-width: 40px;">
                                                 <i class="fa fa-check-circle fs-5"/>
                                             </div>
-                                            <div>
-                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px;">1. System Status</small>
-                                                <strong class="text-dark small">AI Active &amp; Ready</strong>
+                                            <div class="flex-grow-1 min-w-0">
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">1. System Status</small>
+                                                <strong class="text-dark small d-block text-truncate">AI Active &amp; Ready</strong>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-4 border-end-md">
                                         <div class="d-flex align-items-center gap-3">
-                                            <div class="p-2 bg-primary-subtle text-primary rounded-circle">
+                                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-primary-subtle text-primary shadow-sm" style="width: 40px; height: 40px; min-width: 40px;">
                                                 <i class="fa fa-bolt fs-5"/>
                                             </div>
-                                            <div>
-                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px;">2. Active AI Engine</small>
-                                                <strong class="text-dark small" t-esc="state.configForm.ai_provider === 'openai' ? 'OpenAI GPT-4o' : 'Anthropic Claude 3.5'"/>
+                                            <div class="flex-grow-1 min-w-0">
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">2. Active AI Engine</small>
+                                                <strong class="text-dark small d-block text-truncate" t-esc="state.configForm.ai_provider === 'openai' ? 'OpenAI GPT-4o' : 'Anthropic Claude 3.5'"/>
                                             </div>
                                         </div>
                                     </div>
                                     <div class="col-md-4">
                                         <div class="d-flex align-items-center gap-3">
-                                            <div class="p-2 bg-info-subtle text-info rounded-circle">
+                                            <div class="rounded-circle d-flex align-items-center justify-content-center flex-shrink-0 bg-info-subtle text-info shadow-sm" style="width: 40px; height: 40px; min-width: 40px;">
                                                 <i class="fa fa-shield fs-5"/>
                                             </div>
-                                            <div>
-                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px;">3. Safety Access Level</small>
-                                                <strong class="text-dark small" t-esc="this.getActivePresetKey() === 'read_only' ? 'Read-Only Access' : (this.getActivePresetKey() === 'full_access' ? 'Full Access' : 'Standard Assist Access')"/>
+                                            <div class="flex-grow-1 min-w-0">
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px; letter-spacing: 0.5px;">3. Safety Access Level</small>
+                                                <strong class="text-dark small d-block text-truncate" t-esc="this.getActivePresetKey() === 'read_only' ? 'Read-Only Access' : (this.getActivePresetKey() === 'full_access' ? 'Full Access' : 'Standard Assist Access')"/>
                                             </div>
                                         </div>
                                     </div>

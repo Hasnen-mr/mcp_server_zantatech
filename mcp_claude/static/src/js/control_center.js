@@ -1644,6 +1644,14 @@ export class MCPControlCenter extends Component {
         });
     }
 
+    get isLocalhostHost() {
+        if (this.state.envInfo && typeof this.state.envInfo.is_localhost === "boolean") {
+            return this.state.envInfo.is_localhost;
+        }
+        const host = window.location.hostname;
+        return host === "localhost" || host === "127.0.0.1" || host === "::1" || host.endsWith(".local");
+    }
+
     setToolsOperationFilter(op) {
         this.state.toolsOperationFilter = op || "all";
         localStorage.setItem("mcp_tools_op_filter", this.state.toolsOperationFilter);
