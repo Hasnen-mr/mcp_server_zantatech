@@ -56,7 +56,7 @@
                 <field name="key_prefix"/>
                 <filter string="Active" name="active" domain="[('active', '=', True)]"/>
                 <filter string="Revoked" name="revoked" domain="[('active', '=', False)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="User" name="group_user" context="{'group_by': 'user_id'}"/>
                 </group>
             </search>

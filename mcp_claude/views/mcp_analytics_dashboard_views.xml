@@ -81,7 +81,7 @@
                 <field name="category"/>
                 <field name="description"/>
                 <filter string="Favorites" name="filter_favorites" domain="[('is_favorite', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Category" name="group_category" context="{'group_by': 'category'}"/>
                     <filter string="Created By" name="group_user" context="{'group_by': 'user_id'}"/>
                 </group>

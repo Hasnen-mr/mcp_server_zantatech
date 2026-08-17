@@ -89,7 +89,7 @@
                 <field name="profile"/>
                 <filter string="OAuth Enabled" name="enable_oauth" domain="[('enable_oauth', '=', True)]"/>
                 <filter string="API Keys Enabled" name="enable_api_keys" domain="[('enable_api_keys', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Profile" name="group_profile" context="{'group_by': 'profile'}"/>
                 </group>
             </search>

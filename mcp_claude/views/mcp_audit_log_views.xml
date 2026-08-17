@@ -57,7 +57,7 @@
                 <field name="user_id"/>
                 <filter string="Success" name="success" domain="[('status', '=', 'success')]"/>
                 <filter string="Error" name="error" domain="[('status', '=', 'error')]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Tool Name" name="group_tool" context="{'group_by': 'tool_name'}"/>
                     <filter string="Model Name" name="group_model" context="{'group_by': 'model_name'}"/>
                     <filter string="User" name="group_user" context="{'group_by': 'user_id'}"/>

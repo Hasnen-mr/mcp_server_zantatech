@@ -58,7 +58,7 @@
                 <field name="risk_level"/>
                 <filter string="Requires Approval" name="requires_approval" domain="[('requires_approval', '=', True)]"/>
                 <filter string="Active" name="active" domain="[('active', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Category" name="group_category" context="{'group_by': 'category'}"/>
                     <filter string="Risk Level" name="group_risk" context="{'group_by': 'risk_level'}"/>
                 </group>

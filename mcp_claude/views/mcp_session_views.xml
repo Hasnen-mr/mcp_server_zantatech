@@ -46,7 +46,7 @@
                 <field name="user_id"/>
                 <field name="client_name"/>
                 <filter string="Active Sessions" name="active" domain="[('active', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="User" name="group_user" context="{'group_by': 'user_id'}"/>
                     <filter string="Client App" name="group_client" context="{'group_by': 'client_name'}"/>
                 </group>
