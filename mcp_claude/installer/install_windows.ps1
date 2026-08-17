@@ -334,7 +334,7 @@ if ($odooConf) {
 }
 
 # --- Step 4: install Python dependencies --------------------------------------
-Write-Info "Step 4/4 - Installing Python dependencies (PyJWT, requests, cryptography)..."
+Write-Info "Step 4/4 - Installing Python dependencies (PyJWT, requests, cryptography, jsonschema)..."
 
 $pythonCandidates = @(
     $env:ODOO_PYTHON,
@@ -363,13 +363,13 @@ if ($pythonBin) {
     if ($NonInteractive) {
         $doPip = "Y"
     } else {
-        $doPip = Read-Host "Install required Python dependencies (PyJWT, requests, cryptography)? [Y/n]"
+        $doPip = Read-Host "Install required Python dependencies (PyJWT, requests, cryptography, jsonschema)? [Y/n]"
     }
     if ($doPip -notmatch '^[Nn]$') {
         $oldEAP = $ErrorActionPreference
         $ErrorActionPreference = "Continue"
         try {
-            & $pythonBin -m pip install --quiet PyJWT requests cryptography
+            & $pythonBin -m pip install --quiet PyJWT requests cryptography jsonschema
             Write-Ok "Python packages installed successfully!"
         } catch {
             Write-Note "Pip execution completed."

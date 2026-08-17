@@ -271,7 +271,7 @@ else
 fi
 
 # ── Step 4: install Python dependencies ──────────────────────────────────────
-info "Step 4/4 — Installing Python dependencies (PyJWT, requests, cryptography)..."
+info "Step 4/4 — Installing Python dependencies (PyJWT, requests, cryptography, jsonschema)..."
 
 if [[ -f "$SELECTED/docker-compose.yml" ]] && command -v docker >/dev/null 2>&1; then
   warn "Detected Docker Compose Odoo — installing dependencies inside container."
@@ -279,7 +279,7 @@ if [[ -f "$SELECTED/docker-compose.yml" ]] && command -v docker >/dev/null 2>&1;
     cd "$SELECTED"
     export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT_NAME:-local-dev}"
     docker compose exec -u root -T odoo bash -lc \
-      'pip3 install --break-system-packages PyJWT requests cryptography 2>/dev/null || pip3 install PyJWT requests cryptography'
+      'pip3 install --break-system-packages PyJWT requests cryptography jsonschema 2>/dev/null || pip3 install PyJWT requests cryptography jsonschema'
   )
   ok "Python packages installed in Odoo container"
 else
@@ -299,11 +299,11 @@ else
     echo "Using: $PYTHON_BIN ($("$PYTHON_BIN" --version 2>&1))"
     read -r -p "Install dependencies with this Python? [Y/n]: " do_pip
     if [[ ! "${do_pip:-Y}" =~ ^[Nn]$ ]]; then
-      "$PYTHON_BIN" -m pip install PyJWT requests cryptography
+      "$PYTHON_BIN" -m pip install PyJWT requests cryptography jsonschema
       ok "Python packages installed successfully!"
     fi
   else
-    warn "Python environment not auto-detected. Ensure 'PyJWT', 'requests', and 'cryptography' packages are installed."
+    warn "Python environment not auto-detected. Ensure 'PyJWT', 'requests', 'cryptography', and 'jsonschema' packages are installed."
   fi
 fi
 
