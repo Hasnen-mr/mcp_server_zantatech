@@ -70,32 +70,42 @@ class MCPApiKey(models.Model):
         })
         
         # Log Audit Trail
-        self.env['mcp.audit.log'].sudo().create({
-            "name": f"Generated Token: {name}",
-            "res_model": "mcp.api.key",
-            "res_id": record.id,
-            "action_type": "create",
-            "user_id": self.env.user.id
-        })
+        try:
+            self.env['mcp.audit.log'].sudo().create({
+                "tool_name": f"Generated Token: {name}",
+                "model_name": "mcp.api.key",
+                "action_type": "create",
+                "status": "success",
+                "user_id": self.env.user.id if self.env.user else 2
+            })
+        except Exception as err:
+            _logger.warning("Audit log creation exception: %s", err)
 
-        return raw_token, record
+        return raw_token, record.id
 
     def action_revoke(self):
         """Revokes token and immediately terminates all linked active sessions."""
+        user_ids = self.mapped('user_id.id')
+        if user_ids:
+            sessions = self.env['mcp.session'].sudo().search([('user_id', 'in', user_ids), ('active', '=', True)])
+            sessions.write({'active': False, 'status': 'disconnected'})
+
         for rec in self:
             rec.active = False
-            # Terminate active sessions
-            sessions = self.env['mcp.session'].search([('user_id', '=', rec.user_id.id), ('state', '=', 'active')])
-            sessions.write({'state': 'revoked'})
-            
             # Audit Log
-            self.env['mcp.audit.log'].sudo().create({
-                "name": f"Revoked Token: {rec.name}",
-                "res_model": "mcp.api.key",
-                "res_id": rec.id,
-                "action_type": "delete",
-                "user_id": self.env.user.id
-            })
+            try:
+                self.env['mcp.audit.log'].sudo().create({
+                    "tool_name": f"Revoked Token: {rec.name}",
+                    "model_name": "mcp.api.key",
+                    "record_id": rec.id,
+                    "action_type": "delete",
+                    "status": "success",
+                    "user_id": self.env.user.id if self.env.user else 2
+                })
+            except Exception as err:
+                _logger.warning("Audit log creation exception in action_revoke: %s", err)
+
+        return True
 
     @api.model
     def action_revoke_all_user_tokens(self, user_id=None):

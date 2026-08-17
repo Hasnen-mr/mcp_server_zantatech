@@ -8,3 +8,4 @@ from . import registry
 from . import schema
 from . import permissions
 from . import hooks
+from .hooks import post_init_hook
