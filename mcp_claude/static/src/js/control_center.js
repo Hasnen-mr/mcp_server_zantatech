@@ -1684,8 +1684,7 @@ export class MCPControlCenter extends Component {
                             args: [bridgePath],
                             env: {
                                 ODOO_URL: this.state.envInfo.base_url || "http://localhost:8069",
-                                ODOO_DB: "odoo18",
-                                ODOO_TOKEN: "mcp_live_default"
+                                ODOO_DB: "odoo18"
                             }
                         }
                     }
@@ -1708,8 +1707,7 @@ export class MCPControlCenter extends Component {
                             args: [bridgePath],
                             env: {
                                 ODOO_URL: this.state.envInfo.base_url || "http://localhost:8069",
-                                ODOO_DB: "odoo18",
-                                ODOO_TOKEN: "mcp_live_default"
+                                ODOO_DB: "odoo18"
                             }
                         }
                     }
@@ -1732,8 +1730,7 @@ export class MCPControlCenter extends Component {
                             args: ["/path/to/mcp_claude/bin/mcp_bridge.py"],
                             env: {
                                 ODOO_URL: this.state.envInfo.base_url || "https://your-odoo-domain.com",
-                                ODOO_DB: "odoo18",
-                                ODOO_TOKEN: "mcp_live_default"
+                                ODOO_DB: "odoo18"
                             }
                         }
                     }
