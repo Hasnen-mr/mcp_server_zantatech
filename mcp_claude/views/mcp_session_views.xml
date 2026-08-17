@@ -46,7 +46,7 @@
                 <field name="user_id"/>
                 <field name="client_name"/>
                 <filter string="Active Sessions" name="active" domain="[('active', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="User" name="group_user" context="{'group_by': 'user_id'}"/>
                     <filter string="Client App" name="group_client" context="{'group_by': 'client_name'}"/>
                 </group>
@@ -57,7 +57,7 @@
     <record id="action_mcp_session" model="ir.actions.act_window">
         <field name="name">Active Sessions</field>
         <field name="res_model">mcp.session</field>
-        <field name="view_mode">tree,form</field>
+        <field name="view_mode">list,form</field>
         <field name="search_view_id" ref="view_mcp_session_search"/>
         <field name="help" type="html">
             <p class="o_view_nocontent_smiling_face">

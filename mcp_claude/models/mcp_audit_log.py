@@ -14,6 +14,7 @@ class MCPAuditLog(models.Model):
     response_summary = fields.Text(string="Response Summary")
     error_message = fields.Text(string="Error Message")
     execution_time_ms = fields.Float(string="Execution Time (ms)")
+    record_id = fields.Integer(string="Record ID")
     status = fields.Selection([
         ('success', 'Success'),
         ('error', 'Error'),
