@@ -49,7 +49,7 @@
                 <field name="name"/>
                 <field name="client_id"/>
                 <filter string="Active" name="active" domain="[('active', '=', True)]"/>
-                <group expand="0" string="Group By">
+                <group>
                     <filter string="Client Type" name="group_type" context="{'group_by': 'client_type'}"/>
                 </group>
             </search>
