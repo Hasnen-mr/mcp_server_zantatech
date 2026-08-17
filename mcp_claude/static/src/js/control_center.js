@@ -114,6 +114,8 @@ export class MCPControlCenter extends Component {
             },
             
             showOAuthSecret: false,
+            showAdvancedConnection: false,
+            showAdvancedSecurity: false,
             revealedSecretValue: "••••••••••••••••",
 
             showConnectWizard: false,
@@ -186,7 +188,7 @@ export class MCPControlCenter extends Component {
                 { id: "hr", name: "Employees", model: "hr.employee", icon: "fa-users", read: true, create: false, write: false, delete: false, active: false },
                 { id: "purchase", name: "Purchase", model: "purchase.order", icon: "fa-truck", read: true, create: false, write: false, delete: false, active: true },
                 { id: "project", name: "Project", model: "project.task", icon: "fa-tasks", read: true, create: false, write: false, delete: false, active: true },
-                { id: "twilio", name: "Twilio", model: "twilio.call.log", icon: "fa-phone", read: true, create: true, write: true, delete: false, active: true },
+                { id: "twilio", name: "Twilio Dialer", model: "twilio.call.log", icon: "fa-phone", read: true, create: true, write: true, delete: false, active: true },
             ],
 
             stats: {
@@ -434,6 +436,105 @@ export class MCPControlCenter extends Component {
         if (!Array.isArray(this.state.auditLogs)) return 0;
         const models = new Set(this.state.auditLogs.map(l => l.model_name).filter(Boolean));
         return models.size;
+    }
+
+    toggleAdvancedConnection() {
+        this.state.showAdvancedConnection = !this.state.showAdvancedConnection;
+    }
+
+    toggleAdvancedSecurity() {
+        this.state.showAdvancedSecurity = !this.state.showAdvancedSecurity;
+    }
+
+    getAppInfo(modelName) {
+        const key = (modelName || '').toLowerCase().trim();
+        const map = {
+            'sale.order': { name: 'Sales', subtext: 'Quotes & Orders', model: 'sale.order', icon: 'fa-shopping-cart' },
+            'sale': { name: 'Sales', subtext: 'Quotes & Orders', model: 'sale.order', icon: 'fa-shopping-cart' },
+
+            'crm.lead': { name: 'CRM', subtext: 'Leads & Opportunities', model: 'crm.lead', icon: 'fa-handshake-o' },
+            'crm': { name: 'CRM', subtext: 'Leads & Opportunities', model: 'crm.lead', icon: 'fa-handshake-o' },
+
+            'res.partner': { name: 'Contacts', subtext: 'Customers & Vendors', model: 'res.partner', icon: 'fa-address-book' },
+            'partner': { name: 'Contacts', subtext: 'Customers & Vendors', model: 'res.partner', icon: 'fa-address-book' },
+
+            'account.move': { name: 'Invoicing', subtext: 'Invoices & Payments', model: 'account.move', icon: 'fa-calculator' },
+            'account': { name: 'Invoicing', subtext: 'Invoices & Payments', model: 'account.move', icon: 'fa-calculator' },
+
+            'stock.picking': { name: 'Inventory', subtext: 'Transfers & Stock', model: 'stock.picking', icon: 'fa-cubes' },
+            'stock': { name: 'Inventory', subtext: 'Transfers & Stock', model: 'stock.picking', icon: 'fa-cubes' },
+
+            'purchase.order': { name: 'Purchase', subtext: 'Orders & Vendor Bills', model: 'purchase.order', icon: 'fa-truck' },
+            'purchase': { name: 'Purchase', subtext: 'Orders & Vendor Bills', model: 'purchase.order', icon: 'fa-truck' },
+
+            'project.task': { name: 'Project', subtext: 'Tasks & Milestones', model: 'project.task', icon: 'fa-tasks' },
+            'project': { name: 'Project', subtext: 'Tasks & Milestones', model: 'project.task', icon: 'fa-tasks' },
+
+            'hr.employee': { name: 'Employees', subtext: 'Staff Directory', model: 'hr.employee', icon: 'fa-users' },
+            'hr': { name: 'Employees', subtext: 'Staff Directory', model: 'hr.employee', icon: 'fa-users' },
+
+            'product.template': { name: 'Products', subtext: 'Catalog & Variants', model: 'product.template', icon: 'fa-cubes' },
+            'product.product': { name: 'Products', subtext: 'Product Variants', model: 'product.product', icon: 'fa-cube' },
+            'product': { name: 'Products', subtext: 'Catalog & Variants', model: 'product.template', icon: 'fa-cubes' },
+
+            'twilio.call.log': { name: 'Twilio Dialer', subtext: 'Call Logs', model: 'twilio.call.log', icon: 'fa-phone' },
+            'twilio': { name: 'Twilio Dialer', subtext: 'Call Logs', model: 'twilio.call.log', icon: 'fa-phone' },
+
+            'mcp.tool': { name: 'MCP Tools', subtext: 'Custom Tools Registry', model: 'mcp.tool', icon: 'fa-wrench' }
+        };
+        if (map[key]) return map[key];
+
+        if (!key) return { name: 'General', subtext: 'System Module', model: '', icon: 'fa-cog' };
+        const cleanName = key.split('.').pop().replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+        return { name: cleanName, subtext: key, model: key, icon: 'fa-folder' };
+    }
+
+    getModelLabel(modelName) {
+        return this.getAppInfo(modelName).name;
+    }
+
+    getModelSubtext(modelName) {
+        return this.getAppInfo(modelName).subtext;
+    }
+
+    getModelTechBadge(modelName) {
+        if (!modelName) return '';
+        return `(${modelName})`;
+    }
+
+    getFriendlyActionBadge(actionType) {
+        const type = (actionType || '').toLowerCase();
+        if (type.includes('tool_created') || type.includes('tool_registered')) {
+            return { label: 'Tool Registered', class: 'bg-success-subtle text-success border-success' };
+        } else if (type.includes('record_created') || type.includes('create')) {
+            return { label: 'Record Created', class: 'bg-primary-subtle text-primary border-primary' };
+        } else if (type.includes('record_updated') || type.includes('write') || type.includes('update')) {
+            return { label: 'Record Edited', class: 'bg-info-subtle text-info border-info' };
+        } else if (type.includes('record_deleted') || type.includes('unlink') || type.includes('delete')) {
+            return { label: 'Record Deleted', class: 'bg-danger-subtle text-danger border-danger' };
+        } else if (type.includes('tool_disabled') || type.includes('pause')) {
+            return { label: 'Tool Paused', class: 'bg-warning-subtle text-warning border-warning' };
+        } else if (type.includes('tool_enabled') || type.includes('active')) {
+            return { label: 'Tool Active', class: 'bg-success-subtle text-success border-success' };
+        }
+        return { label: actionType || 'System Event', class: 'bg-secondary-subtle text-secondary border-secondary' };
+    }
+
+    getActivePresetKey() {
+        const apps = this.state.odooAppsPermissions || [];
+        if (apps.length === 0) return 'custom';
+        const allReadOnly = apps.every(a => a.read && !a.create && !a.write && !a.delete);
+        if (allReadOnly) return 'read_only';
+        const allFull = apps.every(a => a.read && a.create && a.write && a.delete);
+        if (allFull) return 'full_access';
+        const isStandard = apps.every(a => {
+            if (['partner', 'crm', 'sale', 'project'].includes(a.id)) {
+                return a.read && a.create && a.write && !a.delete;
+            }
+            return a.read && !a.create && !a.write && !a.delete;
+        });
+        if (isStandard) return 'standard';
+        return 'custom';
     }
 
     toggleThemeMode() {

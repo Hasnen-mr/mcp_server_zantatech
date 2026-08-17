@@ -42,12 +42,13 @@ class MCPOAuthController(http.Controller):
         primary_redirect_uri = redirect_uris[0] if redirect_uris else 'claude://claude.ai/mcp-auth-callback/sdk'
         redirect_uris_str = ",".join(redirect_uris) if redirect_uris else primary_redirect_uri
 
-        raw_secret, client_rec = request.env['mcp.oauth.client'].sudo().create_oauth_client(
+        raw_secret, client_id = request.env['mcp.oauth.client'].sudo().create_oauth_client(
             name=client_name,
             redirect_uri=primary_redirect_uri
         )
-
-        client_rec.sudo().write({'redirect_uris': redirect_uris_str})
+        client_rec = request.env['mcp.oauth.client'].sudo().browse(client_id)
+        if redirect_uris_str:
+            client_rec.sudo().write({'redirect_uris': redirect_uris_str})
 
         response_payload = {
             "client_id": client_rec.client_id,

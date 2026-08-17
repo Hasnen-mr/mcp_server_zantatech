@@ -8,7 +8,7 @@ Idiomatic Odoo AbstractModel service pattern.
 
 import logging
 from odoo import models, fields, api
-from ..utils.crypto import compare_digests, generate_random_secret
+from ..utils.crypto import generate_random_secret
 from ..services.rate_limiter import RateLimiter
 
 _logger = logging.getLogger(__name__)

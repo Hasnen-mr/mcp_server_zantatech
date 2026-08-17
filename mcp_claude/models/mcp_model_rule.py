@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 from odoo import models, fields, api
-from odoo.exceptions import UserError
 
 class MCPModelRule(models.Model):
     _name = 'mcp.model.rule'
@@ -18,26 +17,37 @@ class MCPModelRule(models.Model):
     def get_app_permissions(self):
         """Backend-driven App Permission Resolution"""
         apps_config = [
-            {"id": "sale", "name": "Sales (sale.order)", "model": "sale.order", "icon": "fa-shopping-cart", "active": True},
-            {"id": "account", "name": "Invoicing & Accounting (account.move)", "model": "account.move", "icon": "fa-calculator", "active": True},
-            {"id": "stock", "name": "Inventory & Warehouses (stock.picking)", "model": "stock.picking", "icon": "fa-cubes", "active": True},
-            {"id": "crm", "name": "CRM & Opportunities (crm.lead)", "model": "crm.lead", "icon": "fa-handshake-o", "active": True},
-            {"id": "partner", "name": "Contacts & Customers (res.partner)", "model": "res.partner", "icon": "fa-address-book", "active": True},
-            {"id": "hr", "name": "Employees & HR (hr.employee)", "model": "hr.employee", "icon": "fa-users", "active": False},
-            {"id": "purchase", "name": "Purchase Orders (purchase.order)", "model": "purchase.order", "icon": "fa-truck", "active": True},
-            {"id": "project", "name": "Projects & Tasks (project.task)", "model": "project.task", "icon": "fa-tasks", "active": True},
+            {"id": "sale", "name": "Sales", "model": "sale.order", "icon": "fa-shopping-cart", "active": True},
+            {"id": "account", "name": "Invoicing", "model": "account.move", "icon": "fa-calculator", "active": True},
+            {"id": "stock", "name": "Inventory", "model": "stock.picking", "icon": "fa-cubes", "active": True},
+            {"id": "crm", "name": "CRM", "model": "crm.lead", "icon": "fa-handshake-o", "active": True},
+            {"id": "partner", "name": "Contacts", "model": "res.partner", "icon": "fa-address-book", "active": True},
+            {"id": "hr", "name": "Employees", "model": "hr.employee", "icon": "fa-users", "active": False},
+            {"id": "purchase", "name": "Purchase", "model": "purchase.order", "icon": "fa-truck", "active": True},
+            {"id": "project", "name": "Project", "model": "project.task", "icon": "fa-tasks", "active": True},
+            {"id": "twilio", "name": "Twilio Dialer", "model": "twilio.call.log", "icon": "fa-phone", "active": True},
         ]
-        
+
+        # Batch query ir.model records for all configured app models in a single query
+        target_models = [app["model"] for app in apps_config]
+        model_recs = self.env['ir.model'].sudo().search([('model', 'in', target_models)])
+        model_id_by_name = {m.model: m.id for m in model_recs}
+
+        # Batch query mcp.model.rule records for all found model IDs in a single query
+        rule_by_model_id = {}
+        if model_recs:
+            rules = self.sudo().search([('model_id', 'in', model_recs.ids)])
+            rule_by_model_id = {r.model_id.id: r for r in rules}
+
         result = []
         for app in apps_config:
-            model_rec = self.env['ir.model'].sudo().search([('model', '=', app['model'])], limit=1)
-            rule = None
-            if model_rec:
-                rule = self.sudo().search([('model_id', '=', model_rec.id)], limit=1)
-            
+            model_id = model_id_by_name.get(app['model'])
+            rule = rule_by_model_id.get(model_id) if model_id else None
+
             result.append({
                 "id": app["id"],
                 "name": app["name"],
+                "model": app["model"],
                 "icon": app["icon"],
                 "read": rule.allow_read if rule else True,
                 "create": rule.allow_create if rule else False,

@@ -32,8 +32,8 @@
                         </span>
                     </t>
                     <t t-if="state.isHttp">
-                        <div class="mcp-security-warning-pill me-2" title="Unencrypted HTTP connection detected">
-                            <i class="fa fa-exclamation-triangle text-warning me-1"/> HTTP Unencrypted
+                        <div class="badge bg-light text-secondary border me-2 py-1 px-2" title="Running on HTTP (Local Development Mode active)">
+                            <i class="fa fa-info-circle text-primary me-1"/> HTTP Dev Mode
                         </div>
                     </t>
                     <button class="btn btn-sm btn-outline-secondary me-2" t-on-click="toggleThemeMode" title="Toggle Light/Dark Theme">
@@ -617,6 +617,45 @@
                                 <p class="text-muted small mb-0">Manage how Claude connects to Odoo, what it can access, and which services it can use.</p>
                             </div>
 
+                            <!-- Non-Technical 3-Question AI Readiness Status Banner -->
+                            <div class="mcp-card bg-white border rounded-4 shadow-sm p-3 mb-4" style="border-left: 4px solid #28A745 !important;">
+                                <div class="row g-3 align-items-center">
+                                    <div class="col-md-4 border-end-md">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="p-2 bg-success-subtle text-success rounded-circle">
+                                                <i class="fa fa-check-circle fs-5"/>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px;">1. System Status</small>
+                                                <strong class="text-dark small">AI Active &amp; Ready</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4 border-end-md">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="p-2 bg-primary-subtle text-primary rounded-circle">
+                                                <i class="fa fa-bolt fs-5"/>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px;">2. Active AI Engine</small>
+                                                <strong class="text-dark small" t-esc="state.configForm.ai_provider === 'openai' ? 'OpenAI GPT-4o' : 'Anthropic Claude 3.5'"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <div class="d-flex align-items-center gap-3">
+                                            <div class="p-2 bg-info-subtle text-info rounded-circle">
+                                                <i class="fa fa-shield fs-5"/>
+                                            </div>
+                                            <div>
+                                                <small class="text-muted d-block fw-bold text-uppercase" style="font-size: 10px;">3. Safety Access Level</small>
+                                                <strong class="text-dark small" t-esc="this.getActivePresetKey() === 'read_only' ? 'Read-Only Access' : (this.getActivePresetKey() === 'full_access' ? 'Full Access' : 'Standard Assist Access')"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
                             <!-- 4 Administrator Overview Summary Cards Grid -->
                             <div class="row g-3 mb-4">
                                 <div class="col-md-6 col-lg-3">
@@ -756,77 +795,86 @@
 
                             <!-- Historical Permission Presets Card -->
                             <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
-                                <div class="mb-3">
-                                    <h5 class="fw-bold text-dark mb-1"><i class="fa fa-sliders text-primary me-2"/>Permission Presets</h5>
-                                    <small class="text-muted">Choose a starting permission level. You can customize individual application permissions afterwards.</small>
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                    <div>
+                                        <h5 class="fw-bold text-dark mb-1"><i class="fa fa-sliders text-primary me-2"/>Permission Presets</h5>
+                                        <small class="text-muted">Choose a starting permission level. You can customize individual application permissions afterwards.</small>
+                                    </div>
+                                    <t t-if="this.getActivePresetKey() === 'custom'">
+                                        <span class="badge bg-info-subtle text-info border border-info px-3 py-1 rounded-pill fw-bold" style="font-size: 11px;">
+                                            <i class="fa fa-sliders me-1"/>Custom Permissions Active
+                                        </span>
+                                    </t>
                                 </div>
                                 <div class="d-flex flex-wrap gap-3">
-                                    <button class="btn btn-mcp-secondary rounded-3 px-3 py-2 d-flex align-items-center gap-2" t-on-click="bulkSetReadOnlyPermissions" title="Set Read &amp; Search permission for all active apps">
-                                        <i class="fa fa-eye text-info fs-6"/>
+                                    <button class="btn rounded-3 px-3 py-2 d-flex align-items-center gap-2 border" t-att-class="this.getActivePresetKey() === 'read_only' ? 'btn-success text-white fw-bold shadow-sm' : 'btn-mcp-secondary'" t-on-click="bulkSetReadOnlyPermissions" title="Set View permission for all active apps">
+                                        <i t-att-class="this.getActivePresetKey() === 'read_only' ? 'fa fa-check-circle text-white fs-6' : 'fa fa-eye text-info fs-6'"/>
                                         <div class="text-start">
                                             <div class="fw-bold" style="font-size: 13px;">Read-Only Preset</div>
-                                            <small class="text-muted" style="font-size: 11px;">Search &amp; view records only</small>
+                                            <small t-att-class="this.getActivePresetKey() === 'read_only' ? 'text-white-50' : 'text-muted'" style="font-size: 11px;">Search &amp; view records only</small>
                                         </div>
                                     </button>
-                                    <button class="btn btn-mcp-secondary rounded-3 px-3 py-2 d-flex align-items-center gap-2" t-on-click="bulkSetStandardPermissions" title="Grant Read, Create &amp; Edit across active apps">
-                                        <i class="fa fa-edit text-success fs-6"/>
+                                    <button class="btn rounded-3 px-3 py-2 d-flex align-items-center gap-2 border" t-att-class="this.getActivePresetKey() === 'standard' ? 'btn-success text-white fw-bold shadow-sm' : 'btn-mcp-secondary'" t-on-click="bulkSetStandardPermissions" title="Grant View, Create &amp; Edit across active apps">
+                                        <i t-att-class="this.getActivePresetKey() === 'standard' ? 'fa fa-check-circle text-white fs-6' : 'fa fa-edit text-success fs-6'"/>
                                         <div class="text-start">
                                             <div class="fw-bold" style="font-size: 13px;">Standard Preset</div>
-                                            <small class="text-muted" style="font-size: 11px;">Read, Create &amp; Edit records</small>
+                                            <small t-att-class="this.getActivePresetKey() === 'standard' ? 'text-white-50' : 'text-muted'" style="font-size: 11px;">View, Create &amp; Edit records</small>
                                         </div>
                                     </button>
-                                    <button class="btn btn-mcp-secondary rounded-3 px-3 py-2 d-flex align-items-center gap-2" t-on-click="bulkSetFullAccessPermissions" title="Grant Read, Create, Write, Delete across all apps">
-                                        <i class="fa fa-unlock text-warning fs-6"/>
+                                    <button class="btn rounded-3 px-3 py-2 d-flex align-items-center gap-2 border" t-att-class="this.getActivePresetKey() === 'full_access' ? 'btn-success text-white fw-bold shadow-sm' : 'btn-mcp-secondary'" t-on-click="bulkSetFullAccessPermissions" title="Grant View, Create, Edit &amp; Delete across all apps">
+                                        <i t-att-class="this.getActivePresetKey() === 'full_access' ? 'fa fa-check-circle text-white fs-6' : 'fa fa-unlock text-warning fs-6'"/>
                                         <div class="text-start">
                                             <div class="fw-bold" style="font-size: 13px;">Full Access Preset</div>
-                                            <small class="text-muted" style="font-size: 11px;">Full CRUD access across all apps</small>
+                                            <small t-att-class="this.getActivePresetKey() === 'full_access' ? 'text-white-50' : 'text-muted'" style="font-size: 11px;">Full access across all apps</small>
                                         </div>
                                     </button>
                                 </div>
                             </div>
 
-                            <!-- Odoo Applications CRUD Toggles Section -->
+                            <!-- Odoo Applications Access Section -->
                             <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
                                 <div class="d-flex align-items-center justify-content-between mb-3">
                                     <div>
                                         <h5 class="fw-bold text-dark mb-1"><i class="fa fa-cubes text-primary me-2"/>Odoo Application Access</h5>
-                                        <small class="text-muted">Enable or disable specific CRUD operations for each application module.</small>
+                                        <small class="text-muted">Control what operations Claude can perform for each Odoo application.</small>
                                     </div>
                                 </div>
 
                                 <div class="d-flex flex-column gap-3">
                                     <t t-foreach="state.odooAppsPermissions" t-as="app" t-key="app.id">
                                         <div class="p-3 border rounded-3 bg-light d-flex align-items-center justify-content-between flex-wrap gap-3">
-                                            <div class="d-flex align-items-center gap-3" style="min-width: 240px;">
+                                            <div class="d-flex align-items-center gap-3" style="min-width: 260px;">
                                                 <div class="p-2 bg-white rounded-circle border shadow-sm text-primary">
                                                     <i t-attf-class="fa #{app.icon || 'fa-folder'} fs-5"/>
                                                 </div>
                                                 <div>
-                                                    <h6 class="fw-bold text-dark mb-0" t-esc="app.name"/>
-                                                    <small class="text-muted font-monospace" style="font-size: 11px;">Model: <t t-esc="app.id"/></small>
+                                                    <h6 class="fw-bold text-dark mb-0" t-esc="this.getModelLabel(app.model || app.id)"/>
+                                                    <small class="text-muted small" style="font-size: 11px;">
+                                                        <t t-esc="this.getModelSubtext(app.model || app.id)"/> · <span class="font-monospace text-secondary"><t t-esc="app.model || this.getAppInfo(app.id).model"/></span>
+                                                    </small>
                                                 </div>
                                             </div>
 
                                             <div class="d-flex align-items-center flex-wrap gap-4">
-                                                <!-- Read / Search Toggle -->
-                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0">
+                                                <!-- View / Read Toggle -->
+                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0" title="Allow viewing and searching records">
                                                     <input class="form-check-input cursor-pointer" type="checkbox" t-att-checked="app.read" t-on-change="() => this.toggleAppPermission(app.id, 'read')"/>
-                                                    <label class="form-check-label small fw-bold text-dark">Read</label>
+                                                    <label class="form-check-label small fw-bold text-dark">View <span class="text-muted fw-normal" style="font-size: 10px;">(Read)</span></label>
                                                 </div>
-                                                <!-- Create Toggle -->
-                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0">
+                                                <!-- Add / Create Toggle -->
+                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0" title="Allow creating new records">
                                                     <input class="form-check-input cursor-pointer" type="checkbox" t-att-checked="app.create" t-on-change="() => this.toggleAppPermission(app.id, 'create')"/>
-                                                    <label class="form-check-label small fw-bold text-dark">Create</label>
+                                                    <label class="form-check-label small fw-bold text-dark">Add <span class="text-muted fw-normal" style="font-size: 10px;">(Create)</span></label>
                                                 </div>
                                                 <!-- Edit / Update Toggle -->
-                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0">
+                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0" title="Allow editing existing records">
                                                     <input class="form-check-input cursor-pointer" type="checkbox" t-att-checked="app.write" t-on-change="() => this.toggleAppPermission(app.id, 'write')"/>
-                                                    <label class="form-check-label small fw-bold text-dark">Edit</label>
+                                                    <label class="form-check-label small fw-bold text-dark">Edit <span class="text-muted fw-normal" style="font-size: 10px;">(Update)</span></label>
                                                 </div>
-                                                <!-- Delete Toggle -->
-                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0">
+                                                <!-- Remove / Delete Toggle -->
+                                                <div class="form-check form-switch d-flex align-items-center gap-2 m-0" title="Allow deleting records">
                                                     <input class="form-check-input cursor-pointer" type="checkbox" t-att-checked="app.delete" t-on-change="() => this.toggleAppPermission(app.id, 'delete')"/>
-                                                    <label class="form-check-label small fw-bold text-danger">Delete</label>
+                                                    <label class="form-check-label small fw-bold text-danger">Remove <span class="text-muted fw-normal" style="font-size: 10px;">(Delete)</span></label>
                                                 </div>
                                             </div>
                                         </div>
@@ -862,7 +910,7 @@
                                                 <button class="btn btn-sm" t-att-class="state.selectedToolCategory === 'crm' ? 'btn-mcp-primary' : 'btn-mcp-secondary'" t-on-click="() => this.state.selectedToolCategory = 'crm'">CRM</button>
                                                 <button class="btn btn-sm" t-att-class="state.selectedToolCategory === 'sales' ? 'btn-mcp-primary' : 'btn-mcp-secondary'" t-on-click="() => this.state.selectedToolCategory = 'sales'">Sales</button>
                                                 <button class="btn btn-sm" t-att-class="state.selectedToolCategory === 'inventory' ? 'btn-mcp-primary' : 'btn-mcp-secondary'" t-on-click="() => this.state.selectedToolCategory = 'inventory'">Inventory</button>
-                                                <button class="btn btn-sm" t-att-class="state.selectedToolCategory === 'accounting' ? 'btn-mcp-primary' : 'btn-mcp-secondary'" t-on-click="() => this.state.selectedToolCategory = 'accounting'">Accounting</button>
+                                                <button class="btn btn-sm" t-att-class="state.selectedToolCategory === 'accounting' ? 'btn-mcp-primary' : 'btn-mcp-secondary'" t-on-click="() => this.state.selectedToolCategory = 'accounting'">Invoicing</button>
                                             </div>
                                         </div>
                                     </div>
@@ -883,7 +931,10 @@
                                                         <p class="text-muted small mb-2" t-esc="tool.description || 'No description provided'"/>
                                                     </div>
                                                     <div class="pt-2 border-top d-flex align-items-center justify-content-between text-muted small">
-                                                        <span class="font-monospace" style="font-size: 10px;" t-esc="tool.model_name || 'N/A'"/>
+                                                        <div>
+                                                            <span class="badge bg-light text-dark border me-1" t-esc="this.getModelLabel(tool.model_name)"/>
+                                                            <small class="text-muted font-monospace" style="font-size: 10px;" t-esc="tool.model_name ? '(' + tool.model_name + ')' : ''"/>
+                                                        </div>
                                                         <button class="btn btn-link btn-sm p-0 text-primary fw-semibold" t-on-click="() => this.openTestToolModal(tool)">Test Tool</button>
                                                     </div>
                                                 </div>
@@ -908,40 +959,9 @@
                                 <p class="text-muted small mb-0">Manage connected AI reasoning engines, communication dialers, and external services.</p>
                             </div>
 
-                            <!-- 1. Twilio Power Dialer Integration Card -->
-                            <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
-                                <div class="d-flex align-items-center justify-content-between mb-3">
-                                    <div class="d-flex align-items-center gap-3">
-                                        <div class="p-2 bg-info-subtle text-info rounded-circle">
-                                            <i class="fa fa-phone fs-4"/>
-                                        </div>
-                                        <div>
-                                            <h5 class="fw-bold text-dark mb-0">Twilio Power Dialer</h5>
-                                            <small class="text-muted">Outbound phone calling and automated call logging integration</small>
-                                        </div>
-                                    </div>
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input cursor-pointer" type="checkbox" id="enableTwilioSwitch" t-model="state.configForm.enable_twilio_dialer"/>
-                                    </div>
-                                </div>
-                                <div class="row g-3 pt-3 border-top">
-                                    <div class="col-md-8">
-                                        <label class="form-label fw-bold">Outgoing Caller ID Phone Number</label>
-                                        <input type="text" class="form-control" t-att-class="state.configForm.twilio_caller_valid ? '' : 'is-invalid'" placeholder="+14155552671 or +919876543210" t-model="state.configForm.twilio_caller_number" t-on-input="validateTwilioNumber"/>
-                                        <small class="text-muted d-block mt-1">E.164 phone number format used when initiating outbound calls.</small>
-                                    </div>
-                                    <div class="col-md-4 d-flex align-items-end">
-                                        <button class="btn btn-mcp-secondary btn-sm w-100" t-on-click="() => this.testProviderConnection('twilio')" t-att-disabled="state.testingProvider === 'twilio'">
-                                            <t t-if="state.testingProvider === 'twilio'"><i class="fa fa-refresh fa-spin me-1"/>Testing...</t>
-                                            <t t-else=""><i class="fa fa-plug me-1"/>Test Twilio Connection</t>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- 2. Anthropic Claude Integration Card -->
-                            <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
-                                <div class="d-flex align-items-center justify-content-between mb-3">
+                            <!-- 1. Anthropic Claude Integration Card (PRIMARY AI ENGINE) -->
+                            <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4" style="border-left: 4px solid #714B67 !important;">
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                                     <div class="d-flex align-items-center gap-3">
                                         <svg class="claude-icon-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                             <path d="M12 2L14.4 8.3L21 9.3L16.2 14L17.3 20.5L12 17.4L6.7 20.5L7.8 14L3 9.3L9.6 8.3L12 2Z" fill="#D97757"/>
@@ -951,7 +971,10 @@
                                             <small class="text-muted">Claude 3.5 Sonnet flagship reasoning engine</small>
                                         </div>
                                     </div>
-                                    <span class="badge bg-success-subtle text-success border border-success px-3 py-1 rounded-pill">Active</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-primary text-white px-3 py-1 rounded-pill fw-bold" style="font-size: 11px;">PRIMARY AI ENGINE (Required)</span>
+                                        <span class="badge bg-success-subtle text-success border border-success px-3 py-1 rounded-pill">Active</span>
+                                    </div>
                                 </div>
                                 <div class="row g-3 pt-3 border-top">
                                     <div class="col-md-7">
@@ -972,9 +995,9 @@
                                 </div>
                             </div>
 
-                            <!-- 3. OpenAI Integration Card -->
+                            <!-- 2. OpenAI Integration Card (OPTIONAL) -->
                             <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
-                                <div class="d-flex align-items-center justify-content-between mb-3">
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
                                     <div class="d-flex align-items-center gap-3">
                                         <div class="p-2 bg-success-subtle text-success rounded-circle">
                                             <i class="fa fa-openai fs-4"/>
@@ -984,7 +1007,10 @@
                                             <small class="text-muted">GPT-4o Omnimodal reasoning engine</small>
                                         </div>
                                     </div>
-                                    <span class="badge bg-light text-dark border px-3 py-1 rounded-pill">Ready</span>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="badge bg-secondary-subtle text-secondary border px-3 py-1 rounded-pill fw-bold" style="font-size: 11px;">OPTIONAL AI PROVIDER</span>
+                                        <span class="badge bg-light text-dark border px-3 py-1 rounded-pill">Ready</span>
+                                    </div>
                                 </div>
                                 <div class="row g-3 pt-3 border-top">
                                     <div class="col-md-7">
@@ -1002,6 +1028,40 @@
                                         <button class="btn btn-mcp-secondary btn-sm" t-on-click="() => this.testProviderConnection('openai')" t-att-disabled="state.testingProvider === 'openai'">
                                             <t t-if="state.testingProvider === 'openai'"><i class="fa fa-refresh fa-spin me-1"/>Testing...</t>
                                             <t t-else=""><i class="fa fa-plug me-1"/>Test OpenAI Connection</t>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- 3. Twilio Power Dialer Integration Card (OPTIONAL) -->
+                            <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
+                                <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                    <div class="d-flex align-items-center gap-3">
+                                        <div class="p-2 bg-info-subtle text-info rounded-circle">
+                                            <i class="fa fa-phone fs-4"/>
+                                        </div>
+                                        <div>
+                                            <h5 class="fw-bold text-dark mb-0">Twilio Power Dialer</h5>
+                                            <small class="text-muted">Outbound phone calling and automated call logging integration</small>
+                                        </div>
+                                    </div>
+                                    <div class="d-flex align-items-center gap-3">
+                                        <span class="badge bg-info-subtle text-info border border-info px-3 py-1 rounded-pill fw-bold" style="font-size: 11px;">OPTIONAL CALLING INTEGRATION</span>
+                                        <div class="form-check form-switch m-0">
+                                            <input class="form-check-input cursor-pointer" type="checkbox" id="enableTwilioSwitch" t-model="state.configForm.enable_twilio_dialer"/>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="row g-3 pt-3 border-top">
+                                    <div class="col-md-8">
+                                        <label class="form-label fw-bold">Outgoing Caller ID Phone Number</label>
+                                        <input type="text" class="form-control" t-att-class="state.configForm.twilio_caller_valid ? '' : 'is-invalid'" placeholder="+14155552671 or +919876543210" t-model="state.configForm.twilio_caller_number" t-on-input="validateTwilioNumber"/>
+                                        <small class="text-muted d-block mt-1">E.164 phone number format used when initiating outbound calls.</small>
+                                    </div>
+                                    <div class="col-md-4 d-flex align-items-end">
+                                        <button class="btn btn-mcp-secondary btn-sm w-100" t-on-click="() => this.testProviderConnection('twilio')" t-att-disabled="state.testingProvider === 'twilio'">
+                                            <t t-if="state.testingProvider === 'twilio'"><i class="fa fa-refresh fa-spin me-1"/>Testing...</t>
+                                            <t t-else=""><i class="fa fa-plug me-1"/>Test Twilio Connection</t>
                                         </button>
                                     </div>
                                 </div>
@@ -1026,7 +1086,10 @@
                             <!-- API Keys Section -->
                             <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
                                 <div class="d-flex align-items-center justify-content-between mb-3">
-                                    <h5 class="fw-bold text-dark mb-0"><i class="fa fa-key text-warning me-2"/>API Access Keys</h5>
+                                    <div>
+                                        <h5 class="fw-bold text-dark mb-0"><i class="fa fa-key text-warning me-2"/>API Access Keys</h5>
+                                        <small class="text-muted">Generate and manage authentication keys used to connect Claude AI to Odoo.</small>
+                                    </div>
                                     <button class="btn btn-sm btn-mcp-primary rounded-pill px-3" t-on-click="openCreateTokenModal">
                                         <i class="fa fa-plus me-1"/>Generate New API Key
                                     </button>
@@ -1045,7 +1108,7 @@
                                         <tbody>
                                             <t t-if="!state.apiKeys || state.apiKeys.length === 0">
                                                 <tr>
-                                                    <td colspan="5" class="text-center text-muted py-4">No active API keys generated yet.</td>
+                                                    <td colspan="5" class="text-center text-muted py-4">No active API keys generated yet. Click "Generate New API Key" above to create one.</td>
                                                 </tr>
                                             </t>
                                             <t t-else="">
@@ -1063,6 +1126,34 @@
                                     </table>
                                 </div>
                             </div>
+
+                            <!-- Expandable Advanced Developer Security Controls (Progressive Disclosure) -->
+                            <details class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
+                                <summary class="fw-bold text-dark cursor-pointer d-flex align-items-center justify-content-between">
+                                    <span><i class="fa fa-lock text-secondary me-2"/>Advanced Security &amp; OAuth 2.0 PKCE Settings</span>
+                                    <span class="badge bg-light text-muted border font-monospace" style="font-size: 11px;">Expand Developer Controls</span>
+                                </summary>
+                                <div class="pt-4 border-top mt-3">
+                                    <div class="mb-3">
+                                        <h6 class="fw-bold text-dark mb-1">OAuth 2.0 Clients &amp; Encryption Parameters</h6>
+                                        <p class="text-muted small mb-0">For advanced developer integrations requiring PKCE client registration or custom secret keys.</p>
+                                    </div>
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded-3 border">
+                                                <small class="text-muted d-block mb-1">Active OAuth PKCE Clients</small>
+                                                <strong class="text-dark"><t t-esc="state.oauthClients ? state.oauthClients.length : 0"/> Registered Clients</strong>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-light rounded-3 border">
+                                                <small class="text-muted d-block mb-1">HMAC Secret Token Status</small>
+                                                <strong class="text-success"><i class="fa fa-shield me-1"/>Encrypted &amp; Protected</strong>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
                         </t>
 
                         <!-- SUB-TAB 5: ACTIVITY (Recent Operations & Audit Trail + Analytics) -->
@@ -1096,9 +1187,9 @@
                                 </div>
                                 <div class="col-md-4">
                                     <div class="mcp-card bg-white border rounded-4 p-3 shadow-sm text-center">
-                                        <div class="text-muted small mb-1">Unique Models Audited</div>
+                                        <div class="text-muted small mb-1">Unique Applications Audited</div>
                                         <h5 class="fw-bold text-dark mb-0">
-                                            <t t-esc="this.getAuditUniqueModelsCount()"/> Target Models
+                                            <t t-esc="this.getAuditUniqueModelsCount()"/> Target Apps
                                         </h5>
                                     </div>
                                 </div>
@@ -1110,9 +1201,9 @@
                                         <thead class="bg-light">
                                             <tr>
                                                 <th>Tool / Operation</th>
-                                                <th>Target Model</th>
-                                                <th>Action Type</th>
-                                                <th>Execution Status</th>
+                                                <th>Target Odoo App</th>
+                                                <th>Action Executed</th>
+                                                <th>Status</th>
                                                 <th>Timestamp</th>
                                             </tr>
                                         </thead>
@@ -1125,11 +1216,16 @@
                                             <t t-else="">
                                                 <t t-foreach="state.auditLogs" t-as="log" t-key="log.id">
                                                     <tr>
-                                                        <td><strong class="font-monospace text-primary" t-esc="log.tool_name || 'System Operation'"/></td>
-                                                        <td><code t-esc="log.model_name || 'N/A'"/></td>
-                                                        <td><span class="badge bg-secondary-subtle text-secondary border font-monospace" style="font-size: 11px;" t-esc="log.action_type || 'tool_created'"/></td>
+                                                        <td><strong class="text-primary" t-esc="log.tool_name || 'System Operation'"/></td>
                                                         <td>
-                                                            <span t-attf-class="badge #{log.status === 'success' ? 'bg-success text-white' : 'bg-warning text-dark'}" t-esc="log.status || 'success'"/>
+                                                            <strong class="text-dark" t-esc="this.getModelLabel(log.model_name)"/>
+                                                            <small class="text-muted font-monospace ms-1" style="font-size: 10px;" t-esc="log.model_name ? '(' + log.model_name + ')' : ''"/>
+                                                        </td>
+                                                        <td>
+                                                            <span t-attf-class="badge #{this.getFriendlyActionBadge(log.action_type).class} border px-2 py-1 rounded-pill" style="font-size: 11px;" t-att-title="log.action_type" t-esc="this.getFriendlyActionBadge(log.action_type).label"/>
+                                                        </td>
+                                                        <td>
+                                                            <span t-attf-class="badge #{log.status === 'success' ? 'bg-success text-white' : 'bg-warning text-dark'}" t-esc="log.status === 'success' ? 'Success' : (log.status || 'Success')"/>
                                                         </td>
                                                         <td class="text-muted small" t-esc="log.create_date"/>
                                                     </tr>
@@ -1203,21 +1299,21 @@
                                                     <div class="col-md-4">
                                                         <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'crm.lead' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('crm.lead')">
                                                             <div class="fs-4 mb-1">🤝</div>
-                                                            <div class="fw-bold text-dark small">CRM Leads</div>
+                                                            <div class="fw-bold text-dark small">CRM</div>
                                                             <code class="extra-small text-muted">crm.lead</code>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'sale.order' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('sale.order')">
                                                             <div class="fs-4 mb-1">🛒</div>
-                                                            <div class="fw-bold text-dark small">Sales Orders</div>
+                                                            <div class="fw-bold text-dark small">Sales</div>
                                                             <code class="extra-small text-muted">sale.order</code>
                                                         </div>
                                                     </div>
                                                     <div class="col-md-4">
                                                         <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'account.move' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('account.move')">
                                                             <div class="fs-4 mb-1">🧮</div>
-                                                            <div class="fw-bold text-dark small">Invoices</div>
+                                                            <div class="fw-bold text-dark small">Invoicing</div>
                                                             <code class="extra-small text-muted">account.move</code>
                                                         </div>
                                                     </div>
@@ -1231,7 +1327,7 @@
                                                     <div class="col-md-4">
                                                         <div class="p-3 border rounded-3 cursor-pointer text-center h-100" t-att-class="state.toolForm.model_name === 'purchase.order' ? 'border-primary bg-primary-light' : 'bg-white'" t-on-click="() => this.onModelSelected('purchase.order')">
                                                             <div class="fs-4 mb-1">🚚</div>
-                                                            <div class="fw-bold text-dark small">Purchase Orders</div>
+                                                            <div class="fw-bold text-dark small">Purchase</div>
                                                             <code class="extra-small text-muted">purchase.order</code>
                                                         </div>
                                                     </div>

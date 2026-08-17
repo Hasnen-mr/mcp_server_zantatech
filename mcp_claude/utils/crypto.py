@@ -8,7 +8,6 @@ import hmac
 import hashlib
 import secrets
 import base64
-from typing import Optional
 
 def generate_random_secret(length: int = 32) -> str:
     """Generate a cryptographically secure random hex string."""

@@ -31,7 +31,7 @@ class MCPOAuthClient(models.Model):
             "redirect_uri": redirect_uri,
             "redirect_uris": redirect_uri,
         })
-        return raw_secret, rec
+        return raw_secret, rec.id
 
     def reveal_secret_admin(self):
         """Controlled Admin-only reveal action. Decrypts server-side and logs to audit log."""
@@ -39,13 +39,17 @@ class MCPOAuthClient(models.Model):
         if not self.env.is_admin():
             raise UserError("Access Denied: Only administrators can reveal OAuth Client Secrets.")
         
-        self.env['mcp.audit.log'].sudo().create({
-            "name": f"Admin Revealed OAuth Secret: {self.name}",
-            "res_model": "mcp.oauth.client",
-            "res_id": self.id,
-            "action_type": "read",
-            "user_id": self.env.user.id
-        })
+        try:
+            self.env['mcp.audit.log'].sudo().create({
+                "tool_name": f"Admin Revealed OAuth Secret: {self.name}",
+                "model_name": "mcp.oauth.client",
+                "record_id": self.id,
+                "action_type": "read",
+                "status": "success",
+                "user_id": self.env.user.id
+            })
+        except Exception as err:
+            _logger.warning("Audit log creation exception in reveal_secret_admin: %s", err)
 
         try:
             raw_secret = base64.b64decode(self.client_secret_encrypted.encode('utf-8')).decode('utf-8')

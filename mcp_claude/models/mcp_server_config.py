@@ -81,10 +81,6 @@ class MCPServerConfig(models.Model):
         if config and config.claude_api_key:
             return config.claude_api_key
 
-        config = self.sudo().search([], limit=1)
-        if config and config.claude_api_key:
-            return config.claude_api_key
-
         param_key = self.env['ir.config_parameter'].sudo().get_param('mcp_claude.claude_api_key', None)
         if param_key:
             return param_key
@@ -100,10 +96,6 @@ class MCPServerConfig(models.Model):
             return xml_rec.openai_api_key
 
         config = self.sudo().search([('openai_api_key', '!=', False)], limit=1)
-        if config and config.openai_api_key:
-            return config.openai_api_key
-
-        config = self.sudo().search([], limit=1)
         if config and config.openai_api_key:
             return config.openai_api_key
 

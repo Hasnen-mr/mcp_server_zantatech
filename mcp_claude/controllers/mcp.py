@@ -1,19 +1,12 @@
-# -*- coding: utf-8 -*-
 import os
 import json
-import hmac
 import time
 import hashlib
 import logging
-from datetime import datetime
-from odoo import http, fields
+from odoo import http
 from odoo.http import request, Response
-from ..registry.tools import ToolRegistry
-from ..services.rate_limiter import RateLimiter
 
 _logger = logging.getLogger(__name__)
-
-SERVER_HMAC_SECRET = b"odoo_mcp_server_hmac_secret_key_v18"
 
 class MCPTransportController(http.Controller):
 

@@ -5,8 +5,6 @@ Generates trusted SSL certificates for localhost, 127.0.0.1, ::1 and configures 
 """
 
 import os
-import sys
-import shutil
 import subprocess
 
 def run_command(cmd):

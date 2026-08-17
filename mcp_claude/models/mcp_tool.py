@@ -1,4 +1,3 @@
-from ..services.live_session_registry import LiveSessionRegistry
 # -*- coding: utf-8 -*-
 import json
 import re

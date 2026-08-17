@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
-import json
 import logging
 from odoo import models, api
-from ..registry.tools import ToolRegistry
 
 _logger = logging.getLogger(__name__)
 
