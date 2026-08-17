@@ -65,14 +65,14 @@ and a control center.
     'assets': {
         'web.assets_backend': [
             'mcp_claude/static/src/scss/control_center.scss',
-            'mcp_claude/static/src/js/control_center.js',
-            'mcp_claude/static/src/xml/control_center.xml',
-
             'mcp_claude/static/src/scss/ai_bubble.scss',
             'mcp_claude/static/src/js/registries/ai_context_provider_registry.js',
             'mcp_claude/static/src/js/registries/ai_renderer_registry.js',
             'mcp_claude/static/src/js/providers/core_context_providers.js',
             'mcp_claude/static/src/js/ai_chat_service.js',
+
+            'mcp_claude/static/src/js/control_center.js',
+            'mcp_claude/static/src/xml/control_center.xml',
             'mcp_claude/static/src/js/components/ai_bubble_trigger.js',
             'mcp_claude/static/src/js/components/ai_systray_item.js',
             'mcp_claude/static/src/js/components/ai_chat_skeleton.js',

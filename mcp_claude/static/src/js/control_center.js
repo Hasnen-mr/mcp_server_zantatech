@@ -25,7 +25,11 @@ export class MCPControlCenter extends Component {
 
     setup() {
         this.orm = useService("orm");
-        this.aiService = useService("ai_chat_service");
+        try {
+            this.aiService = useService("ai_chat_service");
+        } catch (e) {
+            this.aiService = null;
+        }
         this.notification = useService("notification");
         this.action = useService("action");
         this.claudeMessagesRef = useRef("claudeMessagesBody");
