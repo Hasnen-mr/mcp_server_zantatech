@@ -836,12 +836,12 @@
                                         Open Claude Desktop configuration
                                     </h6>
 
-                                    <div class="row g-3">
+                                    <div class="row g-3 mb-2">
                                         <div class="col-md-6">
                                             <div class="p-3 bg-white rounded-3 border h-100 d-flex flex-column justify-content-between">
                                                 <div>
                                                     <div class="d-flex align-items-center justify-content-between mb-2">
-                                                        <span class="fw-bold text-dark small"><i class="fa fa-windows text-primary me-2"/>Windows</span>
+                                                        <span class="fw-bold text-dark small"><i class="fa fa-windows text-primary me-2"/>Windows (Standard)</span>
                                                         <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none small" t-on-click="() => this.copyText('%APPDATA%\\Claude\\claude_desktop_config.json', 'Windows Path')">
                                                             <i class="fa fa-copy me-1"/>Copy Path
                                                         </button>
@@ -863,6 +863,13 @@
                                                 </div>
                                             </div>
                                         </div>
+                                    </div>
+
+                                    <!-- Installation Variant Note -->
+                                    <div class="p-2 bg-white rounded border text-muted small" style="font-size: 11px;">
+                                        <i class="fa fa-info-circle text-info me-1"/>
+                                        <strong>Installation Variants:</strong>
+                                        If installed via <strong>Microsoft Store</strong>, Windows sandboxes config under <code>%LOCALAPPDATA%\Packages\...\LocalCache\Roaming\Claude\</code>. If building from <strong>GitHub source</strong> or running custom Python bridges, use <code>mcp_bridge.py</code> under <em>Technical Details</em> below.
                                     </div>
                                 </div>
 
