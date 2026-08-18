@@ -867,10 +867,11 @@
                                     </div>
 
                                     <!-- Installation Variant Note -->
-                                    <div class="p-2 bg-white rounded border text-muted small" style="font-size: 11px;">
-                                        <i class="fa fa-info-circle text-info me-1"/>
-                                        <strong>Microsoft Store Note:</strong>
-                                        If installed via MS Store, Windows sandboxes path under <code>%LOCALAPPDATA%\Packages\...\LocalCache\Roaming\Claude\</code>.
+                                    <div class="p-2 rounded border" style="font-size: 11px; background-color: #F3F4F6; border-color: #D1D5DB !important; color: #111827; font-weight: 700;">
+                                        <i class="fa fa-info-circle text-primary me-1"/>
+                                        <strong class="fw-bolder text-dark me-1" style="color: #111827 !important;">Microsoft Store Note:</strong>
+                                        <span class="fw-bold text-dark me-1" style="color: #1f2937 !important;">If installed via MS Store, Windows sandboxes path under</span>
+                                        <code class="fw-bolder bg-white border px-1 rounded font-monospace" style="color: #111827 !important; border-color: #9CA3AF !important;">%LOCALAPPDATA%\Packages\...\LocalCache\Roaming\Claude\</code>
                                     </div>
                                 </div>
 
