@@ -73,6 +73,7 @@ export class MCPControlCenter extends Component {
             settingsTab: savedSubTab,
             themeMode: savedTheme, // 'light' or 'dark'
             connectOption: "json",
+            selectedEnvMode: "local",
             loadingData: true,
             isSyncing: false,
             envLoading: true,
@@ -1706,6 +1707,10 @@ export class MCPControlCenter extends Component {
     setToolsOperationFilter(op) {
         this.state.toolsOperationFilter = op || "all";
         localStorage.setItem("mcp_tools_op_filter", this.state.toolsOperationFilter);
+    }
+
+    selectEnvMode(mode) {
+        this.state.selectedEnvMode = mode || "local";
     }
 
     setSelectedPlatformTab(platform) {

@@ -752,43 +752,9 @@
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-
-                            <!-- Collapsed Advanced MCP Settings (Progressive Disclosure) -->
-                            <details class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
-                                <summary class="fw-bold text-dark cursor-pointer d-flex align-items-center justify-content-between">
-                                    <span><i class="fa fa-code text-secondary me-2"/>Advanced MCP Technical Settings</span>
-                                    <span class="badge bg-light text-muted border font-monospace" style="font-size: 11px;">Expand Technical Details</span>
-                                </summary>
-                                <div class="pt-4 border-top mt-3">
-                                    <div class="p-3 bg-light rounded-3 border mb-3">
-                                        <div class="d-flex align-items-center justify-content-between mb-2">
-                                            <span class="fw-bold text-dark font-monospace small"><i class="fa fa-terminal text-primary me-2"/>Claude Desktop Stdio JSON Config</span>
-                                            <button class="btn btn-sm btn-outline-secondary py-0" t-on-click="copyJsonConfig"><i class="fa fa-copy me-1"/>Copy JSON</button>
-                                        </div>
-                                        <div class="bg-white rounded border p-3">
-                                            <pre class="m-0 text-dark font-monospace" style="font-size: 12px; max-height: 180px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"><code><t t-esc="state.stdioJsonConfig"/></code></pre>
-                                        </div>
-                                    </div>
-                                    <div class="row g-3">
-                                        <div class="col-md-4">
-                                            <small class="text-muted d-block mb-1">Python Runtime</small>
-                                            <span class="font-monospace text-dark small" t-esc="state.envInfo.python_version || 'Python 3.12'"/>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <small class="text-muted d-block mb-1">Odoo Core Version</small>
-                                            <span class="font-monospace text-dark small">Odoo 18.0 Community</span>
-                                        </div>
-                                        <div class="col-md-4">
-                                            <small class="text-muted d-block mb-1">Bridge Script Path</small>
-                                            <span class="font-monospace text-dark small">D:\odoo-mcp\mcp_bridge.py</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </details>
-
-                            <!-- Connect Claude to Odoo Section -->
+                            </div>                            <!-- Connect Claude to Odoo Section -->
                             <div class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
+                                <!-- Header -->
                                 <div class="d-flex align-items-center justify-content-between border-bottom pb-3 mb-4">
                                     <div>
                                         <h5 class="fw-bold text-dark mb-1 d-flex align-items-center">
@@ -806,122 +772,196 @@
                                     </div>
                                 </div>
 
-                                <!-- Configuration Options (Local vs Live) -->
-                                <div class="row g-4 mb-4">
-                                    <!-- Local Development Subsection -->
-                                    <div class="col-lg-6">
-                                        <div class="p-3 bg-light rounded-3 border h-100 d-flex flex-column justify-content-between">
-                                            <div>
-                                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                                    <h6 class="fw-bold text-dark mb-0"><i class="fa fa-desktop text-primary me-2"/>Local Development</h6>
-                                                    <span class="badge bg-primary-subtle text-primary border border-primary rounded-pill px-2 py-1 font-monospace" style="font-size: 10px;">Localhost</span>
-                                                </div>
-                                                <p class="text-muted small mb-3">Use this configuration when Odoo is running on your local machine.</p>
-
-                                                <!-- MCP Endpoint -->
-                                                <div class="mb-3">
-                                                    <label class="form-label text-dark fw-bold small mb-1">MCP Endpoint</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="text" class="form-control font-monospace bg-white border" readonly="readonly" t-att-value="state.serverUrl + '/mcp'"/>
-                                                        <button class="btn btn-outline-primary" t-on-click="() => this.copyText(state.serverUrl + '/mcp', 'Local MCP Endpoint')">
-                                                            <i class="fa fa-copy me-1"/>Copy
-                                                        </button>
-                                                    </div>
-                                                </div>
-
-                                                <!-- Claude Desktop Configuration JSON -->
-                                                <div class="mb-2">
-                                                    <div class="d-flex align-items-center justify-content-between mb-1">
-                                                        <label class="form-label text-dark fw-bold small mb-0">Claude Desktop Configuration</label>
-                                                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11px;" t-on-click="() => this.copyText(this.getLocalhostClaudeJson(), 'Localhost JSON Configuration')">
-                                                            <i class="fa fa-copy me-1"/>Copy JSON
-                                                        </button>
-                                                    </div>
-                                                    <div class="bg-white rounded border p-3">
-                                                        <pre class="m-0 text-dark font-monospace" style="font-size: 12px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"><code><t t-esc="this.getLocalhostClaudeJson()"/></code></pre>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            <!-- Endpoint Browser Check -->
-                                            <div class="mt-3 pt-3 border-top">
-                                                <div class="d-flex align-items-center justify-content-between">
-                                                    <span class="text-muted small"><i class="fa fa-info-circle text-info me-1"/>Browser Endpoint Check:</span>
-                                                    <a t-att-href="state.serverUrl + '/mcp'" target="_blank" class="font-monospace fw-bold text-primary text-decoration-underline small">
-                                                        <t t-esc="state.serverUrl + '/mcp'"/> <i class="fa fa-external-link ms-1"/>
-                                                    </a>
-                                                </div>
-                                            </div>
+                                <!-- Step 1: Choose your environment -->
+                                <div class="p-3 bg-light rounded-3 border mb-4">
+                                    <div class="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+                                        <h6 class="fw-bold text-dark mb-0">
+                                            <span class="badge bg-primary text-white rounded-circle me-2" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">1</span>
+                                            Choose your environment
+                                        </h6>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <button type="button" t-attf-class="btn btn-sm #{state.selectedEnvMode === 'local' ? 'btn-mcp-primary fw-bold' : 'btn-outline-secondary bg-white'}" t-on-click="() => this.selectEnvMode('local')">
+                                                <i class="fa fa-desktop me-1"/> Local Development
+                                            </button>
+                                            <button type="button" t-attf-class="btn btn-sm #{state.selectedEnvMode === 'live' ? 'btn-mcp-primary fw-bold' : 'btn-outline-secondary bg-white'}" t-on-click="() => this.selectEnvMode('live')">
+                                                <i class="fa fa-globe me-1"/> Live Server
+                                            </button>
                                         </div>
                                     </div>
 
-                                    <!-- Live Server / Odoo.sh Subsection -->
-                                    <div class="col-lg-6">
-                                        <div class="p-3 bg-light rounded-3 border h-100 d-flex flex-column justify-content-between">
-                                            <div>
-                                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                                    <h6 class="fw-bold text-dark mb-0"><i class="fa fa-globe text-success me-2"/>Live Server / Odoo.sh</h6>
-                                                    <span class="badge bg-success-subtle text-success border border-success rounded-pill px-2 py-1 font-monospace" style="font-size: 10px;">HTTPS Remote</span>
-                                                </div>
-                                                <p class="text-muted small mb-3">Use this configuration when Odoo is deployed on Odoo.sh or HTTPS server.</p>
+                                    <t t-if="state.selectedEnvMode === 'local'">
+                                        <p class="text-muted small mb-3">Use this when Odoo is running on your local machine.</p>
+                                    </t>
+                                    <t t-else="">
+                                        <p class="text-muted small mb-3">Use this when Odoo is deployed on Odoo.sh or another HTTPS server.</p>
+                                    </t>
 
-                                                <!-- Live MCP Endpoint -->
-                                                <div class="mb-3">
-                                                    <label class="form-label text-dark fw-bold small mb-1">MCP Endpoint</label>
-                                                    <div class="input-group input-group-sm">
-                                                        <input type="text" class="form-control font-monospace bg-white border" readonly="readonly" t-att-value="this.getLiveMcpEndpoint()"/>
-                                                        <button class="btn btn-outline-success" t-on-click="() => this.copyText(this.getLiveMcpEndpoint(), 'Live MCP Endpoint')">
-                                                            <i class="fa fa-copy me-1"/>Copy
+                                    <!-- MCP Endpoint -->
+                                    <div class="mb-0">
+                                        <label class="form-label text-dark fw-bold small mb-1">MCP Endpoint</label>
+                                        <div class="input-group input-group-sm">
+                                            <input type="text" class="form-control font-monospace bg-white border" readonly="readonly" t-att-value="state.selectedEnvMode === 'local' ? state.serverUrl + '/mcp' : this.getLiveMcpEndpoint()"/>
+                                            <button class="btn btn-outline-primary" t-on-click="() => this.copyText(state.selectedEnvMode === 'local' ? state.serverUrl + '/mcp' : this.getLiveMcpEndpoint(), 'MCP Endpoint')">
+                                                <i class="fa fa-copy me-1"/>Copy
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 2: Claude Desktop Configuration -->
+                                <div class="p-3 bg-light rounded-3 border mb-4">
+                                    <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-0">
+                                                <span class="badge bg-primary text-white rounded-circle me-2" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">2</span>
+                                                Claude Desktop Configuration
+                                            </h6>
+                                            <p class="text-muted small mb-0 ms-4 ps-1">Copy this configuration into your Claude Desktop configuration file.</p>
+                                        </div>
+                                        <button class="btn btn-sm btn-outline-secondary bg-white py-1 px-3 border" style="font-size: 12px;" t-on-click="() => this.copyText(state.selectedEnvMode === 'local' ? this.getLocalhostClaudeJson() : this.getLiveClaudeJson(), 'Claude Desktop Configuration')">
+                                            <i class="fa fa-copy me-1"/>Copy JSON
+                                        </button>
+                                    </div>
+
+                                    <div class="bg-white rounded-3 border p-3 mt-2 position-relative">
+                                        <span class="badge bg-light text-muted border position-absolute top-0 end-0 m-2 font-monospace" style="font-size: 10px;">JSON</span>
+                                        <pre class="m-0 text-dark font-monospace" style="font-size: 12px; max-height: 170px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"><code><t t-esc="state.selectedEnvMode === 'local' ? this.getLocalhostClaudeJson() : this.getLiveClaudeJson()"/></code></pre>
+                                    </div>
+                                </div>
+
+                                <!-- Step 3: Open Claude Desktop configuration -->
+                                <div class="p-3 bg-light rounded-3 border mb-4">
+                                    <h6 class="fw-bold text-dark mb-3">
+                                        <span class="badge bg-primary text-white rounded-circle me-2" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">3</span>
+                                        Open Claude Desktop configuration
+                                    </h6>
+
+                                    <div class="row g-3">
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-white rounded-3 border h-100 d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                                        <span class="fw-bold text-dark small"><i class="fa fa-windows text-primary me-2"/>Windows</span>
+                                                        <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none small" t-on-click="() => this.copyText('%APPDATA%\\Claude\\claude_desktop_config.json', 'Windows Path')">
+                                                            <i class="fa fa-copy me-1"/>Copy Path
                                                         </button>
                                                     </div>
-                                                </div>
-
-                                                <!-- Live Claude Desktop Configuration JSON -->
-                                                <div class="mb-2">
-                                                    <div class="d-flex align-items-center justify-content-between mb-1">
-                                                        <label class="form-label text-dark fw-bold small mb-0">Claude Desktop Configuration</label>
-                                                        <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 11px;" t-on-click="() => this.copyText(this.getLiveClaudeJson(), 'Live Server JSON Configuration')">
-                                                            <i class="fa fa-copy me-1"/>Copy JSON
-                                                        </button>
-                                                    </div>
-                                                    <div class="bg-white rounded border p-3">
-                                                        <pre class="m-0 text-dark font-monospace" style="font-size: 12px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"><code><t t-esc="this.getLiveClaudeJson()"/></code></pre>
-                                                    </div>
+                                                    <code class="text-dark bg-light p-2 rounded border font-monospace d-block text-break" style="font-size: 11px;">%APPDATA%\Claude\claude_desktop_config.json</code>
                                                 </div>
                                             </div>
-
-                                            <!-- Live Note -->
-                                            <div class="mt-3 pt-3 border-top">
-                                                <span class="text-muted small"><i class="fa fa-lock text-success me-1"/>Requires HTTPS domain &amp; OAuth 2.1 authentication</span>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <div class="p-3 bg-white rounded-3 border h-100 d-flex flex-column justify-content-between">
+                                                <div>
+                                                    <div class="d-flex align-items-center justify-content-between mb-2">
+                                                        <span class="fw-bold text-dark small"><i class="fa fa-apple text-dark me-2"/>macOS</span>
+                                                        <button class="btn btn-sm btn-link text-muted p-0 text-decoration-none small" t-on-click="() => this.copyText('~/Library/Application Support/Claude/claude_desktop_config.json', 'macOS Path')">
+                                                            <i class="fa fa-copy me-1"/>Copy Path
+                                                        </button>
+                                                    </div>
+                                                    <code class="text-dark bg-light p-2 rounded border font-monospace d-block text-break" style="font-size: 11px;">~/Library/Application Support/Claude/claude_desktop_config.json</code>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <!-- Connection Instructions & File Paths -->
-                                <div class="p-3 bg-light rounded-3 border">
-                                    <h6 class="fw-bold text-dark mb-2"><i class="fa fa-list-ol text-primary me-2"/>Connection Instructions</h6>
-                                    <div class="row g-3">
-                                        <div class="col-md-7">
-                                            <ol class="text-muted small mb-0 ps-3">
-                                                <li class="mb-1">Copy the JSON configuration snippet above.</li>
-                                                <li class="mb-1">Open your Claude Desktop configuration file (see path guide on the right).</li>
-                                                <li class="mb-1">Paste the configuration into the <code>mcpServers</code> section of the JSON file.</li>
-                                                <li class="mb-1">Save the configuration file.</li>
-                                                <li class="mb-1">Restart Claude Desktop.</li>
-                                                <li class="mb-0">Verify the MCP server connection in Claude Desktop.</li>
-                                            </ol>
-                                        </div>
-                                        <div class="col-md-5">
-                                            <div class="p-2 bg-white rounded border font-monospace" style="font-size: 11px;">
-                                                <div class="fw-bold text-dark font-sans-serif mb-1" style="font-size: 12px;"><i class="fa fa-folder-open text-warning me-1"/>Config File Paths:</div>
-                                                <div class="mb-1"><strong>Windows:</strong> <code class="text-dark bg-light px-1 rounded">%APPDATA%\Claude\claude_desktop_config.json</code></div>
-                                                <div><strong>macOS:</strong> <code class="text-dark bg-light px-1 rounded">~/Library/Application Support/Claude/claude_desktop_config.json</code></div>
+                                <!-- Step 4: Connect Claude -->
+                                <div class="p-3 bg-light rounded-3 border mb-4">
+                                    <h6 class="fw-bold text-dark mb-3">
+                                        <span class="badge bg-primary text-white rounded-circle me-2" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">4</span>
+                                        Connect Claude
+                                    </h6>
+
+                                    <div class="row g-2">
+                                        <div class="col-md-4">
+                                            <div class="p-2 bg-white rounded border d-flex align-items-start gap-2 h-100">
+                                                <span class="badge bg-primary-subtle text-primary rounded-circle mt-1" style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px;">1</span>
+                                                <span class="small text-muted">Copy the configuration above.</span>
                                             </div>
                                         </div>
+                                        <div class="col-md-4">
+                                            <div class="p-2 bg-white rounded border d-flex align-items-start gap-2 h-100">
+                                                <span class="badge bg-primary-subtle text-primary rounded-circle mt-1" style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px;">2</span>
+                                                <span class="small text-muted">Open your Claude Desktop configuration file.</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="p-2 bg-white rounded border d-flex align-items-start gap-2 h-100">
+                                                <span class="badge bg-primary-subtle text-primary rounded-circle mt-1" style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px;">3</span>
+                                                <span class="small text-muted">Paste inside the <code>mcpServers</code> section.</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="p-2 bg-white rounded border d-flex align-items-start gap-2 h-100">
+                                                <span class="badge bg-primary-subtle text-primary rounded-circle mt-1" style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px;">4</span>
+                                                <span class="small text-muted">Save the file.</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="p-2 bg-white rounded border d-flex align-items-start gap-2 h-100">
+                                                <span class="badge bg-primary-subtle text-primary rounded-circle mt-1" style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px;">5</span>
+                                                <span class="small text-muted">Restart Claude Desktop.</span>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="p-2 bg-white rounded border d-flex align-items-start gap-2 h-100">
+                                                <span class="badge bg-primary-subtle text-primary rounded-circle mt-1" style="width: 20px; height: 20px; display: inline-flex; align-items: center; justify-content: center; font-size: 10px;">6</span>
+                                                <span class="small text-muted">Verify Odoo MCP tools in Claude.</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Step 5: Verify Connection -->
+                                <div class="p-3 bg-light rounded-3 border mb-0">
+                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                                        <div>
+                                            <h6 class="fw-bold text-dark mb-1">
+                                                <span class="badge bg-primary text-white rounded-circle me-2" style="width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px;">5</span>
+                                                Verify Connection
+                                            </h6>
+                                            <p class="text-muted small mb-0 ms-4 ps-1">Open the MCP endpoint to verify that the Odoo MCP server is reachable.</p>
+                                        </div>
+                                        <a t-att-href="state.selectedEnvMode === 'local' ? state.serverUrl + '/mcp' : this.getLiveMcpEndpoint()" target="_blank" class="btn btn-sm btn-outline-primary bg-white px-3 py-1 fw-bold">
+                                            <i class="fa fa-external-link me-1"/> Open MCP Endpoint
+                                        </a>
                                     </div>
                                 </div>
                             </div>
+
+                            <!-- Collapsed Technical Details -->
+                            <details class="mcp-card bg-white border rounded-4 shadow-sm p-4 mb-4">
+                                <summary class="fw-bold text-dark cursor-pointer d-flex align-items-center justify-content-between">
+                                    <span><i class="fa fa-sliders text-secondary me-2"/>Technical Details</span>
+                                    <span class="badge bg-light text-muted border font-monospace" style="font-size: 11px;">Expand Technical Details</span>
+                                </summary>
+                                <div class="pt-4 border-top mt-3">
+                                    <div class="row g-3 mb-3">
+                                        <div class="col-md-4">
+                                            <small class="text-muted d-block mb-1">Python Runtime</small>
+                                            <span class="font-monospace text-dark small" t-esc="state.envInfo.python_version || 'Python 3.12'"/>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="text-muted d-block mb-1">Odoo Core Version</small>
+                                            <span class="font-monospace text-dark small">Odoo 18.0 Community</span>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <small class="text-muted d-block mb-1">Bridge Script Path</small>
+                                            <span class="font-monospace text-dark small">D:\odoo-mcp\mcp_bridge.py</span>
+                                        </div>
+                                    </div>
+                                    <div class="p-3 bg-light rounded-3 border">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <span class="fw-bold text-dark font-monospace small"><i class="fa fa-terminal text-primary me-2"/>Claude Desktop Stdio JSON Config</span>
+                                            <button class="btn btn-sm btn-outline-secondary py-0" t-on-click="copyJsonConfig"><i class="fa fa-copy me-1"/>Copy JSON</button>
+                                        </div>
+                                        <div class="bg-white rounded border p-3">
+                                            <pre class="m-0 text-dark font-monospace" style="font-size: 12px; max-height: 160px; overflow-y: auto; white-space: pre-wrap; word-break: break-all;"><code><t t-esc="state.stdioJsonConfig"/></code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
                         </t>
 
                         <!-- SUB-TAB 2: PERMISSIONS & TOOLS -->
